@@ -4,3 +4,5 @@ naming conventions for files should be consistent throughout the project. Use lo
 Less code is better code. Avoid unnecessary complexity and strive for simplicity in your implementations.
 
 Ask for clarity if any requirements or specifications are ambiguous or unclear before proceeding with development.
+
+Types should almost always live with the data they describe. This helps maintain coherence and makes it easier to manage types as the codebase evolves. Even better if we can infer types directly from the data structures themselves.
