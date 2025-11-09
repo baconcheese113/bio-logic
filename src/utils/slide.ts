@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Organism } from '@/data/organisms';
+import type { Organism, SampleBackground } from '@/data/organisms';
 
 // Base position interface for items with x, y coordinates
 interface Position {
@@ -17,6 +17,29 @@ interface BloodCell extends PolarPosition {
   radius: number;
   zDepth: number;
   irregularity: number;
+}
+
+interface EpithelialCell extends PolarPosition {
+  width: number;
+  height: number;
+  rotation: number;
+  zDepth: number;
+  nucleusOffset: { x: number; y: number };
+}
+
+interface FecalParticle extends PolarPosition {
+  size: number;
+  shape: 'fiber' | 'chunk' | 'fragment';
+  rotation: number;
+  zDepth: number;
+  color: number; // Brownish variations
+}
+
+interface PusCell extends PolarPosition {
+  radius: number;
+  zDepth: number;
+  nuclei: number; // Multi-lobed neutrophils
+  opacity: number;
 }
 
 interface Debris extends PolarPosition {
@@ -108,10 +131,13 @@ interface BacteriaData {
 
 /**
  * Represents a microscope slide with pre-generated random positions
- * for blood cells, bacteria, and artifacts. Uses seeded RNG for consistency.
+ * for background cells, bacteria, and artifacts. Uses seeded RNG for consistency.
  */
 export class Slide {
   public readonly bloodCells: BloodCell[] = [];
+  public readonly epithelialCells: EpithelialCell[] = [];
+  public readonly fecalParticles: FecalParticle[] = [];
+  public readonly pusCells: PusCell[] = [];
   public readonly debris: Debris[] = [];
   public readonly bubbles: Bubble[] = [];
   public readonly stainPrecipitates: StainPrecipitate[] = [];
@@ -133,9 +159,28 @@ export class Slide {
     private readonly centerY: number,
     private readonly radius: number,
     private readonly hasStain: boolean,
-    private readonly organism?: Organism
+    organism?: Organism,
+    sampleBackground: SampleBackground = 'blood-cells'
   ) {
-    this.generateBloodCells();
+    // Generate appropriate background based on sample type
+    switch (sampleBackground) {
+      case 'blood-cells':
+        this.generateBloodCells();
+        break;
+      case 'epithelial-cells':
+        this.generateEpithelialCells();
+        break;
+      case 'fecal-matter':
+        this.generateFecalMatter();
+        break;
+      case 'pus-cells':
+        this.generatePusCells();
+        break;
+      case 'clear-fluid':
+        this.generateClearFluid();
+        break;
+    }
+    
     this.generateArtifacts();
     if (organism) {
       this.generateBacteria(organism);
@@ -155,6 +200,92 @@ export class Slide {
       const zDepth = Phaser.Math.FloatBetween(-9, 9);
       const irregularity = Phaser.Math.FloatBetween(0.9, 1.1);
 
+      this.bloodCells.push({ angle, distance, x, y, radius, zDepth, irregularity });
+    }
+  }
+
+  private generateEpithelialCells(): void {
+    // Seed for epithelial cells
+    Phaser.Math.RND.sow([this.caseIndex.toString(), 'epithelial']);
+
+    // Fewer, larger cells than red blood cells
+    for (let i = 0; i < 40; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.FloatBetween(0, this.radius - 50);
+      const x = this.centerX + distance * Math.cos(angle);
+      const y = this.centerY + distance * Math.sin(angle);
+      const width = Phaser.Math.FloatBetween(60, 90);
+      const height = Phaser.Math.FloatBetween(40, 70);
+      const rotation = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const zDepth = Phaser.Math.FloatBetween(-8, 8);
+      const nucleusOffset = {
+        x: Phaser.Math.FloatBetween(-10, 10),
+        y: Phaser.Math.FloatBetween(-8, 8),
+      };
+
+      this.epithelialCells.push({ angle, distance, x, y, width, height, rotation, zDepth, nucleusOffset });
+    }
+  }
+
+  private generateFecalMatter(): void {
+    // Seed for fecal particles
+    Phaser.Math.RND.sow([this.caseIndex.toString(), 'fecal']);
+
+    // Mix of fibers, chunks, and fragments
+    for (let i = 0; i < 80; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.FloatBetween(0, this.radius - 30);
+      const x = this.centerX + distance * Math.cos(angle);
+      const y = this.centerY + distance * Math.sin(angle);
+      const size = Phaser.Math.FloatBetween(10, 40);
+      const shapeRoll = Phaser.Math.FloatBetween(0, 1);
+      const shape: 'fiber' | 'chunk' | 'fragment' = 
+        shapeRoll < 0.4 ? 'fiber' : shapeRoll < 0.7 ? 'chunk' : 'fragment';
+      const rotation = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const zDepth = Phaser.Math.FloatBetween(-7, 7);
+      const color = Phaser.Display.Color.GetColor(
+        Phaser.Math.Between(120, 180),
+        Phaser.Math.Between(80, 120),
+        Phaser.Math.Between(40, 80)
+      );
+
+      this.fecalParticles.push({ angle, distance, x, y, size, shape, rotation, zDepth, color });
+    }
+  }
+
+  private generatePusCells(): void {
+    // Seed for pus cells (neutrophils)
+    Phaser.Math.RND.sow([this.caseIndex.toString(), 'pus']);
+
+    for (let i = 0; i < 120; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.FloatBetween(0, this.radius - 35);
+      const x = this.centerX + distance * Math.cos(angle);
+      const y = this.centerY + distance * Math.sin(angle);
+      const radius = Phaser.Math.FloatBetween(35, 45);
+      const zDepth = Phaser.Math.FloatBetween(-8, 8);
+      const nuclei = Phaser.Math.Between(2, 5); // Multi-lobed nuclei
+      const opacity = Phaser.Math.FloatBetween(0.7, 1.0);
+
+      this.pusCells.push({ angle, distance, x, y, radius, zDepth, nuclei, opacity });
+    }
+  }
+
+  private generateClearFluid(): void {
+    // Seed for clear fluid (minimal cells)
+    Phaser.Math.RND.sow([this.caseIndex.toString(), 'clear']);
+
+    // Very few cells - CSF and urine are normally nearly cell-free
+    for (let i = 0; i < 5; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.FloatBetween(0, this.radius - 40);
+      const x = this.centerX + distance * Math.cos(angle);
+      const y = this.centerY + distance * Math.sin(angle);
+      const radius = Phaser.Math.Between(30, 40);
+      const zDepth = Phaser.Math.FloatBetween(-5, 5);
+      const irregularity = Phaser.Math.FloatBetween(0.9, 1.1);
+
+      // Reuse bloodCells array for the few cells present
       this.bloodCells.push({ angle, distance, x, y, radius, zDepth, irregularity });
     }
   }
@@ -327,6 +458,7 @@ export class Slide {
         const distance = Phaser.Math.FloatBetween(0, this.radius - 60);
         const x = this.centerX + distance * Math.cos(angle);
         const y = this.centerY + distance * Math.sin(angle);
+        const orientation = Phaser.Math.FloatBetween(0, Math.PI * 2);
         const zDepth = Phaser.Math.FloatBetween(-3, 3);
         const stainVariation = Phaser.Math.FloatBetween(0.6, 1.0);
         const width = 1;

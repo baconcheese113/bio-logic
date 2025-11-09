@@ -34,30 +34,33 @@ High-level epic breakdown for building the BioLogic playground prototype. Each e
 
 ---
 
-## Phase 2: Strategic Depth (Epics 4-7)
-**Goal:** Add player decision-making layers
+## Phase 2: Deduction Mechanics (Epics 4-7)
+**Goal:** Build evidence-based diagnostic workflow
 
-### Epic 4: Sample Selection
+### Epic 4: Sample Selection ✅
 - Case presentation screen with patient story
 - Player chooses sample type
 - Wrong sample = no diagnostic info
 - **Playable:** Pre-test strategic decision
 
-### Epic 5: Sample Quality
-- Quality levels (Fresh/Fair/Poor/Spoiled)
-- Visual artifacts and degradation
-- **Playable:** Recognize good vs bad data
+### Epic 5: Observation Notes System
+- Record observed characteristics (shape, Gram stain, arrangement, etc.)
+- Toggle observations on/off as evidence
+- Persistent notes panel showing confirmed findings
+- **Playable:** Build evidence before diagnosis
 
-### Epic 6: Microscopy Controls
-- Zoom levels (40×, 100×, 400×, 1000×)
-- Focus slider with blur effect
-- **Playable:** Interactive observation
+### Epic 6: Deductive Diagnosis Interface (Obra Dinn-style)
+- Replace simple dropdown with filtering system
+- Show all 16 organisms initially
+- Apply observed characteristics as filters to narrow list
+- Only submit when narrowed to 1-3 candidates
+- **Playable:** Deduce diagnosis from evidence
 
-### Epic 7: Additional Stains
-- Acid-fast stain (TB)
-- Giemsa stain (malaria)
-- Stain selection UI
-- **Playable:** Choose appropriate stain
+### Epic 7: Microscopy & Stain Controls
+- Zoom levels (40×, 100×, 400×, 1000×) + focus slider
+- Multiple stain types (Gram, Acid-fast, Capsule, Spore)
+- Each stain reveals different characteristics
+- **Playable:** Choose tools to gather evidence
 
 ---
 

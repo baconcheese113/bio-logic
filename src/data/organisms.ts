@@ -1,4 +1,14 @@
 // Types live with the data they describe
+export type SampleType = 
+  | 'blood' 
+  | 'sputum' 
+  | 'throat-swab' 
+  | 'stool' 
+  | 'wound' 
+  | 'csf' 
+  | 'urine'
+  | 'tissue';
+
 export interface Organism {
   id: string;
   scientificName: string;
@@ -17,6 +27,7 @@ export interface Case {
   title: string;
   organismId: string;
   story: string;
+  correctSampleType: SampleType;
 }
 
 // Epic 0+1+3+4: Expanded organisms with multiple stain types
@@ -31,7 +42,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'cocci',
     arrangement: 'chains',
-    notes: 'Common in throat infections, scarlet fever, rheumatic fever',
+    notes: 'Gram-positive cocci in chains, beta-hemolytic on blood agar',
   },
   {
     id: 'staph_aureus',
@@ -43,7 +54,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'cocci',
     arrangement: 'clusters',
-    notes: 'Skin infections, boils, food poisoning, pneumonia',
+    notes: 'Gram-positive cocci in grape-like clusters, catalase positive, coagulase positive',
   },
   {
     id: 'e_coli',
@@ -55,7 +66,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Normal gut flora, some strains cause food poisoning',
+    notes: 'Gram-negative rod, lactose fermenter, common intestinal flora',
   },
   {
     id: 'n_gonorrhoeae',
@@ -67,7 +78,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'diplococci',
     arrangement: 'pairs',
-    notes: 'Sexually transmitted infection, urethritis',
+    notes: 'Gram-negative diplococci, kidney bean-shaped pairs, oxidase positive',
   },
   {
     id: 'm_tuberculosis',
@@ -79,7 +90,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Tuberculosis, acid-fast stain required, extremely slow growing',
+    notes: 'Acid-fast bacilli, beaded or cord-like appearance, extremely slow growing',
   },
   {
     id: 'c_tetani',
@@ -91,7 +102,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: true,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Lockjaw, drumstick appearance due to terminal spores',
+    notes: 'Gram-positive rod with terminal round spore (drumstick appearance), obligate anaerobe',
   },
   {
     id: 'v_cholerae',
@@ -103,7 +114,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Comma-shaped, causes severe watery diarrhea (rice-water stools)',
+    notes: 'Gram-negative curved rod (comma-shaped), rapid darting motility',
   },
   {
     id: 's_typhi',
@@ -115,7 +126,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Typhoid fever, enteric fever, rose spots on abdomen',
+    notes: 'Gram-negative rod, motile, non-lactose fermenter, grows on MacConkey agar',
   },
   {
     id: 'c_diphtheriae',
@@ -127,7 +138,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'palisades',
-    notes: 'Club-shaped, Chinese letter arrangement, pseudomembrane in throat',
+    notes: 'Gram-positive club-shaped rod in palisades or Chinese letter arrangement, metachromatic granules',
   },
   {
     id: 'k_pneumoniae',
@@ -139,7 +150,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Thick capsule, mucoid colonies, lobar pneumonia',
+    notes: 'Gram-negative rod with prominent capsule, non-motile, mucoid colonies',
   },
   {
     id: 'p_aeruginosa',
@@ -151,7 +162,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Produces blue-green pigment, burn infections, sweet grape odor',
+    notes: 'Gram-negative rod, produces blue-green pyocyanin pigment, sweet grape-like odor, oxidase positive',
   },
   {
     id: 'b_anthracis',
@@ -163,7 +174,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: true,
     shape: 'bacilli',
     arrangement: 'chains',
-    notes: 'Large square-ended rods in chains (boxcar appearance), central spores',
+    notes: 'Large Gram-positive rod in chains (boxcar or bamboo rod appearance), capsule, central spores',
   },
   {
     id: 's_dysenteriae',
@@ -175,7 +186,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'bacilli',
     arrangement: 'single',
-    notes: 'Bloody diarrhea (dysentery), very low infectious dose',
+    notes: 'Gram-negative rod, non-motile, non-lactose fermenter, very low infectious dose',
   },
   {
     id: 'y_pestis',
@@ -187,7 +198,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'coccobacilli',
     arrangement: 'single',
-    notes: 'Bipolar staining (safety pin appearance), bubonic plague',
+    notes: 'Gram-negative coccobacillus with bipolar staining (safety pin appearance), non-motile',
   },
   {
     id: 'strep_pneumoniae',
@@ -199,7 +210,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'diplococci',
     arrangement: 'pairs',
-    notes: 'Lancet-shaped diplococci, polysaccharide capsule, lobar pneumonia',
+    notes: 'Gram-positive lancet-shaped diplococci, polysaccharide capsule, alpha-hemolytic, bile soluble',
   },
   {
     id: 'h_influenzae',
@@ -211,7 +222,7 @@ export const ORGANISMS: Organism[] = [
     sporeFormer: false,
     shape: 'coccobacilli',
     arrangement: 'single',
-    notes: 'Small pleomorphic, meningitis in children, requires blood factors',
+    notes: 'Small Gram-negative coccobacillus, pleomorphic, requires X and V factors (chocolate agar)',
   },
 ];
 
@@ -221,6 +232,7 @@ export const CASES: Case[] = [
     id: 'case_001',
     title: 'Factory Worker Fever',
     organismId: 'strep_pyogenes',
+    correctSampleType: 'throat-swab',
     story:
       'Steel mill worker, age 38. High fever (3 days), severe sore throat, difficulty swallowing. No recent travel.',
   },
@@ -228,6 +240,7 @@ export const CASES: Case[] = [
     id: 'case_002',
     title: 'Infected Wound',
     organismId: 'staph_aureus',
+    correctSampleType: 'wound',
     story:
       'Dockworker, age 45. Deep cut on hand (5 days ago), now red, swollen, pus-filled. Local fever.',
   },
@@ -235,6 +248,7 @@ export const CASES: Case[] = [
     id: 'case_003',
     title: 'Severe Diarrhea',
     organismId: 'e_coli',
+    correctSampleType: 'stool',
     story:
       'Restaurant cook, age 28. Watery diarrhea (2 days), abdominal cramps, vomiting. Several coworkers ill.',
   },
@@ -242,6 +256,7 @@ export const CASES: Case[] = [
     id: 'case_004',
     title: 'Urethral Discharge',
     organismId: 'n_gonorrhoeae',
+    correctSampleType: 'urine',
     story:
       'Sailor, age 24. Painful urination, purulent discharge (3 days). Recent shore leave.',
   },
@@ -249,6 +264,7 @@ export const CASES: Case[] = [
     id: 'case_005',
     title: 'Chronic Cough',
     organismId: 'm_tuberculosis',
+    correctSampleType: 'sputum',
     story:
       'Textile worker, age 52. Persistent cough (3 months), night sweats, weight loss, blood in sputum.',
   },
@@ -256,6 +272,7 @@ export const CASES: Case[] = [
     id: 'case_006',
     title: 'Rusty Nail Injury',
     organismId: 'c_tetani',
+    correctSampleType: 'wound',
     story:
       'Farmhand, age 35. Stepped on rusty nail (7 days ago). Now jaw stiffness, difficulty opening mouth, muscle spasms.',
   },
@@ -263,6 +280,7 @@ export const CASES: Case[] = [
     id: 'case_007',
     title: 'Rice-Water Stools',
     organismId: 'v_cholerae',
+    correctSampleType: 'stool',
     story:
       'Immigrant laborer, age 29. Sudden onset severe watery diarrhea (1 day), vomiting, severe dehydration. Recently arrived by ship.',
   },
@@ -270,6 +288,7 @@ export const CASES: Case[] = [
     id: 'case_008',
     title: 'Sustained Fever',
     organismId: 's_typhi',
+    correctSampleType: 'blood',
     story:
       'Boarding house resident, age 33. High fever (10 days), rose-colored spots on abdomen, confusion, constipation.',
   },
@@ -277,6 +296,7 @@ export const CASES: Case[] = [
     id: 'case_009',
     title: 'Throat Membrane',
     organismId: 'c_diphtheriae',
+    correctSampleType: 'throat-swab',
     story:
       'Schoolchild, age 8. Sore throat (4 days), thick gray membrane in throat, difficulty breathing, bull neck appearance.',
   },
@@ -284,6 +304,7 @@ export const CASES: Case[] = [
     id: 'case_010',
     title: 'Pneumonia',
     organismId: 'k_pneumoniae',
+    correctSampleType: 'sputum',
     story:
       'Alcoholic vagrant, age 58. Sudden fever, productive cough with thick mucoid sputum (currant jelly), shortness of breath.',
   },
@@ -291,6 +312,7 @@ export const CASES: Case[] = [
     id: 'case_011',
     title: 'Burn Infection',
     organismId: 'p_aeruginosa',
+    correctSampleType: 'wound',
     story:
       'Factory fire victim, age 42. Severe burns (8 days ago), now green-blue discharge from wounds, sweet smell, high fever.',
   },
@@ -298,6 +320,7 @@ export const CASES: Case[] = [
     id: 'case_012',
     title: 'Woolsorter Disease',
     organismId: 'b_anthracis',
+    correctSampleType: 'tissue',
     story:
       'Wool mill worker, age 44. Black painless skin lesion on arm (5 days), surrounding swelling, fever, malaise.',
   },
@@ -305,6 +328,7 @@ export const CASES: Case[] = [
     id: 'case_013',
     title: 'Bloody Flux',
     organismId: 's_dysenteriae',
+    correctSampleType: 'stool',
     story:
       'Tenement resident, age 26. Severe bloody diarrhea (3 days), abdominal cramps, fever. Children in building also ill.',
   },
@@ -312,6 +336,7 @@ export const CASES: Case[] = [
     id: 'case_014',
     title: 'Bubonic Affliction',
     organismId: 'y_pestis',
+    correctSampleType: 'blood',
     story:
       'Wharf rat catcher, age 31. High fever (2 days), painful swollen lymph nodes in groin, black fingers, confusion.',
   },
@@ -319,6 +344,7 @@ export const CASES: Case[] = [
     id: 'case_015',
     title: 'Lobar Pneumonia',
     organismId: 'strep_pneumoniae',
+    correctSampleType: 'sputum',
     story:
       'Coal miner, age 49. Sudden fever with shaking chills, rust-colored sputum, chest pain when breathing.',
   },
@@ -326,7 +352,28 @@ export const CASES: Case[] = [
     id: 'case_016',
     title: 'Child Meningitis',
     organismId: 'h_influenzae',
+    correctSampleType: 'csf',
     story:
       'Orphanage child, age 4. High fever (2 days), stiff neck, vomiting, lethargy, bulging fontanelle.',
   },
 ];
+
+// Epic 4: Background material visible for each sample type
+// When wrong sample is selected, only background cells are visible (no bacteria)
+export type SampleBackground = 
+  | 'blood-cells'      // Red blood cells, occasional white blood cells
+  | 'epithelial-cells' // Squamous/columnar epithelial cells
+  | 'fecal-matter'     // Undigested food particles, plant fibers
+  | 'pus-cells'        // Neutrophils, cellular debris
+  | 'clear-fluid';     // Nearly empty, just a few cells
+
+export const SAMPLE_BACKGROUNDS: Record<SampleType, SampleBackground> = {
+  'blood': 'blood-cells',
+  'sputum': 'epithelial-cells',
+  'throat-swab': 'epithelial-cells',
+  'stool': 'fecal-matter',
+  'wound': 'pus-cells',
+  'csf': 'clear-fluid',
+  'urine': 'clear-fluid',
+  'tissue': 'epithelial-cells',
+};

@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { CASES, ORGANISMS, type Organism } from '@/data/organisms';
+import { CASES, ORGANISMS, SAMPLE_BACKGROUNDS, type Organism, type SampleType } from '@/data/organisms';
 import { Slide } from '@/utils/slide';
 
 export class LabScene extends Phaser.Scene {
   private currentCase = CASES[Phaser.Math.Between(0, CASES.length - 1)];
   private currentOrganism: Organism | undefined;
+  private selectedSampleType: SampleType | null = null;
   private selectedDiagnosis: string | null = null;
   private currentStain: 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore' = 'none';
   private microscopeContainer: Phaser.GameObjects.Container | null = null;
@@ -18,13 +19,6 @@ export class LabScene extends Phaser.Scene {
   }
 
   create() {
-    this.currentOrganism = ORGANISMS.find((o) => o.id === this.currentCase.organismId);
-
-    // Seed random number generator for consistent bacteria placement
-    // Use case index as seed so each case has the same slide layout
-    const caseIndex = CASES.indexOf(this.currentCase);
-    Phaser.Math.RND.sow([caseIndex.toString()]);
-
     // Background
     this.add.rectangle(0, 0, 1280, 720, 0x2d2d2d).setOrigin(0);
 
@@ -37,39 +31,8 @@ export class LabScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Case info
-    this.add
-      .text(640, 70, this.currentCase.title, {
-        fontSize: '18px',
-        color: '#ffd700',
-        fontFamily: 'Courier New',
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(640, 100, this.currentCase.story, {
-        fontSize: '14px',
-        color: '#cccccc',
-        fontFamily: 'Courier New',
-        wordWrap: { width: 800 },
-        align: 'center',
-      })
-      .setOrigin(0.5);
-
-    // Microscope viewer area
-    this.createMicroscopeViewer();
-
-    // Focus control
-    this.createFocusControl();
-
-    // Staining controls
-    this.createStainingControls();
-
-    // Reference manual
-    this.createReferenceManual();
-
-    // Diagnosis submission
-    this.createDiagnosisInterface();
+    // Show case presentation screen first
+    this.showCasePresentation();
   }
 
   private createFocusControl() {
@@ -210,7 +173,8 @@ export class LabScene extends Phaser.Scene {
         const viewerCenterX = 320;
         const viewerCenterY = 380;
         const viewerRadius = 180;
-        this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, true, this.currentOrganism);
+        const sampleBackground = this.selectedSampleType ? SAMPLE_BACKGROUNDS[this.selectedSampleType] : 'blood-cells';
+        this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, true, this.currentOrganism, sampleBackground);
         
         // Destroy and recreate dust/vignette for stain changes (different optical effects)
         this.floatingDust.forEach(dust => dust.destroy());
@@ -287,10 +251,11 @@ export class LabScene extends Phaser.Scene {
 
     // Generate slide with pre-determined positions
     const caseIndex = CASES.indexOf(this.currentCase);
-    this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism);
+    const sampleBackground = this.selectedSampleType ? SAMPLE_BACKGROUNDS[this.selectedSampleType] : 'blood-cells';
+    this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism, sampleBackground);
 
-    // Render blood cells using slide data
-    this.renderBloodCells(this.microscopeContainer);
+    // Render background cells using slide data
+    this.renderBackgroundCells(this.microscopeContainer);
 
     // Render bacteria using slide data
     if (this.currentOrganism) {
@@ -365,10 +330,11 @@ export class LabScene extends Phaser.Scene {
     
     // Only regenerate slide if it doesn't exist (shouldn't happen, but safety check)
     if (!this.slide) {
-      this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism);
+      const sampleBackground = this.selectedSampleType ? SAMPLE_BACKGROUNDS[this.selectedSampleType] : 'blood-cells';
+      this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism, sampleBackground);
     }
     
-    this.renderBloodCells(this.microscopeContainer);
+    this.renderBackgroundCells(this.microscopeContainer);
     
     if (this.currentOrganism) {
       this.renderBacteria(this.currentOrganism, this.microscopeContainer);
@@ -402,36 +368,97 @@ export class LabScene extends Phaser.Scene {
     container.add(aberrations);
   }
 
-  private renderBloodCells(container: Phaser.GameObjects.Container) {
+  private renderBackgroundCells(container: Phaser.GameObjects.Container) {
     if (!this.slide) return;
 
     const graphics = this.add.graphics();
 
-    // Use pre-generated blood cell data from slide
+    // Render blood cells
     for (const cell of this.slide.bloodCells) {
       const baseCellRadius = cell.radius;
-
-      // Calculate optical defocus based on simulated z-depth
-      const zDepth = cell.zDepth - this.focusOffset; // Apply focus offset
+      const zDepth = cell.zDepth - this.focusOffset;
       const defocus = this.calculateDefocus(zDepth, baseCellRadius);
-      
-      // Apply defocus: blur increases size and decreases opacity
       const cellRadius = baseCellRadius * defocus.sizeMultiplier;
       const fillOpacity = 0.2 * defocus.opacityMultiplier;
 
-      // RBCs are biconcave discs - they appear as donuts/torus when viewed from above
-      // Draw as a filled ring with a lighter center (donut shape)
-      
-      // Outer darker ring (thicker edge of biconcave disc)
+      // RBCs appear as donuts (biconcave discs viewed from above)
       graphics.fillStyle(0xcc6666, fillOpacity * 1.2);
       graphics.fillEllipse(cell.x, cell.y, cellRadius * cell.irregularity, cellRadius / cell.irregularity);
       
-      // Inner lighter "hole" (thinner center of biconcave disc)
-      // Variation: some cells have more pronounced centers
       const centerRatio = .45;
       const centerRadius = cellRadius * centerRatio;
       graphics.fillStyle(0xfff5f5, fillOpacity * 0.9);
       graphics.fillEllipse(cell.x, cell.y, centerRadius * cell.irregularity, centerRadius / cell.irregularity);
+    }
+
+    // Render epithelial cells (larger, flatter, with visible nuclei)
+    for (const cell of this.slide.epithelialCells) {
+      const zDepth = cell.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, cell.width);
+      const width = cell.width * defocus.sizeMultiplier;
+      const height = cell.height * defocus.sizeMultiplier;
+      const opacity = 0.25 * defocus.opacityMultiplier;
+
+      graphics.save();
+      graphics.translateCanvas(cell.x, cell.y);
+      graphics.rotateCanvas(cell.rotation);
+      
+      // Cell membrane (pale pink/blue)
+      graphics.fillStyle(0xd4b8c8, opacity);
+      graphics.fillEllipse(0, 0, width, height);
+      
+      // Nucleus (darker purple)
+      graphics.fillStyle(0x6a4a6a, opacity * 1.5);
+      graphics.fillEllipse(cell.nucleusOffset.x, cell.nucleusOffset.y, width * 0.3, height * 0.25);
+      
+      graphics.restore();
+    }
+
+    // Render fecal particles (brown fibers, chunks, fragments)
+    for (const particle of this.slide.fecalParticles) {
+      const zDepth = particle.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, particle.size);
+      const size = particle.size * defocus.sizeMultiplier;
+      const opacity = 0.6 * defocus.opacityMultiplier;
+
+      graphics.fillStyle(particle.color, opacity);
+      
+      if (particle.shape === 'fiber') {
+        // Draw elongated fiber
+        graphics.save();
+        graphics.translateCanvas(particle.x, particle.y);
+        graphics.rotateCanvas(particle.rotation);
+        graphics.fillRect(-size * 2, -size * 0.3, size * 4, size * 0.6);
+        graphics.restore();
+      } else if (particle.shape === 'chunk') {
+        // Irregular chunk
+        graphics.fillCircle(particle.x, particle.y, size);
+      } else {
+        // Small fragment
+        graphics.fillCircle(particle.x, particle.y, size * 0.5);
+      }
+    }
+
+    // Render pus cells (neutrophils with multi-lobed nuclei)
+    for (const cell of this.slide.pusCells) {
+      const zDepth = cell.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, cell.radius);
+      const radius = cell.radius * defocus.sizeMultiplier;
+      const opacity = cell.opacity * defocus.opacityMultiplier * 0.3;
+
+      // Cell body (pale with granules)
+      graphics.fillStyle(0xe8dcd8, opacity);
+      graphics.fillCircle(cell.x, cell.y, radius);
+      
+      // Multi-lobed nucleus (darker purple segments)
+      graphics.fillStyle(0x4a3a5a, opacity * 1.8);
+      const lobeSize = radius * 0.3;
+      for (let i = 0; i < cell.nuclei; i++) {
+        const angle = (i / cell.nuclei) * Math.PI * 2;
+        const offsetX = Math.cos(angle) * radius * 0.25;
+        const offsetY = Math.sin(angle) * radius * 0.25;
+        graphics.fillCircle(cell.x + offsetX, cell.y + offsetY, lobeSize);
+      }
     }
 
     container.add(graphics);
@@ -1171,24 +1198,46 @@ export class LabScene extends Phaser.Scene {
   }
 
   private submitDiagnosis() {
-    if (!this.selectedDiagnosis) {
+    if (!this.selectedDiagnosis || !this.selectedSampleType) {
       return;
     }
 
-    const isCorrect = this.selectedDiagnosis === this.currentCase.organismId;
+    const isCorrectSample = this.selectedSampleType === this.currentCase.correctSampleType;
+    const isCorrectOrganism = this.selectedDiagnosis === this.currentCase.organismId;
+    
+    // Player can only be truly correct if they selected the right sample AND identified it correctly
+    const isFullyCorrect = isCorrectSample && isCorrectOrganism;
 
     // Clear previous feedback
-    const existingFeedback = this.children.getByName('feedback');
-    if (existingFeedback) {
-      existingFeedback.destroy();
+    this.children.list
+      .filter((child) => child.name === 'feedback')
+      .forEach((child) => child.destroy());
+
+    // Determine feedback message
+    let feedbackColor: string;
+    let feedbackText: string;
+    let detailText: string;
+
+    if (isFullyCorrect) {
+      feedbackColor = '#2a6a2a';
+      feedbackText = 'CORRECT!';
+      detailText = 'You selected the correct sample and identified the pathogen!';
+    } else if (!isCorrectSample) {
+      feedbackColor = '#6a4a2a';
+      feedbackText = 'WRONG SAMPLE';
+      const correctSampleLabel = this.getSampleTypeLabel(this.currentCase.correctSampleType);
+      detailText = `No pathogen visible - only background material. Correct sample: ${correctSampleLabel}`;
+    } else {
+      // Correct sample but wrong identification
+      feedbackColor = '#6a2a2a';
+      feedbackText = 'INCORRECT';
+      const correctOrganism = ORGANISMS.find((o) => o.id === this.currentCase.organismId);
+      detailText = `The correct answer was: ${correctOrganism?.scientificName}`;
     }
 
     // Show feedback
-    const feedbackColor = isCorrect ? '#2a6a2a' : '#6a2a2a';
-    const feedbackText = isCorrect ? 'CORRECT!' : 'INCORRECT';
-
     this.add
-      .rectangle(640, 650, 400, 60, Phaser.Display.Color.HexStringToColor(feedbackColor).color)
+      .rectangle(640, 650, 500, 60, Phaser.Display.Color.HexStringToColor(feedbackColor).color)
       .setName('feedback');
 
     this.add
@@ -1202,19 +1251,208 @@ export class LabScene extends Phaser.Scene {
       .setName('feedback');
 
     this.add
-      .text(
-        640,
-        665,
-        isCorrect
-          ? 'You correctly identified the pathogen!'
-          : `The correct answer was: ${this.currentOrganism?.scientificName}`,
-        {
-          fontSize: '12px',
-          color: '#ffffff',
-          fontFamily: 'Courier New',
-        },
-      )
+      .text(640, 665, detailText, {
+        fontSize: '12px',
+        color: '#ffffff',
+        fontFamily: 'Courier New',
+      })
       .setOrigin(0.5)
       .setName('feedback');
+  }
+
+  private showCasePresentation() {
+    // Case info
+    this.add
+      .text(640, 100, this.currentCase.title, {
+        fontSize: '24px',
+        color: '#ffd700',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5)
+      .setName('casePresentation');
+
+    this.add
+      .text(640, 180, this.currentCase.story, {
+        fontSize: '16px',
+        color: '#e0e0e0',
+        fontFamily: 'Courier New',
+        wordWrap: { width: 800 },
+        align: 'center',
+        lineSpacing: 8,
+      })
+      .setOrigin(0.5)
+      .setName('casePresentation');
+
+    // Sample selection instruction
+    this.add
+      .text(640, 280, 'Select a sample type to examine:', {
+        fontSize: '18px',
+        color: '#cccccc',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5)
+      .setName('casePresentation');
+
+    // Sample type buttons
+    const sampleTypes: Array<{ type: SampleType; label: string }> = [
+      { type: 'blood', label: 'Blood Sample' },
+      { type: 'sputum', label: 'Sputum' },
+      { type: 'throat-swab', label: 'Throat Swab' },
+      { type: 'stool', label: 'Stool Sample' },
+      { type: 'wound', label: 'Wound Swab' },
+      { type: 'csf', label: 'Cerebrospinal Fluid' },
+      { type: 'urine', label: 'Urine Sample' },
+      { type: 'tissue', label: 'Tissue Biopsy' },
+    ];
+
+    const buttonsPerRow = 4;
+    const buttonWidth = 180;
+    const buttonHeight = 45;
+    const buttonSpacing = 200;
+    const rowSpacing = 70;
+    const startY = 340;
+
+    sampleTypes.forEach((sample, index) => {
+      const row = Math.floor(index / buttonsPerRow);
+      const col = index % buttonsPerRow;
+      const x = 640 - ((buttonsPerRow - 1) * buttonSpacing) / 2 + col * buttonSpacing;
+      const y = startY + row * rowSpacing;
+
+      const button = this.add
+        .rectangle(x, y, buttonWidth, buttonHeight, 0x4a3a2a)
+        .setStrokeStyle(2, 0x6a5a4a)
+        .setInteractive({ useHandCursor: true })
+        .setName('casePresentation');
+
+      this.add
+        .text(x, y, sample.label, {
+          fontSize: '13px',
+          color: '#e0e0e0',
+          fontFamily: 'Courier New',
+          align: 'center',
+        })
+        .setOrigin(0.5)
+        .setName('casePresentation');
+
+      button.on('pointerover', () => {
+        button.setFillStyle(0x6a5a4a);
+      });
+
+      button.on('pointerout', () => {
+        button.setFillStyle(0x4a3a2a);
+      });
+
+      button.on('pointerdown', () => {
+        this.onSampleSelected(sample.type);
+      });
+    });
+  }
+
+  private onSampleSelected(sampleType: SampleType) {
+    this.selectedSampleType = sampleType;
+
+    // Remove case presentation UI
+    this.children.list
+      .filter((child) => child.name === 'casePresentation')
+      .forEach((child) => child.destroy());
+
+    // Determine which organism to show
+    const isCorrectSample = sampleType === this.currentCase.correctSampleType;
+    
+    if (isCorrectSample) {
+      // Show the pathogen
+      this.currentOrganism = ORGANISMS.find((o) => o.id === this.currentCase.organismId);
+    } else {
+      // Wrong sample - no bacteria visible, only background material
+      this.currentOrganism = undefined;
+    }
+
+    // Seed random number generator for consistent bacteria placement
+    const caseIndex = CASES.indexOf(this.currentCase);
+    Phaser.Math.RND.sow([caseIndex.toString()]);
+
+    // Show selected sample type info
+    this.add
+      .text(640, 70, `${this.currentCase.title} - ${this.getSampleTypeLabel(sampleType)}`, {
+        fontSize: '18px',
+        color: '#ffd700',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5);
+
+    this.add
+      .text(640, 100, this.currentCase.story, {
+        fontSize: '14px',
+        color: '#cccccc',
+        fontFamily: 'Courier New',
+        wordWrap: { width: 800 },
+        align: 'center',
+      })
+      .setOrigin(0.5);
+
+    // Proceed to microscope view
+    this.createMicroscopeViewer();
+    this.createFocusControl();
+    this.createStainingControls();
+    this.createReferenceManual();
+    this.createDiagnosisInterface();
+
+    // Add "Change Sample" button AFTER other UI so it's on top
+    const changeSampleBtn = this.add
+      .rectangle(80, 160, 140, 30, 0x4a3a2a)
+      .setStrokeStyle(2, 0x6a5a4a)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(1000) // Ensure it's on top
+      .on('pointerover', () => changeSampleBtn.setFillStyle(0x6a5a4a))
+      .on('pointerout', () => changeSampleBtn.setFillStyle(0x4a3a2a))
+      .on('pointerdown', () => this.returnToSampleSelection());
+
+    this.add
+      .text(80, 160, 'Change Sample', {
+        fontSize: '12px',
+        color: '#e0e0e0',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5)
+      .setDepth(1000); // Ensure it's on top
+  }
+
+  private getSampleTypeLabel(sampleType: SampleType): string {
+    const labels: Record<SampleType, string> = {
+      'blood': 'Blood Sample',
+      'sputum': 'Sputum',
+      'throat-swab': 'Throat Swab',
+      'stool': 'Stool Sample',
+      'wound': 'Wound Swab',
+      'csf': 'Cerebrospinal Fluid',
+      'urine': 'Urine Sample',
+      'tissue': 'Tissue Biopsy',
+    };
+    return labels[sampleType];
+  }
+
+  private returnToSampleSelection() {
+    // Clear all microscope and UI elements except title
+    this.children.list
+      .filter((child) => {
+        // Keep the title at top
+        const text = child as Phaser.GameObjects.Text;
+        return !(text.y === 30 && text.text?.includes('BioLogic Laboratory'));
+      })
+      .forEach((child) => child.destroy());
+
+    // Reset state
+    this.currentOrganism = undefined;
+    this.selectedSampleType = null;
+    this.selectedDiagnosis = null;
+    this.currentStain = 'none';
+    this.microscopeContainer = null;
+    this.floatingDust = [];
+    this.apertureVignette = null;
+    this.focusOffset = 0;
+    this.slide = null;
+
+    // Show case presentation again
+    this.showCasePresentation();
   }
 }
