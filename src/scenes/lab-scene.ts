@@ -1,15 +1,17 @@
 import Phaser from 'phaser';
 import { CASES, ORGANISMS, type Organism } from '@/data/organisms';
+import { Slide } from '@/utils/slide';
 
 export class LabScene extends Phaser.Scene {
   private currentCase = CASES[Phaser.Math.Between(0, CASES.length - 1)];
   private currentOrganism: Organism | undefined;
   private selectedDiagnosis: string | null = null;
-  private selectedOrganism: Organism | null = null;
   private currentStain: 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore' = 'none';
   private microscopeContainer: Phaser.GameObjects.Container | null = null;
   private floatingDust: Phaser.GameObjects.Graphics[] = [];
   private apertureVignette: Phaser.GameObjects.Graphics | null = null;
+  private focusOffset: number = 0; // -15 to +15, allows focusing well beyond slide specimen range
+  private slide: Slide | null = null; // Pre-generated slide data
 
   constructor() {
     super({ key: 'LabScene' });
@@ -17,6 +19,11 @@ export class LabScene extends Phaser.Scene {
 
   create() {
     this.currentOrganism = ORGANISMS.find((o) => o.id === this.currentCase.organismId);
+
+    // Seed random number generator for consistent bacteria placement
+    // Use case index as seed so each case has the same slide layout
+    const caseIndex = CASES.indexOf(this.currentCase);
+    Phaser.Math.RND.sow([caseIndex.toString()]);
 
     // Background
     this.add.rectangle(0, 0, 1280, 720, 0x2d2d2d).setOrigin(0);
@@ -52,6 +59,9 @@ export class LabScene extends Phaser.Scene {
     // Microscope viewer area
     this.createMicroscopeViewer();
 
+    // Focus control
+    this.createFocusControl();
+
     // Staining controls
     this.createStainingControls();
 
@@ -60,6 +70,84 @@ export class LabScene extends Phaser.Scene {
 
     // Diagnosis submission
     this.createDiagnosisInterface();
+  }
+
+  private createFocusControl() {
+    const controlX = 560;
+    const controlY = 380;
+
+    // Background panel
+    this.add.rectangle(controlX - 40, controlY - 60, 80, 120, 0x2a2a2a).setOrigin(0);
+    this.add.rectangle(controlX - 40, controlY - 60, 80, 120).setStrokeStyle(2, 0x444444).setOrigin(0);
+
+    // Label
+    this.add.text(controlX, controlY - 45, 'FOCUS', {
+      fontSize: '11px',
+      color: '#888888',
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5);
+
+    // Vertical track
+    const track = this.add.graphics();
+    track.lineStyle(3, 0x444444);
+    track.strokeLineShape(new Phaser.Geom.Line(controlX, controlY - 25, controlX, controlY + 35));
+    
+    // Tick marks (-6 to +6 range)
+    for (let i = -6; i <= 6; i++) {
+      const tickY = controlY + 5 + (i * 5);
+      track.lineStyle(1, 0x666666);
+      track.strokeLineShape(new Phaser.Geom.Line(controlX - 5, tickY, controlX + 5, tickY));
+    }
+
+    // Focus knob (draggable)
+    const knob = this.add.circle(controlX, controlY + 5, 10, 0x5a5a5a).setStrokeStyle(2, 0x888888);
+    knob.setInteractive({ draggable: true, useHandCursor: true });
+
+    // Knob detail (center dot)
+    const knobCenter = this.add.circle(controlX, controlY + 5, 3, 0x888888);
+
+    // Labels
+    this.add.text(controlX + 15, controlY - 25, '+', {
+      fontSize: '12px',
+      color: '#666666',
+      fontFamily: 'Courier New',
+    }).setOrigin(0, 0.5);
+
+    this.add.text(controlX + 15, controlY + 35, '-', {
+      fontSize: '12px',
+      color: '#666666',
+      fontFamily: 'Courier New',
+    }).setOrigin(0, 0.5);
+
+    // Drag behavior
+    this.input.on('drag', (_pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject, _dragX: number, dragY: number) => {
+      if (gameObject !== knob) return;
+
+      // Constrain to track
+      const minY = controlY - 25;
+      const maxY = controlY + 35;
+      const clampedY = Phaser.Math.Clamp(dragY, minY, maxY);
+      
+      knob.setPosition(controlX, clampedY);
+      knobCenter.setPosition(controlX, clampedY);
+
+      // Calculate focus offset (-15 to +15)
+      // Top = +15 (far above focal plane), Bottom = -15 (far below)
+      const normalizedPosition = (clampedY - minY) / (maxY - minY); // 0 to 1
+      this.focusOffset = 30 - (normalizedPosition * 60); // +30 to -30
+
+      // Only re-render bacteria, not the entire microscope view
+      this.refreshMicroscopeView();
+    });
+
+    // Hover effect
+    knob.on('pointerover', () => {
+      knob.setFillStyle(0x6a6a6a);
+    });
+
+    knob.on('pointerout', () => {
+      knob.setFillStyle(0x5a5a5a);
+    });
   }
 
   private createStainingControls() {
@@ -116,7 +204,27 @@ export class LabScene extends Phaser.Scene {
         this.currentStain = stain.type;
         button.setFillStyle(0x3a7a3a);
         buttonText.setColor('#ffffff');
+        
+        // Regenerate slide with new stain state (stain.type is never 'none', so always has stain)
+        const caseIndex = CASES.indexOf(this.currentCase);
+        const viewerCenterX = 320;
+        const viewerCenterY = 380;
+        const viewerRadius = 180;
+        this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, true, this.currentOrganism);
+        
+        // Destroy and recreate dust/vignette for stain changes (different optical effects)
+        this.floatingDust.forEach(dust => dust.destroy());
+        this.floatingDust = [];
+        if (this.apertureVignette) {
+          this.apertureVignette.destroy();
+          this.apertureVignette = null;
+        }
+        
         this.refreshMicroscopeView();
+        
+        // Recreate dynamic effects for new stain
+        this.createApertureBreathing(viewerCenterX, viewerCenterY, viewerRadius);
+        this.createFloatingDust(viewerCenterX, viewerCenterY, viewerRadius);
       });
     });
   }
@@ -177,12 +285,16 @@ export class LabScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setName('microscopeLabel');
 
-    // Render blood cells background
-    this.renderBloodCells(viewerCenterX, viewerCenterY, viewerRadius, this.microscopeContainer);
+    // Generate slide with pre-determined positions
+    const caseIndex = CASES.indexOf(this.currentCase);
+    this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism);
 
-    // Render bacteria (Streptococcus pyogenes - purple cocci in chains)
+    // Render blood cells using slide data
+    this.renderBloodCells(this.microscopeContainer);
+
+    // Render bacteria using slide data
     if (this.currentOrganism) {
-      this.renderBacteria(viewerCenterX, viewerCenterY, viewerRadius, this.currentOrganism, this.microscopeContainer);
+      this.renderBacteria(this.currentOrganism, this.microscopeContainer);
     }
 
     // Apply circular mask
@@ -223,15 +335,8 @@ export class LabScene extends Phaser.Scene {
     // Clear existing content
     this.microscopeContainer.removeAll(true);
     
-    // Clear floating dust particles
-    this.floatingDust.forEach(dust => dust.destroy());
-    this.floatingDust = [];
-    
-    // Clear aperture vignette
-    if (this.apertureVignette) {
-      this.apertureVignette.destroy();
-      this.apertureVignette = null;
-    }
+    // Note: Don't destroy dust particles or aperture vignette - they persist across focus changes
+    // Only the microscope container content (blood cells, bacteria) gets re-rendered
 
     // Re-render background
     const backgroundCircle = this.add.graphics();
@@ -256,14 +361,20 @@ export class LabScene extends Phaser.Scene {
     }
 
     // Re-render cells and bacteria
-    this.renderBloodCells(viewerCenterX, viewerCenterY, viewerRadius, this.microscopeContainer);
-    if (this.currentOrganism) {
-      this.renderBacteria(viewerCenterX, viewerCenterY, viewerRadius, this.currentOrganism, this.microscopeContainer);
+    const caseIndex = CASES.indexOf(this.currentCase);
+    
+    // Only regenerate slide if it doesn't exist (shouldn't happen, but safety check)
+    if (!this.slide) {
+      this.slide = new Slide(caseIndex, viewerCenterX, viewerCenterY, viewerRadius, this.currentStain !== 'none', this.currentOrganism);
     }
     
-    // Re-add dynamic effects
-    this.createApertureBreathing(viewerCenterX, viewerCenterY, viewerRadius);
-    this.createFloatingDust(viewerCenterX, viewerCenterY, viewerRadius);
+    this.renderBloodCells(this.microscopeContainer);
+    
+    if (this.currentOrganism) {
+      this.renderBacteria(this.currentOrganism, this.microscopeContainer);
+    }
+    
+    // Re-add focus blur (static overlay)
     this.addFocusBlur(viewerCenterX, viewerCenterY, viewerRadius);
   }
 
@@ -291,143 +402,140 @@ export class LabScene extends Phaser.Scene {
     container.add(aberrations);
   }
 
-  private renderBloodCells(centerX: number, centerY: number, radius: number, container: Phaser.GameObjects.Container) {
+  private renderBloodCells(container: Phaser.GameObjects.Container) {
+    if (!this.slide) return;
+
     const graphics = this.add.graphics();
 
-    // Draw ~20 red blood cells scattered within circular view
-    // RBCs are ~7-8 micrometers, bacteria are ~1 micrometer
-    // At 1000x, RBCs should be relatively large
-    for (let i = 0; i < 200; i++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 40);
-      const cellX = centerX + distance * Math.cos(angle);
-      const cellY = centerY + distance * Math.sin(angle);
-      const baseCellRadius = Phaser.Math.Between(28, 35); // RBCs are much larger than bacteria
+    // Use pre-generated blood cell data from slide
+    for (const cell of this.slide.bloodCells) {
+      const baseCellRadius = cell.radius;
 
       // Calculate optical defocus based on simulated z-depth
-      // RBCs at different heights in the sample have different focus
-      // Wide depth range: some cells extremely out of focus
-      const zDepth = Phaser.Math.FloatBetween(-9, 9); // Extended range for dramatic defocus
-      const defocus = this.calculateDefocus(zDepth);
+      const zDepth = cell.zDepth - this.focusOffset; // Apply focus offset
+      const defocus = this.calculateDefocus(zDepth, baseCellRadius);
       
       // Apply defocus: blur increases size and decreases opacity
       const cellRadius = baseCellRadius * defocus.sizeMultiplier;
-      const fillOpacity = 0.1 * defocus.opacityMultiplier;
-      const strokeOpacity = 0.3 * defocus.opacityMultiplier;
+      const fillOpacity = 0.2 * defocus.opacityMultiplier;
 
-      graphics.lineStyle(defocus.blurWidth, 0xff9999, strokeOpacity);
-      graphics.fillStyle(0xffcccc, fillOpacity);
-
-      // Add slight irregularity to RBC shape (biconcave discs look irregular in 2D)
-      const irregularity = Phaser.Math.FloatBetween(0.85, 1.15);
-      graphics.strokeEllipse(cellX, cellY, cellRadius * irregularity, cellRadius / irregularity);
-      graphics.fillEllipse(cellX, cellY, cellRadius * irregularity, cellRadius / irregularity);
+      // RBCs are biconcave discs - they appear as donuts/torus when viewed from above
+      // Draw as a filled ring with a lighter center (donut shape)
+      
+      // Outer darker ring (thicker edge of biconcave disc)
+      graphics.fillStyle(0xcc6666, fillOpacity * 1.2);
+      graphics.fillEllipse(cell.x, cell.y, cellRadius * cell.irregularity, cellRadius / cell.irregularity);
+      
+      // Inner lighter "hole" (thinner center of biconcave disc)
+      // Variation: some cells have more pronounced centers
+      const centerRatio = .45;
+      const centerRadius = cellRadius * centerRatio;
+      graphics.fillStyle(0xfff5f5, fillOpacity * 0.9);
+      graphics.fillEllipse(cell.x, cell.y, centerRadius * cell.irregularity, centerRadius / cell.irregularity);
     }
 
     container.add(graphics);
 
     // Add sample prep artifacts
-    this.addSampleArtifacts(centerX, centerY, radius, container);
+    this.addSampleArtifacts(container);
   }
 
-  private addSampleArtifacts(centerX: number, centerY: number, radius: number, container: Phaser.GameObjects.Container) {
+  private addSampleArtifacts(container: Phaser.GameObjects.Container) {
+    if (!this.slide) return;
+
     const artifacts = this.add.graphics();
 
-    // Debris particles (dust, cell fragments)
-    for (let i = 0; i < Phaser.Math.Between(8, 15); i++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 30);
-      const debrisX = centerX + distance * Math.cos(angle);
-      const debrisY = centerY + distance * Math.sin(angle);
-      const debrisSize = Phaser.Math.FloatBetween(1, 3);
-
-      artifacts.fillStyle(0xb8b4ac, Phaser.Math.FloatBetween(0.2, 0.5));
-      artifacts.fillCircle(debrisX, debrisY, debrisSize);
+    // Debris particles (dust, cell fragments) - use pre-generated data with defocus
+    for (const debris of this.slide.debris) {
+      const zDepth = debris.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, debris.size);
+      
+      const size = debris.size * defocus.sizeMultiplier;
+      const opacity = debris.opacity * defocus.opacityMultiplier;
+      
+      artifacts.fillStyle(0xb8b4ac, opacity);
+      artifacts.fillCircle(debris.x, debris.y, size);
     }
 
     // Stain artifacts (only if stained)
     if (this.currentStain !== 'none') {
       // Stain precipitate crystals
-      for (let i = 0; i < Phaser.Math.Between(5, 10); i++) {
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const distance = Phaser.Math.FloatBetween(0, radius - 20);
-        const precipX = centerX + distance * Math.cos(angle);
-        const precipY = centerY + distance * Math.sin(angle);
-        const precipSize = Phaser.Math.FloatBetween(2, 5);
-
-        // Dark stain precipitate color varies by stain type
-        const precipColors = {
-          gram: 0x4a3366,
-          'acid-fast': 0x8b0000,
-          capsule: 0x2a2a4a,
-          spore: 0x1a4a1a,
-        };
-        artifacts.fillStyle(precipColors[this.currentStain], Phaser.Math.FloatBetween(0.3, 0.6));
-        artifacts.fillCircle(precipX, precipY, precipSize);
+      const precipColors = {
+        gram: 0x4a3366,
+        'acid-fast': 0x8b0000,
+        capsule: 0x2a2a4a,
+        spore: 0x1a4a1a,
+      };
+      for (const precip of this.slide.stainPrecipitates) {
+        const zDepth = precip.zDepth - this.focusOffset;
+        const defocus = this.calculateDefocus(zDepth, precip.size);
+        
+        const size = precip.size * defocus.sizeMultiplier;
+        const opacity = precip.opacity * defocus.opacityMultiplier;
+        
+        artifacts.fillStyle(precipColors[this.currentStain], opacity);
+        artifacts.fillCircle(precip.x, precip.y, size);
       }
 
       // Stain smears (streaks across the slide from staining process)
-      for (let i = 0; i < Phaser.Math.Between(3, 6); i++) {
-        const smearStartAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const smearDist = Phaser.Math.FloatBetween(0, radius - 80);
-        const smearX = centerX + smearDist * Math.cos(smearStartAngle);
-        const smearY = centerY + smearDist * Math.sin(smearStartAngle);
-        const smearAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const smearLength = Phaser.Math.FloatBetween(20, 60);
-
-        // Smear colors vary by stain type
-        const smearColors = {
-          gram: [0x663399, 0xff69b4],
-          'acid-fast': [0xff0000, 0x0000ff],
-          capsule: [0x4169e1, 0xffc0cb],
-          spore: [0x228b22, 0xff6347],
-        };
-        const colors = smearColors[this.currentStain];
-        const smearColor = colors[Phaser.Math.Between(0, colors.length - 1)];
-        artifacts.lineStyle(Phaser.Math.FloatBetween(1, 3), smearColor, Phaser.Math.FloatBetween(0.1, 0.3));
+      const smearColors = {
+        gram: [0x663399, 0xff69b4],
+        'acid-fast': [0xff0000, 0x0000ff],
+        capsule: [0x4169e1, 0xffc0cb],
+        spore: [0x228b22, 0xff6347],
+      };
+      const colors = smearColors[this.currentStain];
+      for (const smear of this.slide.stainSmears) {
+        const zDepth = smear.zDepth - this.focusOffset;
+        const defocus = this.calculateDefocus(zDepth, smear.width);
         
-        const endX = smearX + smearLength * Math.cos(smearAngle);
-        const endY = smearY + smearLength * Math.sin(smearAngle);
-        artifacts.strokeLineShape(new Phaser.Geom.Line(smearX, smearY, endX, endY));
+        const smearColor = colors[smear.colorIndex];
+        const width = smear.width * defocus.sizeMultiplier;
+        const opacity = smear.opacity * defocus.opacityMultiplier;
+        
+        artifacts.lineStyle(width, smearColor, opacity);
+        
+        const endX = smear.startX + smear.length * Math.cos(smear.angle);
+        const endY = smear.startY + smear.length * Math.sin(smear.angle);
+        artifacts.strokeLineShape(new Phaser.Geom.Line(smear.startX, smear.startY, endX, endY));
       }
 
       // Background stain residue (slide wasn't perfectly washed)
-      for (let i = 0; i < Phaser.Math.Between(8, 12); i++) {
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const distance = Phaser.Math.FloatBetween(0, radius - 10);
-        const residueX = centerX + distance * Math.cos(angle);
-        const residueY = centerY + distance * Math.sin(angle);
-
-        const residueColor = Phaser.Math.Between(0, 1) === 0 ? 0x663399 : 0xff69b4;
-        artifacts.fillStyle(residueColor, Phaser.Math.FloatBetween(0.02, 0.08));
-        artifacts.fillCircle(residueX, residueY, Phaser.Math.FloatBetween(5, 15));
+      for (const residue of this.slide.stainResidues) {
+        const zDepth = residue.zDepth - this.focusOffset;
+        const defocus = this.calculateDefocus(zDepth, residue.size);
+        
+        const residueColor = residue.colorIndex === 0 ? 0x663399 : 0xff69b4;
+        const size = residue.size * defocus.sizeMultiplier;
+        const opacity = residue.opacity * defocus.opacityMultiplier;
+        
+        artifacts.fillStyle(residueColor, opacity);
+        artifacts.fillCircle(residue.x, residue.y, size);
       }
     }
 
     // Air bubbles (circular with refraction-like appearance)
-    for (let i = 0; i < Phaser.Math.Between(2, 4); i++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 50);
-      const bubbleX = centerX + distance * Math.cos(angle);
-      const bubbleY = centerY + distance * Math.sin(angle);
-      const bubbleRadius = Phaser.Math.FloatBetween(8, 20);
-
+    for (const bubble of this.slide.bubbles) {
+      const zDepth = bubble.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, bubble.radius);
+      
+      const radius = bubble.radius * defocus.sizeMultiplier;
+      const edgeOpacity = 0.4 * defocus.opacityMultiplier;
+      const centerOpacity = 0.15 * defocus.opacityMultiplier;
+      
       // Darker ring (edge of bubble)
-      artifacts.lineStyle(2, 0xc8c4bc, 0.4);
-      artifacts.strokeCircle(bubbleX, bubbleY, bubbleRadius);
+      artifacts.lineStyle(2 * defocus.sizeMultiplier, 0xc8c4bc, edgeOpacity);
+      artifacts.strokeCircle(bubble.x, bubble.y, radius);
       
       // Lighter center (refraction effect)
-      artifacts.fillStyle(0xffffff, 0.15);
-      artifacts.fillCircle(bubbleX, bubbleY, bubbleRadius * 0.6);
+      artifacts.fillStyle(0xffffff, centerOpacity);
+      artifacts.fillCircle(bubble.x, bubble.y, radius * 0.6);
     }
 
     container.add(artifacts);
   }
 
   private renderBacteria(
-    centerX: number,
-    centerY: number,
-    radius: number,
     organism: Organism,
     container: Phaser.GameObjects.Container,
   ) {
@@ -475,19 +583,19 @@ export class LabScene extends Phaser.Scene {
 
     // Render based on morphology
     if (organism.shape === 'cocci' && organism.arrangement === 'chains') {
-      this.renderCocciChains(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity);
+      this.renderCocciChains(graphics, bacteriaColor, baseOpacity);
     } else if (organism.shape === 'cocci' && organism.arrangement === 'clusters') {
-      this.renderCocciClusters(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity);
+      this.renderCocciClusters(graphics, bacteriaColor, baseOpacity);
     } else if (organism.shape === 'diplococci' && organism.arrangement === 'pairs') {
-      this.renderDiplococci(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity);
+      this.renderDiplococci(graphics, bacteriaColor, baseOpacity);
     } else if (organism.shape === 'bacilli' && organism.arrangement === 'single') {
-      this.renderBacilli(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity, organism);
+      this.renderBacilli(graphics, bacteriaColor, baseOpacity, organism);
     } else if (organism.shape === 'bacilli' && organism.arrangement === 'chains') {
-      this.renderBacilliChains(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity, organism);
+      this.renderBacilliChains(graphics, bacteriaColor, baseOpacity, organism);
     } else if (organism.shape === 'bacilli' && organism.arrangement === 'palisades') {
-      this.renderBacilliPalisades(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity);
+      this.renderBacilliPalisades(graphics, bacteriaColor, baseOpacity);
     } else if (organism.shape === 'coccobacilli') {
-      this.renderCoccobacilli(graphics, centerX, centerY, radius, bacteriaColor, baseOpacity, organism);
+      this.renderCoccobacilli(graphics, bacteriaColor, baseOpacity, organism);
     }
 
     container.add(graphics);
@@ -495,120 +603,79 @@ export class LabScene extends Phaser.Scene {
 
   private renderCocciChains(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
   ) {
-    // Streptococcus: cocci in chains
-    // Cocci ~1 micrometer, RBCs ~7-8 micrometers = 1:7 ratio
-    for (let chain = 0; chain < Phaser.Math.Between(5, 6); chain++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 60);
-      const startX = centerX + distance * Math.cos(angle);
-      const startY = centerY + distance * Math.sin(angle);
-      const chainAngle = Phaser.Math.Between(0, 360);
-      const chainLength = Phaser.Math.Between(6, 12);
+    if (!this.slide) return;
 
-      const chainZDepth = Phaser.Math.FloatBetween(-3, 3);
-      const chainDefocus = this.calculateDefocus(chainZDepth);
-      const chainStainVariation = Phaser.Math.FloatBetween(0.6, 1.0);
+    // Streptococcus: cocci in chains - use pre-generated data
+    for (const chain of this.slide.bacteria.chains) {
+      const chainZDepth = chain.zDepth - this.focusOffset;
+      const chainDefocus = this.calculateDefocus(chainZDepth, 1.5);
 
-      for (let i = 0; i < chainLength; i++) {
-        const spacing = 3.5; // Tighter spacing for tiny bacteria
-        const coccusX = startX + i * spacing * Math.cos((chainAngle * Math.PI) / 180);
-        const coccusY = startY + i * spacing * Math.sin((chainAngle * Math.PI) / 180);
-        
-        const sizeVariation = Phaser.Math.FloatBetween(0.85, 1.15);
-        const baseCoccusRadius = 1.5 * sizeVariation; // Much smaller: ~1/20 of RBC diameter
+      for (const coccus of chain.cocci) {
+        const baseCoccusRadius = 1.5 * coccus.sizeVariation;
         const coccusRadius = baseCoccusRadius * chainDefocus.sizeMultiplier;
-        const opacity = baseOpacity * chainStainVariation * chainDefocus.opacityMultiplier;
+        const opacity = baseOpacity * chain.stainVariation * chainDefocus.opacityMultiplier;
 
         graphics.lineStyle(chainDefocus.blurWidth, color, opacity);
         graphics.fillStyle(color, opacity * 0.6);
-        graphics.fillCircle(coccusX, coccusY, coccusRadius);
-        graphics.strokeCircle(coccusX, coccusY, coccusRadius);
+        graphics.fillCircle(coccus.x, coccus.y, coccusRadius);
+        graphics.strokeCircle(coccus.x, coccus.y, coccusRadius);
       }
     }
   }
 
   private renderCocciClusters(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
   ) {
-    // Staphylococcus: cocci in grape-like clusters
-    // ~1 micrometer cocci
-    for (let cluster = 0; cluster < Phaser.Math.Between(4, 6); cluster++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 60);
-      const clusterCenterX = centerX + distance * Math.cos(angle);
-      const clusterCenterY = centerY + distance * Math.sin(angle);
+    if (!this.slide) return;
 
-      const clusterZDepth = Phaser.Math.FloatBetween(-3, 3);
-      const clusterDefocus = this.calculateDefocus(clusterZDepth);
-      const clusterStainVariation = Phaser.Math.FloatBetween(0.6, 1.0);
+    // Staphylococcus: cocci in grape-like clusters - use pre-generated data
+    for (const cluster of this.slide.bacteria.clusters) {
+      const clusterZDepth = cluster.zDepth - this.focusOffset;
+      const clusterDefocus = this.calculateDefocus(clusterZDepth, 1.5);
 
-      // Random cluster of 8-15 cocci
-      const numCocci = Phaser.Math.Between(8, 15);
-      for (let i = 0; i < numCocci; i++) {
-        const clusterAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const clusterRadius = Phaser.Math.FloatBetween(0, 8); // Tighter clusters
-        const coccusX = clusterCenterX + clusterRadius * Math.cos(clusterAngle);
-        const coccusY = clusterCenterY + clusterRadius * Math.sin(clusterAngle);
-
-        const sizeVariation = Phaser.Math.FloatBetween(0.85, 1.15);
-        const baseCoccusRadius = 1.5 * sizeVariation; // Much smaller
+      for (const coccus of cluster.cocci) {
+        const baseCoccusRadius = 1.5 * coccus.sizeVariation;
         const coccusRadius = baseCoccusRadius * clusterDefocus.sizeMultiplier;
-        const opacity = baseOpacity * clusterStainVariation * clusterDefocus.opacityMultiplier;
+        const opacity = baseOpacity * cluster.stainVariation * clusterDefocus.opacityMultiplier;
 
         graphics.lineStyle(clusterDefocus.blurWidth, color, opacity);
         graphics.fillStyle(color, opacity * 0.6);
-        graphics.fillCircle(coccusX, coccusY, coccusRadius);
-        graphics.strokeCircle(coccusX, coccusY, coccusRadius);
+        graphics.fillCircle(coccus.x, coccus.y, coccusRadius);
+        graphics.strokeCircle(coccus.x, coccus.y, coccusRadius);
       }
     }
   }
 
   private renderDiplococci(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
   ) {
-    // Neisseria: cocci in pairs (kidney bean shaped, facing each other)
-    // Neisseria gonorrhoeae: 0.6-1.0 micrometers, RBCs: 7-8 micrometers = ~1:8 ratio
-    for (let pair = 0; pair < Phaser.Math.Between(6, 10); pair++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 60);
-      const pairX = centerX + distance * Math.cos(angle);
-      const pairY = centerY + distance * Math.sin(angle);
-      const pairAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    if (!this.slide) return;
 
-      const pairZDepth = Phaser.Math.FloatBetween(-3, 3);
-      const pairDefocus = this.calculateDefocus(pairZDepth);
-      const pairStainVariation = Phaser.Math.FloatBetween(0.6, 1.0);
+    // Neisseria: cocci in pairs - use pre-generated data
+    for (const pair of this.slide.bacteria.pairs) {
+      const pairZDepth = pair.zDepth - this.focusOffset;
+      const pairDefocus = this.calculateDefocus(pairZDepth, 1.2);
 
-      const sizeVariation = Phaser.Math.FloatBetween(0.85, 1.15);
-      const baseCoccusRadius = 1.2 * sizeVariation; // Neisseria is smaller: 0.6-1.0 µm
+      const baseCoccusRadius = 1.2 * pair.sizeVariation;
       const coccusRadius = baseCoccusRadius * pairDefocus.sizeMultiplier;
-      const opacity = baseOpacity * pairStainVariation * pairDefocus.opacityMultiplier;
+      const opacity = baseOpacity * pair.stainVariation * pairDefocus.opacityMultiplier;
 
       graphics.lineStyle(pairDefocus.blurWidth, color, opacity);
       graphics.fillStyle(color, opacity * 0.6);
 
       // Draw two cocci side by side
-      const spacing = 2.5; // Very tight for tiny diplococci
-      const coccus1X = pairX + spacing * Math.cos(pairAngle);
-      const coccus1Y = pairY + spacing * Math.sin(pairAngle);
-      const coccus2X = pairX - spacing * Math.cos(pairAngle);
-      const coccus2Y = pairY - spacing * Math.sin(pairAngle);
+      const spacing = 2.5;
+      const coccus1X = pair.x + spacing * Math.cos(pair.orientation);
+      const coccus1Y = pair.y + spacing * Math.sin(pair.orientation);
+      const coccus2X = pair.x - spacing * Math.cos(pair.orientation);
+      const coccus2Y = pair.y - spacing * Math.sin(pair.orientation);
 
       graphics.fillCircle(coccus1X, coccus1Y, coccusRadius);
       graphics.strokeCircle(coccus1X, coccus1Y, coccusRadius);
@@ -619,50 +686,37 @@ export class LabScene extends Phaser.Scene {
 
   private renderBacilli(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
     organism: Organism,
   ) {
-    // Rod-shaped bacteria (E. coli, Mycobacterium, C. tetani)
-    // E. coli: ~2 µm long × 0.5 µm wide
-    for (let bacillus = 0; bacillus < Phaser.Math.Between(8, 12); bacillus++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 60);
-      const bacillusX = centerX + distance * Math.cos(angle);
-      const bacillusY = centerY + distance * Math.sin(angle);
-      const bacillusAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    if (!this.slide) return;
 
-      const bacillusZDepth = Phaser.Math.FloatBetween(-3, 3);
-      const bacillusDefocus = this.calculateDefocus(bacillusZDepth);
-      const bacillusStainVariation = Phaser.Math.FloatBetween(0.6, 1.0);
+    // Rod-shaped bacteria - use pre-generated data
+    for (const bacillus of this.slide.bacteria.bacilli) {
+      const bacillusZDepth = bacillus.zDepth - this.focusOffset;
+      const bacillusDefocus = this.calculateDefocus(bacillusZDepth, bacillus.width);
 
-      // Bacilli are 2-4× longer than wide
-      const baseWidth = 1; // 0.5 µm scaled
-      const baseLength = Phaser.Math.Between(3, 6); // 2-3 µm scaled
-      const width = baseWidth * bacillusDefocus.sizeMultiplier;
-      const length = baseLength * bacillusDefocus.sizeMultiplier;
-      const opacity = baseOpacity * bacillusStainVariation * bacillusDefocus.opacityMultiplier;
+      const width = bacillus.width * bacillusDefocus.sizeMultiplier;
+      const length = bacillus.length * bacillusDefocus.sizeMultiplier;
+      const opacity = baseOpacity * bacillus.stainVariation * bacillusDefocus.opacityMultiplier;
 
       graphics.lineStyle(bacillusDefocus.blurWidth, color, opacity);
       graphics.fillStyle(color, opacity * 0.6);
 
       // Draw as rounded rectangle
-      const x1 = bacillusX - (length / 2) * Math.cos(bacillusAngle);
-      const y1 = bacillusY - (length / 2) * Math.sin(bacillusAngle);
-      const x2 = bacillusX + (length / 2) * Math.cos(bacillusAngle);
-      const y2 = bacillusY + (length / 2) * Math.sin(bacillusAngle);
+      const x1 = bacillus.x - (length / 2) * Math.cos(bacillus.orientation);
+      const y1 = bacillus.y - (length / 2) * Math.sin(bacillus.orientation);
+      const x2 = bacillus.x + (length / 2) * Math.cos(bacillus.orientation);
+      const y2 = bacillus.y + (length / 2) * Math.sin(bacillus.orientation);
 
       graphics.strokeLineShape(new Phaser.Geom.Line(x1, y1, x2, y2));
       graphics.fillCircle(x1, y1, width);
       graphics.fillCircle(x2, y2, width);
 
-      // Add terminal spore if spore stain and organism is spore former (C. tetani)
+      // Add terminal spore if spore stain and organism is spore former
       if (this.currentStain === 'spore' && organism.sporeFormer) {
-        graphics.fillStyle(0x228b22, 0.9); // Green terminal spore
-        // Terminal spore at one end (drumstick appearance)
+        graphics.fillStyle(0x228b22, 0.9);
         graphics.fillCircle(x2, y2, width * 1.8);
       }
     }
@@ -670,40 +724,30 @@ export class LabScene extends Phaser.Scene {
 
   private renderBacilliChains(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
     organism: Organism,
   ) {
-    // Bacillus anthracis - large square-ended rods in chains (boxcar appearance)
-    for (let chain = 0; chain < Phaser.Math.Between(3, 5); chain++) {
-      const chainAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const chainDistance = Phaser.Math.FloatBetween(0, radius - 70);
-      const chainX = centerX + chainDistance * Math.cos(chainAngle);
-      const chainY = centerY + chainDistance * Math.sin(chainAngle);
-      const chainOrientation = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const bacilliInChain = Phaser.Math.Between(4, 8);
+    if (!this.slide) return;
 
-      for (let i = 0; i < bacilliInChain; i++) {
-        const bacillusX = chainX + i * 4 * Math.cos(chainOrientation);
-        const bacillusY = chainY + i * 4 * Math.sin(chainOrientation);
-        const zDepth = Phaser.Math.FloatBetween(-3, 3);
-        const defocus = this.calculateDefocus(zDepth);
+    // Bacillus anthracis - bacilli in chains - use pre-generated data
+    for (const chain of this.slide.bacteria.bacilliChains) {
+      for (const bacillus of chain.bacilli) {
+        const zDepth = bacillus.zDepth - this.focusOffset;
+        const defocus = this.calculateDefocus(zDepth, bacillus.width);
 
-        const width = 1.8 * defocus.sizeMultiplier;
-        const length = 5 * defocus.sizeMultiplier;
-        const opacity = baseOpacity * Phaser.Math.FloatBetween(0.7, 1.0) * defocus.opacityMultiplier;
+        const width = bacillus.width * defocus.sizeMultiplier;
+        const length = bacillus.length * defocus.sizeMultiplier;
+        const opacity = baseOpacity * bacillus.stainVariation * defocus.opacityMultiplier;
 
         graphics.lineStyle(defocus.blurWidth, color, opacity);
         graphics.fillStyle(color, opacity * 0.6);
 
         // Square-ended rods
-        const x1 = bacillusX - (length / 2) * Math.cos(chainOrientation);
-        const y1 = bacillusY - (length / 2) * Math.sin(chainOrientation);
-        const x2 = bacillusX + (length / 2) * Math.cos(chainOrientation);
-        const y2 = bacillusY + (length / 2) * Math.sin(chainOrientation);
+        const x1 = bacillus.x - (length / 2) * Math.cos(chain.orientation);
+        const y1 = bacillus.y - (length / 2) * Math.sin(chain.orientation);
+        const x2 = bacillus.x + (length / 2) * Math.cos(chain.orientation);
+        const y2 = bacillus.y + (length / 2) * Math.sin(chain.orientation);
 
         graphics.fillCircle(x1, y1, width);
         graphics.fillCircle(x2, y2, width);
@@ -711,9 +755,9 @@ export class LabScene extends Phaser.Scene {
 
         // Add spore if spore stain and organism is spore former
         if (this.currentStain === 'spore' && organism.sporeFormer) {
-          graphics.fillStyle(0x228b22, 0.9); // Green spore
-          const sporeX = bacillusX + (length * 0.3) * Math.cos(chainOrientation);
-          const sporeY = bacillusY + (length * 0.3) * Math.sin(chainOrientation);
+          graphics.fillStyle(0x228b22, 0.9);
+          const sporeX = bacillus.x + (length * 0.3) * Math.cos(chain.orientation);
+          const sporeY = bacillus.y + (length * 0.3) * Math.sin(chain.orientation);
           graphics.fillCircle(sporeX, sporeY, width * 1.2);
         }
       }
@@ -722,44 +766,30 @@ export class LabScene extends Phaser.Scene {
 
   private renderBacilliPalisades(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
   ) {
-    // Corynebacterium - club-shaped bacilli in palisades (Chinese letter arrangement)
-    for (let group = 0; group < Phaser.Math.Between(5, 8); group++) {
-      const groupAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const groupDistance = Phaser.Math.FloatBetween(0, radius - 60);
-      const groupX = centerX + groupDistance * Math.cos(groupAngle);
-      const groupY = centerY + groupDistance * Math.sin(groupAngle);
+    if (!this.slide) return;
 
-      const bacilliInGroup = Phaser.Math.Between(3, 6);
-      for (let i = 0; i < bacilliInGroup; i++) {
-        const angle = Phaser.Math.FloatBetween(-Math.PI / 4, Math.PI / 4) + (i * Math.PI) / 6;
-        const offsetX = i * 2 * Math.cos(angle);
-        const offsetY = i * 2 * Math.sin(angle);
-        const bacillusX = groupX + offsetX;
-        const bacillusY = groupY + offsetY;
-        const bacillusAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-
-        const zDepth = Phaser.Math.FloatBetween(-3, 3);
-        const defocus = this.calculateDefocus(zDepth);
+    // Corynebacterium - club-shaped bacilli in palisades - use pre-generated data
+    for (const group of this.slide.bacteria.palisades) {
+      for (const bacillus of group.bacilli) {
+        const zDepth = bacillus.zDepth - this.focusOffset;
+        const defocus = this.calculateDefocus(zDepth, 1.0);
 
         // Club-shaped: wider at one end
         const baseWidth = 0.8 * defocus.sizeMultiplier;
         const clubWidth = 1.4 * defocus.sizeMultiplier;
         const length = 4 * defocus.sizeMultiplier;
-        const opacity = baseOpacity * Phaser.Math.FloatBetween(0.7, 1.0) * defocus.opacityMultiplier;
+        const opacity = baseOpacity * bacillus.stainVariation * defocus.opacityMultiplier;
 
         graphics.lineStyle(defocus.blurWidth, color, opacity);
         graphics.fillStyle(color, opacity * 0.6);
 
-        const x1 = bacillusX - (length / 2) * Math.cos(bacillusAngle);
-        const y1 = bacillusY - (length / 2) * Math.sin(bacillusAngle);
-        const x2 = bacillusX + (length / 2) * Math.cos(bacillusAngle);
-        const y2 = bacillusY + (length / 2) * Math.sin(bacillusAngle);
+        const x1 = bacillus.x - (length / 2) * Math.cos(bacillus.orientation);
+        const y1 = bacillus.y - (length / 2) * Math.sin(bacillus.orientation);
+        const x2 = bacillus.x + (length / 2) * Math.cos(bacillus.orientation);
+        const y2 = bacillus.y + (length / 2) * Math.sin(bacillus.orientation);
 
         graphics.fillCircle(x1, y1, baseWidth); // Narrow end
         graphics.fillCircle(x2, y2, clubWidth); // Club end
@@ -770,35 +800,28 @@ export class LabScene extends Phaser.Scene {
 
   private renderCoccobacilli(
     graphics: Phaser.GameObjects.Graphics,
-    centerX: number,
-    centerY: number,
-    radius: number,
     color: number,
     baseOpacity: number,
     organism: Organism,
   ) {
-    // Short oval bacteria (Yersinia, Haemophilus)
-    for (let i = 0; i < Phaser.Math.Between(12, 18); i++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const distance = Phaser.Math.FloatBetween(0, radius - 50);
-      const bacteriumX = centerX + distance * Math.cos(angle);
-      const bacteriumY = centerY + distance * Math.sin(angle);
-      const bacteriumAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    if (!this.slide) return;
 
-      const zDepth = Phaser.Math.FloatBetween(-3, 3);
-      const defocus = this.calculateDefocus(zDepth);
+    // Short oval bacteria - use pre-generated data
+    for (const bacterium of this.slide.bacteria.coccobacilli) {
+      const zDepth = bacterium.zDepth - this.focusOffset;
+      const defocus = this.calculateDefocus(zDepth, bacterium.width);
 
-      const width = 1.0 * defocus.sizeMultiplier;
-      const length = 2.0 * defocus.sizeMultiplier;
-      const opacity = baseOpacity * Phaser.Math.FloatBetween(0.7, 1.0) * defocus.opacityMultiplier;
+      const width = bacterium.width * defocus.sizeMultiplier;
+      const length = bacterium.length * defocus.sizeMultiplier;
+      const opacity = baseOpacity * bacterium.stainVariation * defocus.opacityMultiplier;
 
       graphics.lineStyle(defocus.blurWidth, color, opacity);
       graphics.fillStyle(color, opacity * 0.6);
 
-      const x1 = bacteriumX - (length / 2) * Math.cos(bacteriumAngle);
-      const y1 = bacteriumY - (length / 2) * Math.sin(bacteriumAngle);
-      const x2 = bacteriumX + (length / 2) * Math.cos(bacteriumAngle);
-      const y2 = bacteriumY + (length / 2) * Math.sin(bacteriumAngle);
+      const x1 = bacterium.x - (length / 2) * Math.cos(bacterium.orientation);
+      const y1 = bacterium.y - (length / 2) * Math.sin(bacterium.orientation);
+      const x2 = bacterium.x + (length / 2) * Math.cos(bacterium.orientation);
+      const y2 = bacterium.y + (length / 2) * Math.sin(bacterium.orientation);
 
       graphics.fillCircle(x1, y1, width);
       graphics.fillCircle(x2, y2, width);
@@ -806,34 +829,42 @@ export class LabScene extends Phaser.Scene {
 
       // Capsule if capsule stain and organism has capsule
       if (this.currentStain === 'capsule' && organism.capsule) {
-        graphics.lineStyle(2, 0x4169e1, 0.3); // Blue halo
-        graphics.strokeEllipse(bacteriumX, bacteriumY, length * 1.5, width * 1.5);
+        graphics.lineStyle(2, 0x4169e1, 0.3);
+        graphics.strokeEllipse(bacterium.x, bacterium.y, length * 1.5, width * 1.5);
       }
     }
   }
 
-  private calculateDefocus(zDepth: number): { sizeMultiplier: number; opacityMultiplier: number; blurWidth: number } {
+  private calculateDefocus(zDepth: number, objectSize: number = 1): { sizeMultiplier: number; opacityMultiplier: number; blurWidth: number } {
     // Optical defocus algorithm based on depth of field
-    // zDepth: -3 (far below focal plane) to +3 (far above focal plane), 0 = in focus
+    // zDepth: effective range -24 to +24 (focus offset -15 to +15, blood cells -9 to +9)
+    // objectSize: physical size of object - larger objects stay visible longer when defocused
     
-    // Clamp to reasonable range and calculate circle of confusion
-    const clampedDepth = Math.max(-3, Math.min(3, zDepth));
-    const defocusAmount = Math.abs(clampedDepth) / 3; // Normalize to 0-1
+    // Size-dependent depth of field - larger objects have greater tolerance to defocus
+    // Blood cells (~8 units) vs bacteria (~1-2 units)
+    const sizeScale = Math.log10(objectSize + 1) * 0.5 + 1; // Logarithmic scaling
+    const effectiveZDepth = zDepth / sizeScale; // Larger objects "feel" less defocus
     
-    // Quadratic falloff for realistic optical behavior
-    const blurFactor = defocusAmount * defocusAmount;
+    // Allow full range without clamping (can go beyond organism z-depths)
+    const defocusAmount = Math.abs(effectiveZDepth) / 15; // Normalize to 0-1+ (can exceed 1)
+    
+    // Cubic falloff for very aggressive fading when out of focus
+    const blurFactor = defocusAmount * defocusAmount * defocusAmount;
     
     // Size increases dramatically with defocus (point spread function)
-    // In-focus: 1.0x, extreme defocus: 2.5x size (very blurry)
-    const sizeMultiplier = 1.0 + (blurFactor * 1.5);
+    // In-focus: 1.0x, extreme defocus: 3.5x size (very blurry, can exceed specimen range)
+    const sizeMultiplier = 1.0 + (blurFactor * 2.5);
     
-    // Opacity decreases dramatically (energy spread over much larger area)
-    // In-focus: 1.0, extreme defocus: 0.1 (barely visible)
-    const opacityMultiplier = 1.0 - (blurFactor * 0.9);
+    // Opacity decreases very rapidly with defocus
+    // Using higher base falloff and steeper curve for faster disappearance
+    // Small objects (bacteria): nearly instant fade
+    // Large objects (blood cells): still fade quickly but slightly more gradual
+    const opacityFalloff = 5.5 - (sizeScale * 0.05); // Higher base falloff, larger objects still get some benefit
+    const opacityMultiplier = Math.max(0.0, 1.0 - (blurFactor * opacityFalloff));
     
     // Blur width increases significantly
-    // In-focus: 1px, extreme defocus: 5px (very soft edges)
-    const blurWidth = 1 + (blurFactor * 4);
+    // In-focus: 1px, extreme defocus: 8px (very soft edges)
+    const blurWidth = 1 + (blurFactor * 7);
     
     return { sizeMultiplier, opacityMultiplier, blurWidth };
   }
@@ -1084,7 +1115,6 @@ export class LabScene extends Phaser.Scene {
           });
           
           this.selectedDiagnosis = organism.id;
-          this.selectedOrganism = organism;
           button.setFillStyle(0x3a7a3a);
           
           // Update the reference manual to show selected organism
