@@ -30,6 +30,11 @@ export interface CultureProperties {
   coagulase: boolean;
 }
 
+export interface SerologyProperties {
+  producesAntibodies: boolean; // Does infection create detectable antibodies?
+  canTypeSera?: boolean; // Can be used for serotyping (like Salmonella)
+}
+
 export interface Organism {
   id: string;
   scientificName: string;
@@ -41,15 +46,41 @@ export interface Organism {
   shape: Shape;
   arrangement: Arrangement;
   notes: string;
-  culture?: CultureProperties; // Optional for now, will add to organisms gradually
+  culture?: CultureProperties; // Optional for now
+  serology?: SerologyProperties; // Optional for now
 }
+
+// Answer format configuration for different case types
+export interface AnswerFormat {
+  type: 'organism-id' | 'blood-type' | 'immunity-status' | 'antibody-detection';
+  options?: string[];
+}
+
+export const ANSWER_FORMATS: Record<string, AnswerFormat> = {
+  'organism-identification': {
+    type: 'organism-id',
+  },
+  'blood-typing': {
+    type: 'blood-type',
+    options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+  },
+  'immunity-screening': {
+    type: 'immunity-status',
+    options: ['immune', 'not-immune']
+  },
+  'syphilis-detection': {
+    type: 'antibody-detection',
+    options: ['positive', 'negative']
+  }
+};
 
 export interface Case {
   id: string;
   title: string;
-  organismId: string;
   story: string;
   correctSampleType: SampleType;
+  answerFormat: keyof typeof ANSWER_FORMATS;
+  correctAnswer: string;
 }
 
 // Epic 0+1+3+4: Expanded organisms with multiple stain types
@@ -290,144 +321,228 @@ export const ORGANISMS: Organism[] = [
   },
 ];
 
+// Case builder helpers to avoid repetition
+function createInfectionCases(cases: Array<{
+  id: string;
+  title: string;
+  story: string;
+  sampleType: SampleType;
+  organism: string;
+}>): Case[] {
+  return cases.map(c => ({
+    id: c.id,
+    title: c.title,
+    story: c.story,
+    correctSampleType: c.sampleType,
+    answerFormat: 'organism-identification' as const,
+    correctAnswer: c.organism,
+  }));
+}
+
+function createBloodTypingCases(cases: Array<{
+  id: string;
+  title: string;
+  story: string;
+  bloodType: string;
+}>): Case[] {
+  return cases.map(c => ({
+    id: c.id,
+    title: c.title,
+    story: c.story,
+    correctSampleType: 'blood' as const,
+    answerFormat: 'blood-typing' as const,
+    correctAnswer: c.bloodType,
+  }));
+}
+
+function createImmunityCases(cases: Array<{
+  id: string;
+  title: string;
+  story: string;
+  hasImmunity: boolean;
+}>): Case[] {
+  return cases.map(c => ({
+    id: c.id,
+    title: c.title,
+    story: c.story,
+    correctSampleType: 'blood' as const,
+    answerFormat: 'immunity-screening' as const,
+    correctAnswer: c.hasImmunity ? 'immune' : 'not-immune',
+  }));
+}
+
 // Epic 3+4: Multiple cases for variety
-export const CASES: Case[] = [
+const INFECTION_CASES = createInfectionCases([
   {
     id: 'case_001',
     title: 'Factory Worker Fever',
-    organismId: 'strep_pyogenes',
-    correctSampleType: 'throat-swab',
-    story:
-      'Steel mill worker, age 38. High fever (3 days), severe sore throat, difficulty swallowing. No recent travel.',
+    story: 'Steel mill worker, age 38. High fever (3 days), severe sore throat, difficulty swallowing. No recent travel.',
+    sampleType: 'throat-swab',
+    organism: 'strep_pyogenes',
   },
   {
     id: 'case_002',
     title: 'Infected Wound',
-    organismId: 'staph_aureus',
-    correctSampleType: 'wound',
-    story:
-      'Dockworker, age 45. Deep laceration on forearm from rusty metal (5 days ago). Wound is red, swollen, producing thick golden-yellow pus. Patient has fever and the infection is spreading. The wound culture will help identify the pathogen and guide treatment.',
+    story: 'Dockworker, age 45. Deep laceration on forearm from rusty metal (5 days ago). Wound is red, swollen, producing thick golden-yellow pus. Patient has fever and the infection is spreading. The wound culture will help identify the pathogen and guide treatment.',
+    sampleType: 'wound',
+    organism: 'staph_aureus',
   },
   {
     id: 'case_003',
     title: 'Severe Diarrhea',
-    organismId: 'e_coli',
-    correctSampleType: 'stool',
-    story:
-      'Restaurant cook, age 28. Watery diarrhea (2 days), abdominal cramps, vomiting. Several coworkers ill.',
+    story: 'Restaurant cook, age 28. Watery diarrhea (2 days), abdominal cramps, vomiting. Several coworkers ill.',
+    sampleType: 'stool',
+    organism: 'e_coli',
   },
   {
     id: 'case_004',
     title: 'Urethral Discharge',
-    organismId: 'n_gonorrhoeae',
-    correctSampleType: 'urine',
-    story:
-      'Sailor, age 24. Painful urination, purulent discharge (3 days). Recent shore leave.',
+    story: 'Sailor, age 24. Painful urination, purulent discharge (3 days). Recent shore leave.',
+    sampleType: 'urine',
+    organism: 'n_gonorrhoeae',
   },
   {
     id: 'case_005',
     title: 'Chronic Cough',
-    organismId: 'm_tuberculosis',
-    correctSampleType: 'sputum',
-    story:
-      'Textile worker, age 52. Persistent cough (3 months), night sweats, weight loss, blood in sputum.',
+    story: 'Textile worker, age 52. Persistent cough (3 months), night sweats, weight loss, blood in sputum.',
+    sampleType: 'sputum',
+    organism: 'm_tuberculosis',
   },
   {
     id: 'case_006',
     title: 'Rusty Nail Injury',
-    organismId: 'c_tetani',
-    correctSampleType: 'wound',
-    story:
-      'Farmhand, age 35. Stepped on rusty nail (7 days ago). Now jaw stiffness, difficulty opening mouth, muscle spasms.',
+    story: 'Farmhand, age 35. Stepped on rusty nail (7 days ago). Now jaw stiffness, difficulty opening mouth, muscle spasms.',
+    sampleType: 'wound',
+    organism: 'c_tetani',
   },
   {
     id: 'case_007',
     title: 'Rice-Water Stools',
-    organismId: 'v_cholerae',
-    correctSampleType: 'stool',
-    story:
-      'Immigrant laborer, age 29. Sudden onset severe watery diarrhea (1 day), vomiting, severe dehydration. Recently arrived by ship.',
+    story: 'Immigrant laborer, age 29. Sudden onset severe watery diarrhea (1 day), vomiting, severe dehydration. Recently arrived by ship.',
+    sampleType: 'stool',
+    organism: 'v_cholerae',
   },
   {
     id: 'case_008',
     title: 'Sustained Fever',
-    organismId: 's_typhi',
-    correctSampleType: 'blood',
-    story:
-      'Boarding house resident, age 33. High fever (10 days), rose-colored spots on abdomen, confusion, constipation.',
+    story: 'Boarding house resident, age 33. High fever (10 days), rose-colored spots on abdomen, confusion, constipation.',
+    sampleType: 'blood',
+    organism: 's_typhi',
   },
   {
     id: 'case_009',
     title: 'Throat Membrane',
-    organismId: 'c_diphtheriae',
-    correctSampleType: 'throat-swab',
-    story:
-      'Schoolchild, age 8. Sore throat (4 days), thick gray membrane in throat, difficulty breathing, bull neck appearance.',
+    story: 'Schoolchild, age 8. Sore throat (4 days), thick gray membrane in throat, difficulty breathing, bull neck appearance.',
+    sampleType: 'throat-swab',
+    organism: 'c_diphtheriae',
   },
   {
     id: 'case_010',
     title: 'Pneumonia',
-    organismId: 'k_pneumoniae',
-    correctSampleType: 'sputum',
-    story:
-      'Alcoholic vagrant, age 58. Sudden fever, productive cough with thick mucoid sputum (currant jelly), shortness of breath.',
+    story: 'Alcoholic vagrant, age 58. Sudden fever, productive cough with thick mucoid sputum (currant jelly), shortness of breath.',
+    sampleType: 'sputum',
+    organism: 'k_pneumoniae',
   },
   {
     id: 'case_011',
     title: 'Burn Infection',
-    organismId: 'p_aeruginosa',
-    correctSampleType: 'wound',
-    story:
-      'Factory fire victim, age 42. Severe burns (8 days ago), now green-blue discharge from wounds, sweet smell, high fever.',
+    story: 'Factory fire victim, age 42. Severe burns (8 days ago), now green-blue discharge from wounds, sweet smell, high fever.',
+    sampleType: 'wound',
+    organism: 'p_aeruginosa',
   },
   {
     id: 'case_012',
     title: 'Woolsorter Disease',
-    organismId: 'b_anthracis',
-    correctSampleType: 'tissue',
-    story:
-      'Wool mill worker, age 44. Black painless skin lesion on arm (5 days), surrounding swelling, fever, malaise.',
+    story: 'Wool mill worker, age 44. Black painless skin lesion on arm (5 days), surrounding swelling, fever, malaise.',
+    sampleType: 'tissue',
+    organism: 'b_anthracis',
   },
   {
     id: 'case_013',
     title: 'Bloody Flux',
-    organismId: 's_dysenteriae',
-    correctSampleType: 'stool',
-    story:
-      'Tenement resident, age 26. Severe bloody diarrhea (3 days), abdominal cramps, fever. Children in building also ill.',
+    story: 'Tenement resident, age 26. Severe bloody diarrhea (3 days), abdominal cramps, fever. Children in building also ill.',
+    sampleType: 'stool',
+    organism: 's_dysenteriae',
   },
   {
     id: 'case_014',
     title: 'Bubonic Affliction',
-    organismId: 'y_pestis',
-    correctSampleType: 'blood',
-    story:
-      'Wharf rat catcher, age 31. High fever (2 days), painful swollen lymph nodes in groin, black fingers, confusion.',
+    story: 'Wharf rat catcher, age 31. High fever (2 days), painful swollen lymph nodes in groin, black fingers, confusion.',
+    sampleType: 'blood',
+    organism: 'y_pestis',
   },
   {
     id: 'case_015',
     title: 'Lobar Pneumonia',
-    organismId: 'strep_pneumoniae',
-    correctSampleType: 'sputum',
-    story:
-      'Coal miner, age 49. Sudden fever with shaking chills, rust-colored sputum, chest pain when breathing.',
+    story: 'Coal miner, age 49. Sudden fever with shaking chills, rust-colored sputum, chest pain when breathing.',
+    sampleType: 'sputum',
+    organism: 'strep_pneumoniae',
   },
   {
     id: 'case_016',
     title: 'Child Meningitis',
-    organismId: 'h_influenzae',
-    correctSampleType: 'csf',
-    story:
-      'Orphanage child, age 4. High fever (2 days), stiff neck, vomiting, lethargy, bulging fontanelle.',
+    story: 'Orphanage child, age 4. High fever (2 days), stiff neck, vomiting, lethargy, bulging fontanelle.',
+    sampleType: 'csf',
+    organism: 'h_influenzae',
   },
   {
     id: 'case_017',
     title: 'Skin Abscess Mystery',
-    organismId: 'staph_aureus',
-    correctSampleType: 'wound',
-    story:
-      'Butcher, age 37. Large painful boil on neck (4 days), producing creamy pus. Under the microscope you see Gram-positive cocci... but are they Staphylococcus or Streptococcus? Culture and biochemical tests will reveal the truth.',
+    story: 'Butcher, age 37. Large painful boil on neck (4 days), producing creamy pus. Under the microscope you see Gram-positive cocci... but are they Staphylococcus or Streptococcus? Culture and biochemical tests will reveal the truth.',
+    sampleType: 'wound',
+    organism: 'staph_aureus',
   },
+]);
+
+// Epic 8: Blood typing cases
+const BLOOD_TYPING_CASES = createBloodTypingCases([
+  {
+    id: 'case_blood_001',
+    title: 'Factory Accident Transfusion',
+    story: 'Steel mill worker, age 42. Crushed hand in machinery accident - severe blood loss. Emergency transfusion needed. Doctor orders blood typing before transfusion to prevent fatal reaction. Patient conscious but pale, rapid pulse.',
+    bloodType: 'A+',
+  },
+  {
+    id: 'case_blood_002',
+    title: 'Surgical Preparation',
+    story: 'Pregnant woman, age 28. Scheduled for emergency cesarean section due to placental complications. Hospital requires blood type on file before surgery in case transfusion needed. Patient stable but anxious.',
+    bloodType: 'O-',
+  },
+  {
+    id: 'case_blood_003',
+    title: 'Emergency Room Trauma',
+    story: 'Railway worker, age 35. Fell from platform, multiple fractures and internal bleeding suspected. Blood bank needs type and crossmatch urgently. Patient semiconscious, bleeding internally.',
+    bloodType: 'B+',
+  },
+]);
+
+// Epic 8: Immunity screening cases
+const IMMUNITY_CASES = createImmunityCases([
+  {
+    id: 'case_immunity_001',
+    title: 'Railroad Employment Screening',
+    story: 'Job applicant, age 24. Railroad company requires proof of diphtheria immunity for all workers (close quarters in camps). Applicant claims vaccination as child in Germany. Schick test will confirm protection.',
+    hasImmunity: true,
+  },
+  {
+    id: 'case_immunity_002',
+    title: 'School Enrollment Check',
+    story: 'Immigrant child, age 7. Public school requires diphtheria immunity verification before enrollment. Family arrived from Italy last month, no vaccination records. Recent diphtheria outbreak in tenement district.',
+    hasImmunity: false,
+  },
+  {
+    id: 'case_immunity_003',
+    title: 'Factory Worker Medical',
+    story: 'Textile mill worker, age 19. Annual health examination required by state labor board. Diphtheria antitoxin test ordered due to crowded working conditions. Worker reports no serious childhood illnesses.',
+    hasImmunity: true,
+  },
+]);
+
+// Flatten all cases into single array for game use
+export const CASES: Case[] = [
+  ...INFECTION_CASES,
+  ...BLOOD_TYPING_CASES,
+  ...IMMUNITY_CASES,
 ];
 
 // Epic 4: Background material visible for each sample type

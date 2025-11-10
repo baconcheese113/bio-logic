@@ -10,6 +10,7 @@ export type GamePhase =
   | 'microscope-observation'
   | 'culture-observation'
   | 'biochemical-testing'
+  | 'serology-testing'
   | 'diagnosis';
 
 export type StainType = 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore';
@@ -19,7 +20,7 @@ export interface GameState {
   selectedSampleType: SampleType | null;
   currentStain: StainType;
   gamePhase: GamePhase;
-  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing';
+  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing';
   focusDepth: number;
   zoomLevel: number;
 }
@@ -43,7 +44,13 @@ export const currentCase = derived(
 
 export const currentOrganism = derived(
   currentCase,
-  ($case) => ORGANISMS.find(org => org.id === $case.organismId)
+  ($case) => {
+    // For organism-identification cases, find the organism
+    if ($case.answerFormat === 'organism-identification') {
+      return ORGANISMS.find(org => org.id === $case.correctAnswer);
+    }
+    return undefined;
+  }
 );
 
 export const isCorrectSample = derived(
@@ -77,12 +84,14 @@ export function selectSample(sampleType: SampleType) {
   }));
 }
 
-export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical') {
+export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology') {
   let phase: GamePhase;
   if (instrument === 'microscope') {
     phase = 'microscope-observation';
   } else if (instrument === 'culture') {
     phase = 'culture-observation';
+  } else if (instrument === 'serology') {
+    phase = 'serology-testing';
   } else {
     phase = 'biochemical-testing';
   }

@@ -128,11 +128,83 @@ export const BIOCHEMICAL_INFO = {
   }
 };
 
+export const SEROLOGY_INFO = {
+  'test-anti-a': {
+    title: 'Anti-A Serum Test (1901)',
+    text: 'Add Anti-A antibodies to patient blood. If blood has A antigens (type A or AB), red cells will clump together (agglutinate). No agglutination means no A antigens (type B or O). Must combine with Anti-B test results to determine blood type.'
+  },
+  'test-anti-b': {
+    title: 'Anti-B Serum Test (1901)',
+    text: 'Add Anti-B antibodies to patient blood. If blood has B antigens (type B or AB), red cells will agglutinate. No agglutination means no B antigens (type A or O). Combine with Anti-A results: A+B=AB, A only=A, B only=B, neither=O.'
+  },
+  'test-abo': {
+    title: 'ABO Blood Typing (1901)',
+    text: 'Karl Landsteiner discovered ABO blood groups by mixing sera and red blood cells. Anti-A serum agglutinates type A blood, Anti-B serum agglutinates type B, both agglutinate AB, neither agglutinate O. Revolutionary for safe blood transfusions.'
+  },
+  'test-rh': {
+    title: 'Rh Factor Test (1940)',
+    text: 'Landsteiner and Wiener discovered the Rh antigen using rhesus monkey antibodies. Anti-D serum agglutinates Rh-positive blood (has D antigen), no reaction with Rh-negative. Critical for preventing hemolytic disease in newborns.'
+  },
+  'test-syphilis': {
+    title: 'Syphilis Serology (1906)',
+    text: 'Wassermann developed the first antibody test for syphilis using complement fixation. Modern tests detect antibodies against Treponema pallidum. Positive = patient has been exposed and body produced antibodies. Remains standard for diagnosis.'
+  },
+  'test-diphtheria': {
+    title: 'Diphtheria Antitoxin Test (1890)',
+    text: 'Emil von Behring and Shibasaburo Kitasato demonstrated "antitoxin" immunity - serum from immunized animals could protect against diphtheria toxin. Schick test detects presence of protective antibodies. Founded the field of serology and immunology.'
+  },
+  'blood-type-a': {
+    title: 'Type A Blood',
+    text: 'Red blood cells have A antigens on surface. Agglutinates with Anti-A serum, not with Anti-B. Patient has naturally occurring Anti-B antibodies in plasma. Can receive A or O blood.'
+  },
+  'blood-type-b': {
+    title: 'Type B Blood',
+    text: 'Red blood cells have B antigens on surface. Agglutinates with Anti-B serum, not with Anti-A. Patient has naturally occurring Anti-A antibodies in plasma. Can receive B or O blood.'
+  },
+  'blood-type-ab': {
+    title: 'Type AB Blood',
+    text: 'Red blood cells have both A and B antigens. Agglutinates with both Anti-A and Anti-B sera. No naturally occurring antibodies - "universal recipient" for ABO system. Can receive any ABO type.'
+  },
+  'blood-type-o': {
+    title: 'Type O Blood',
+    text: 'Red blood cells lack both A and B antigens. No agglutination with either serum. Has both Anti-A and Anti-B antibodies - "universal donor" for red cells. Can only receive O blood.'
+  },
+  'rh-positive': {
+    title: 'Rh Positive (+)',
+    text: 'Red blood cells have D antigen (Rh factor) on surface. Agglutinates with Anti-D serum. About 85% of population. Rh+ can receive Rh+ or Rh- blood.'
+  },
+  'rh-negative': {
+    title: 'Rh Negative (−)',
+    text: 'Red blood cells lack D antigen. No agglutination with Anti-D serum. About 15% of population. Rh- should only receive Rh- blood to avoid sensitization and antibody production.'
+  },
+  'syphilis-positive': {
+    title: 'Syphilis Antibodies Detected',
+    text: 'Patient serum contains antibodies against Treponema pallidum. Indicates current or past infection. Antibodies may persist for life even after treatment. Agglutination or complement fixation confirms exposure.'
+  },
+  'syphilis-negative': {
+    title: 'No Syphilis Antibodies',
+    text: 'No antibodies detected. Patient has not been exposed to Treponema pallidum, or infection is too recent for antibody production (window period typically 3-6 weeks). No agglutination reaction.'
+  },
+  'diphtheria-immune': {
+    title: 'Immune to Diphtheria',
+    text: 'Serum contains protective antitoxin antibodies against diphtheria toxin. Patient has been vaccinated or previously infected. Antibodies will neutralize toxin if exposed. Schick test negative (no skin reaction).'
+  },
+  'diphtheria-not-immune': {
+    title: 'Not Immune to Diphtheria',
+    text: 'Serum lacks protective antitoxin antibodies. Patient is susceptible to diphtheria toxin. Vaccination recommended. Schick test positive (skin inflammation where toxin injected).'
+  },
+  'agglutination': {
+    title: 'Agglutination Reaction',
+    text: 'When antibodies bind to antigens on cell surfaces, cells clump together into visible clusters. The lattice structure forms because each antibody can bind two antigen sites. Positive agglutination = antibody-antigen match. Foundation of blood typing and serology.'
+  }
+};
+
 // Helper to get info by key from any category
 export function getInfoContent(key: string) {
   return STAIN_INFO[key as keyof typeof STAIN_INFO] 
     || MORPHOLOGY_INFO[key as keyof typeof MORPHOLOGY_INFO]
     || CULTURE_INFO[key as keyof typeof CULTURE_INFO]
     || BIOCHEMICAL_INFO[key as keyof typeof BIOCHEMICAL_INFO]
+    || SEROLOGY_INFO[key as keyof typeof SEROLOGY_INFO]
     || null;
 }

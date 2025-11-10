@@ -6,6 +6,7 @@
   import MicroscopeView from './lib/components/MicroscopeView.svelte';
   import CulturePlateView from './lib/components/CulturePlateView.svelte';
   import BiochemicalTestView from './lib/components/BiochemicalTestView.svelte';
+  import SerologyView from './lib/components/SerologyView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 
@@ -33,6 +34,10 @@
   
   <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'}>
     <BiochemicalTestView />
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'}>
+    <SerologyView />
   </div>
   
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>

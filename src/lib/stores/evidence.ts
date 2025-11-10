@@ -21,6 +21,12 @@ export interface Evidence {
   // Biochemical evidence
   catalase: boolean | null;
   coagulase: boolean | null;
+  
+  // Serology evidence
+  bloodType: 'A' | 'B' | 'AB' | 'O' | null;
+  rhFactor: boolean | null; // true = positive, false = negative
+  syphilisAntibodies: boolean | null;
+  diphtheriaAntitoxin: boolean | null;
 }
 
 const initialEvidence: Evidence = {
@@ -42,6 +48,12 @@ const initialEvidence: Evidence = {
   // Biochemical
   catalase: null,
   coagulase: null,
+  
+  // Serology
+  bloodType: null,
+  rhFactor: null,
+  syphilisAntibodies: null,
+  diphtheriaAntitoxin: null,
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -217,6 +229,35 @@ export function setCoagulase(value: boolean) {
   evidence.update(e => ({
     ...e,
     coagulase: e.coagulase === value ? null : value,
+  }));
+}
+
+// Serology evidence toggles
+export function setBloodType(value: 'A' | 'B' | 'AB' | 'O') {
+  evidence.update(e => ({
+    ...e,
+    bloodType: e.bloodType === value ? null : value,
+  }));
+}
+
+export function setRhFactor(value: boolean) {
+  evidence.update(e => ({
+    ...e,
+    rhFactor: e.rhFactor === value ? null : value,
+  }));
+}
+
+export function setSyphilisAntibodies(value: boolean) {
+  evidence.update(e => ({
+    ...e,
+    syphilisAntibodies: e.syphilisAntibodies === value ? null : value,
+  }));
+}
+
+export function setDiphtheriaAntitoxin(value: boolean) {
+  evidence.update(e => ({
+    ...e,
+    diphtheriaAntitoxin: e.diphtheriaAntitoxin === value ? null : value,
   }));
 }
 

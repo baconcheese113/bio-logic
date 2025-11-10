@@ -1,10 +1,11 @@
 <script lang="ts">
   import { filteredOrganisms, matchCount, evidence } from '../stores/evidence';
   import { currentCase, nextCase, returnToLastInstrument } from '../stores/game-state';
-  import { ORGANISMS } from '../../data/organisms';
+  import { ORGANISMS, ANSWER_FORMATS } from '../../data/organisms';
   import type { Organism } from '../../data/organisms';
 
   let selectedOrganism = $state<Organism | null>(null);
+  let selectedAnswer = $state<string | null>(null);
   let feedback = $state<string>('');
   let isCorrect = $state<boolean | null>(null);
   let hoveredCharacteristic = $state<keyof typeof characteristicInfo | null>(null);
@@ -57,29 +58,59 @@
            $evidence.hemolysis !== null ||
            $evidence.macConkeyColor !== null ||
            $evidence.catalase !== null ||
-           $evidence.coagulase !== null;
+           $evidence.coagulase !== null ||
+           $evidence.bloodType !== null ||
+           $evidence.rhFactor !== null ||
+           $evidence.syphilisAntibodies !== null ||
+           $evidence.diphtheriaAntitoxin !== null;
   }
 
   function selectOrganism(organism: Organism) {
     selectedOrganism = organism;
+    selectedAnswer = organism.id;
+  }
+
+  function selectAnswer(answer: string) {
+    selectedAnswer = answer;
+    selectedOrganism = null;
   }
 
   function submitDiagnosis() {
-    if (!selectedOrganism) return;
+    if (!selectedAnswer) return;
     
-    const correct = selectedOrganism.id === $currentCase.organismId;
+    const correct = selectedAnswer === $currentCase.correctAnswer;
     isCorrect = correct;
     
+    const answerFormat = ANSWER_FORMATS[$currentCase.answerFormat];
+    
     if (correct) {
-      feedback = `Correct! ${selectedOrganism.scientificName} was the right diagnosis.`;
+      if (answerFormat.type === 'organism-id') {
+        const organism = ORGANISMS.find(o => o.id === selectedAnswer);
+        feedback = `Correct! ${organism?.scientificName} was the right diagnosis.`;
+      } else if (answerFormat.type === 'blood-type') {
+        feedback = `Correct! The patient's blood type is ${selectedAnswer}.`;
+      } else if (answerFormat.type === 'immunity-status') {
+        feedback = selectedAnswer === 'immune' 
+          ? 'Correct! Patient has protective antibodies and is immune.'
+          : 'Correct! Patient lacks protective antibodies and is not immune.';
+      } else if (answerFormat.type === 'antibody-detection') {
+        feedback = selectedAnswer === 'positive'
+          ? 'Correct! Antibodies detected - patient has been exposed.'
+          : 'Correct! No antibodies detected - patient has not been exposed.';
+      }
     } else {
-      const correctOrganism = ORGANISMS.find(o => o.id === $currentCase.organismId);
-      feedback = `Incorrect. The correct organism was ${correctOrganism?.scientificName || 'unknown'}.`;
+      if (answerFormat.type === 'organism-id') {
+        const correctOrganism = ORGANISMS.find(o => o.id === $currentCase.correctAnswer);
+        feedback = `Incorrect. The correct organism was ${correctOrganism?.scientificName || 'unknown'}.`;
+      } else {
+        feedback = `Incorrect. The correct answer was ${$currentCase.correctAnswer}.`;
+      }
     }
   }
 
   function proceedToNextCase() {
     selectedOrganism = null;
+    selectedAnswer = null;
     feedback = '';
     isCorrect = null;
     nextCase();
@@ -157,6 +188,20 @@
           {#if $evidence.coagulase !== null}
             <span class="obs-badge biochem">Coagulase: {formatEvidenceValue($evidence.coagulase)}</span>
           {/if}
+          
+          <!-- Serology observations -->
+          {#if $evidence.bloodType !== null}
+            <span class="obs-badge serology">Blood Type: {formatEvidenceValue($evidence.bloodType)}</span>
+          {/if}
+          {#if $evidence.rhFactor !== null}
+            <span class="obs-badge serology">Rh Factor: {$evidence.rhFactor ? '+' : '-'}</span>
+          {/if}
+          {#if $evidence.syphilisAntibodies !== null}
+            <span class="obs-badge serology">Syphilis: {formatEvidenceValue($evidence.syphilisAntibodies)}</span>
+          {/if}
+          {#if $evidence.diphtheriaAntitoxin !== null}
+            <span class="obs-badge serology">Diphtheria: {$evidence.diphtheriaAntitoxin ? 'Immune' : 'Not Immune'}</span>
+          {/if}
         </div>
       </div>
     {:else}
@@ -177,8 +222,89 @@
       </div>
     {/if}
 
-    <!-- Comparison Table -->
-    {#if $filteredOrganisms.length > 0}
+    <!-- Blood Type Selection (for blood-typing cases) -->
+    {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'blood-type'}
+      <div class="answer-selection-section">
+        <h3>Select Blood Type</h3>
+        <div class="blood-type-grid">
+          {#each ANSWER_FORMATS[$currentCase.answerFormat].options || [] as option}
+            <button
+              class="answer-option"
+              class:selected={selectedAnswer === option}
+              onclick={() => selectAnswer(option)}
+              disabled={feedback !== ''}
+            >
+              {option}
+            </button>
+          {/each}
+        </div>
+      </div>
+      
+      {#if selectedAnswer && !feedback}
+        <div class="submit-section">
+          <button class="submit-button" onclick={submitDiagnosis}>
+            Submit Diagnosis: {selectedAnswer}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Immunity Status Selection (for immunity-status cases) -->
+    {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'immunity-status'}
+      <div class="answer-selection-section">
+        <h3>Patient Immunity Status</h3>
+        <div class="immunity-options">
+          {#each ANSWER_FORMATS[$currentCase.answerFormat].options || [] as option}
+            <button
+              class="answer-option immunity"
+              class:selected={selectedAnswer === option}
+              onclick={() => selectAnswer(option)}
+              disabled={feedback !== ''}
+            >
+              {option === 'immune' ? 'Immune (Has Protective Antibodies)' : 'Not Immune (No Protective Antibodies)'}
+            </button>
+          {/each}
+        </div>
+      </div>
+      
+      {#if selectedAnswer && !feedback}
+        <div class="submit-section">
+          <button class="submit-button" onclick={submitDiagnosis}>
+            Submit Diagnosis: {selectedAnswer === 'immune' ? 'Immune' : 'Not Immune'}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Antibody Detection Selection (for antibody-detection cases) -->
+    {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'antibody-detection'}
+      <div class="answer-selection-section">
+        <h3>Antibody Test Result</h3>
+        <div class="immunity-options">
+          {#each ANSWER_FORMATS[$currentCase.answerFormat].options || [] as option}
+            <button
+              class="answer-option immunity"
+              class:selected={selectedAnswer === option}
+              onclick={() => selectAnswer(option)}
+              disabled={feedback !== ''}
+            >
+              {option === 'positive' ? 'Positive (Antibodies Detected)' : 'Negative (No Antibodies)'}
+            </button>
+          {/each}
+        </div>
+      </div>
+      
+      {#if selectedAnswer && !feedback}
+        <div class="submit-section">
+          <button class="submit-button" onclick={submitDiagnosis}>
+            Submit Result: {selectedAnswer === 'positive' ? 'Positive' : 'Negative'}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Comparison Table (for organism-id cases) -->
+    {#if $filteredOrganisms.length > 0 && ANSWER_FORMATS[$currentCase.answerFormat].type === 'organism-id'}
       <div class="comparison-container">
         <table class="comparison-table">
           <thead>
@@ -486,6 +612,74 @@
     background: #3a5a4a;
     color: #c0e0d0;
     border-color: #4a6a5a;
+  }
+
+  .obs-badge.serology {
+    background: #5a3a4a;
+    color: #e0c0d0;
+    border-color: #6a4a5a;
+  }
+
+  .answer-selection-section {
+    background: #2a3a4a;
+    border: 2px solid #4a5a6a;
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .answer-selection-section h3 {
+    font-size: 1.2rem;
+    color: #e0e0e0;
+    margin: 0 0 1rem 0;
+    text-align: center;
+  }
+
+  .blood-type-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .immunity-options {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .answer-option {
+    background: #3a4a5a;
+    color: #e0e0e0;
+    border: 2px solid #4a5a6a;
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .answer-option:hover:not(:disabled) {
+    background: #4a5a6a;
+    border-color: #6a9fb5;
+    transform: translateY(-2px);
+  }
+
+  .answer-option.selected {
+    background: #4a7c59;
+    border-color: #5a8c69;
+    color: white;
+  }
+
+  .answer-option:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .answer-option.immunity {
+    min-width: 250px;
   }
 
   .no-observations {

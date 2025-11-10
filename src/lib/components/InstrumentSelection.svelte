@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -15,14 +15,18 @@
     biochemical: {
       title: 'Biochemical Tests',
       description: 'Perform catalase and coagulase tests to identify bacterial enzyme activity and differentiate species.'
+    },
+    serology: {
+      title: 'Serology',
+      description: 'Detect antibodies and antigens through agglutination reactions. Blood typing, immunity screening, and antibody detection for syphilis and other diseases.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -69,6 +73,17 @@
       <div class="instrument-icon">🧪</div>
       <h3>Biochemical Tests</h3>
       <p>Identify enzyme activity and metabolism</p>
+    </button>
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('serology')}
+      onmouseenter={() => setHoveredInfo('serology')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">🩸</div>
+      <h3>Serology</h3>
+      <p>Blood typing and antibody detection</p>
     </button>
   </div>
 
@@ -122,7 +137,7 @@
 
   .instruments-container {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 2rem;
     justify-content: center;
     flex: 1;
