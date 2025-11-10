@@ -1,7 +1,9 @@
 <script lang="ts">
   import StageArea from './StageArea.svelte';
   import MicroscopeInstrument from './MicroscopeInstrument.svelte';
-  import { gameState, returnToSampleSelection, proceedToDiagnosis, setFocus, changeStain } from '../stores/game-state';
+  import HoverInfoPanel from './HoverInfoPanel.svelte';
+  import NavigationButtons from './NavigationButtons.svelte';
+  import { gameState, proceedToDiagnosis, setFocus, changeStain } from '../stores/game-state';
   import type { StainType } from '../stores/game-state';
   import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, filteredOrganisms } from '../stores/evidence';
 
@@ -9,10 +11,9 @@
   let showStainSection = $state(true);
   let showObservationsSection = $state(true);
   let microscopeRef = $state<MicroscopeInstrument>();
-  let hoveredInfo = $state<keyof typeof infoContent | null>(null);
-  let lastHoveredInfo = $state<keyof typeof infoContent | null>(null);
+  let lastHoveredInfo = $state<string | null>(null);
 
-  const stains: { value: StainType; label: string; infoKey: keyof typeof infoContent }[] = [
+  const stains: { value: StainType; label: string; infoKey: string }[] = [
     { value: 'none', label: 'No Stain', infoKey: 'stain-none' },
     { value: 'gram', label: 'Gram Stain', infoKey: 'stain-gram' },
     { value: 'acid-fast', label: 'Acid-Fast Stain', infoKey: 'stain-acid-fast' },
@@ -20,32 +21,12 @@
     { value: 'spore', label: 'Spore Stain', infoKey: 'stain-spore' },
   ];
 
-  const infoContent = {
-    'stain-none': { title: 'No Stain', text: 'Bacteria are nearly transparent without staining, showing only basic cellular outlines.' },
-    'stain-gram': { title: 'Gram Stain', text: 'Gram-positive bacteria appear purple (thick cell wall). Gram-negative appear pink/red (thin cell wall).' },
-    'stain-acid-fast': { title: 'Acid-Fast Stain', text: 'Acid-fast positive bacteria retain red/pink dye (waxy mycolic acids). Negative bacteria appear blue.' },
-    'stain-capsule': { title: 'Capsule Stain', text: 'Capsules appear as clear halos surrounding bacteria against a dark background.' },
-    'stain-spore': { title: 'Spore Stain', text: 'Endospores appear as bright green oval structures inside or outside bacterial cells.' },
-    'shape-cocci': { title: 'Cocci', text: 'Round or spherical bacterial cells.' },
-    'shape-bacilli': { title: 'Bacilli', text: 'Rod-shaped bacterial cells, longer than they are wide.' },
-    'shape-diplococci': { title: 'Diplococci', text: 'Bacteria occurring in pairs of spherical cells.' },
-    'gram-positive': { title: 'Gram Positive (+)', text: 'Purple/violet color after Gram staining indicates thick peptidoglycan layer.' },
-    'gram-negative': { title: 'Gram Negative (−)', text: 'Pink/red color after Gram staining indicates thin peptidoglycan layer.' },
-    'acid-fast-pos': { title: 'Acid-Fast Positive', text: 'Red/pink color indicates presence of waxy mycolic acids in cell wall.' },
-    'acid-fast-neg': { title: 'Acid-Fast Negative', text: 'Blue color indicates absence of mycolic acids.' },
-    'capsule-pos': { title: 'Capsule Present', text: 'Clear halo visible around stained bacteria.' },
-    'capsule-neg': { title: 'No Capsule', text: 'No clear halo around bacteria.' },
-    'spores-pos': { title: 'Spores Present', text: 'Green oval endospores visible inside or outside cells.' },
-    'spores-neg': { title: 'No Spores', text: 'No green oval structures visible.' },
-  };
-
   function handleStainChange(stain: StainType) {
     changeStain(stain);
     microscopeRef?.refreshMicroscopeView();
   }
 
-  function setHoveredInfo(key: keyof typeof infoContent | null) {
-    hoveredInfo = key;
+  function setHoveredInfo(key: string | null) {
     if (key !== null) {
       lastHoveredInfo = key;
     }
@@ -58,19 +39,7 @@
       <MicroscopeInstrument bind:this={microscopeRef} />
     </StageArea>
 
-    <!-- Info Panel -->
-    <div class="info-panel">
-      {#if lastHoveredInfo && infoContent[lastHoveredInfo]}
-        <div class="info-content">
-          <h4>{infoContent[lastHoveredInfo].title}</h4>
-          <p>{infoContent[lastHoveredInfo].text}</p>
-        </div>
-      {:else}
-        <div class="info-placeholder">
-          Hover over controls to learn more
-        </div>
-      {/if}
-    </div>
+    <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
   <div class="controls-panel">
@@ -279,11 +248,7 @@
           {/if}
         </div>
 
-        <div class="action-buttons">
-          <button class="secondary-button" onclick={returnToSampleSelection}>
-            Change Sample
-          </button>
-        </div>
+        <NavigationButtons />
       </div>
     {:else}
       <!-- Diagnosis Tab -->
@@ -506,27 +471,6 @@
     color: #ffffff;
   }
 
-  .action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: auto;
-  }
-
-  .secondary-button {
-    padding: 0.75rem;
-    font-size: 0.95rem;
-    border-radius: 4px;
-    border: 2px solid #5a5a5a;
-    background: #3a3a3a;
-    color: #e0e0e0;
-    transition: all 0.2s;
-  }
-
-  .secondary-button:hover {
-    background: #4a4a4a;
-  }
-
   /* Diagnosis Tab */
   .diagnosis-content {
     overflow-y: auto;
@@ -578,44 +522,5 @@
     padding: 1.5rem;
     font-style: italic;
     font-size: 0.85rem;
-  }
-
-  .info-panel {
-    background: #2a2a2a;
-    border-top: 2px solid #4a4a4a;
-    padding: 1rem 2rem;
-    height: 90px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .info-content {
-    width: 100%;
-    max-width: 1200px;
-    text-align: center;
-  }
-
-  .info-content h4 {
-    font-size: 1rem;
-    color: #ffd700;
-    margin: 0 0 0.5rem 0;
-    font-weight: bold;
-  }
-
-  .info-content p {
-    font-size: 0.95rem;
-    color: #c0c0c0;
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  .info-placeholder {
-    width: 100%;
-    text-align: center;
-    color: #666;
-    font-style: italic;
-    font-size: 0.9rem;
   }
 </style>

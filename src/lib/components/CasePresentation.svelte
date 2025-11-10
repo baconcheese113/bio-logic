@@ -1,14 +1,33 @@
 <script lang="ts">
   import { currentCase, gameState } from '../stores/game-state';
+  import { CASES } from '../../data/organisms';
   
   function showSampleSelection() {
     gameState.update(state => ({ ...state, gamePhase: 'sample-selection' }));
+  }
+
+  function previousCase() {
+    gameState.update(state => ({
+      ...state,
+      currentCaseIndex: (state.currentCaseIndex - 1 + CASES.length) % CASES.length,
+    }));
+  }
+
+  function skipToNextCase() {
+    gameState.update(state => ({
+      ...state,
+      currentCaseIndex: (state.currentCaseIndex + 1) % CASES.length,
+    }));
   }
 </script>
 
 <div class="case-presentation">
   <div class="content">
-    <h1>Case #{$gameState.currentCaseIndex + 1}</h1>
+    <div class="case-navigation">
+      <button class="nav-button" onclick={previousCase}>← Previous</button>
+      <h1>Case #{$gameState.currentCaseIndex + 1} of {CASES.length}</h1>
+      <button class="nav-button" onclick={skipToNextCase}>Next →</button>
+    </div>
     <h2>{$currentCase.title}</h2>
     <div class="story">
       {@html $currentCase.story.replace(/\n/g, '<br>')}
@@ -41,8 +60,33 @@
   h1 {
     font-size: 1.5rem;
     color: #888;
-    margin: 0 0 1rem 0;
+    margin: 0;
     letter-spacing: 2px;
+  }
+
+  .case-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .nav-button {
+    background: none;
+    border: 1px solid #4a4a4a;
+    color: #888;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .nav-button:hover {
+    background: #3a3a3a;
+    border-color: #6a6a6a;
+    color: #aaa;
   }
 
   h2 {

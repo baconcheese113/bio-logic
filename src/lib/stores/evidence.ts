@@ -1,23 +1,47 @@
 import { writable, derived } from 'svelte/store';
 import { ORGANISMS } from '../../data/organisms';
-import type { GramStain, Shape, Arrangement } from '../../data/organisms';
+import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis } from '../../data/organisms';
 
 export interface Evidence {
+  // Microscopy evidence
   gramStain: GramStain | null;
   shape: Shape | null;
   arrangement: Arrangement | null;
   acidFast: boolean | null;
   capsule: boolean | null;
   spores: boolean | null;
+  
+  // Culture evidence
+  bloodAgarGrowth: 'good' | 'poor' | 'none' | null;
+  bloodAgarColor: ColonyColor | null;
+  hemolysis: Hemolysis | null;
+  macConkeyGrowth: 'good' | 'poor' | 'none' | null;
+  macConkeyColor: ColonyColor | null;
+  
+  // Biochemical evidence
+  catalase: boolean | null;
+  coagulase: boolean | null;
 }
 
 const initialEvidence: Evidence = {
+  // Microscopy
   gramStain: null,
   shape: null,
   arrangement: null,
   acidFast: null,
   capsule: null,
   spores: null,
+  
+  // Culture
+  bloodAgarGrowth: null,
+  bloodAgarColor: null,
+  hemolysis: null,
+  macConkeyGrowth: null,
+  macConkeyColor: null,
+  
+  // Biochemical
+  catalase: null,
+  coagulase: null,
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -27,7 +51,7 @@ export const filteredOrganisms = derived(
   evidence,
   ($evidence) => {
     return ORGANISMS.filter(organism => {
-      // Check each piece of evidence
+      // Microscopy evidence
       if ($evidence.gramStain !== null && organism.gramStain !== $evidence.gramStain) {
         return false;
       }
@@ -46,6 +70,34 @@ export const filteredOrganisms = derived(
       if ($evidence.spores !== null && organism.sporeFormer !== $evidence.spores) {
         return false;
       }
+      
+      // Culture evidence (only check if organism has culture data)
+      if (organism.culture) {
+        if ($evidence.bloodAgarGrowth !== null && organism.culture.bloodAgar.growthQuality !== $evidence.bloodAgarGrowth) {
+          return false;
+        }
+        if ($evidence.bloodAgarColor !== null && organism.culture.bloodAgar.colonyColor !== $evidence.bloodAgarColor) {
+          return false;
+        }
+        if ($evidence.hemolysis !== null && organism.culture.bloodAgar.hemolysis !== $evidence.hemolysis) {
+          return false;
+        }
+        if ($evidence.macConkeyGrowth !== null && organism.culture.macConkey.growthQuality !== $evidence.macConkeyGrowth) {
+          return false;
+        }
+        if ($evidence.macConkeyColor !== null && organism.culture.macConkey.colonyColor !== $evidence.macConkeyColor) {
+          return false;
+        }
+        
+        // Biochemical evidence
+        if ($evidence.catalase !== null && organism.culture.catalase !== $evidence.catalase) {
+          return false;
+        }
+        if ($evidence.coagulase !== null && organism.culture.coagulase !== $evidence.coagulase) {
+          return false;
+        }
+      }
+      
       return true;
     });
   }
@@ -96,6 +148,75 @@ export function toggleSpores() {
   evidence.update(e => ({
     ...e,
     spores: e.spores === null ? true : (e.spores ? false : null),
+  }));
+}
+
+// Culture evidence toggles
+export function setColonyColor(medium: 'blood-agar' | 'macconkey', color: ColonyColor) {
+  evidence.update(e => {
+    if (medium === 'blood-agar') {
+      return {
+        ...e,
+        bloodAgarColor: e.bloodAgarColor === color ? null : color,
+      };
+    } else {
+      return {
+        ...e,
+        macConkeyColor: e.macConkeyColor === color ? null : color,
+      };
+    }
+  });
+}
+
+export function setGrowthQuality(medium: 'blood-agar' | 'macconkey', quality: 'good' | 'poor' | 'none') {
+  evidence.update(e => {
+    if (medium === 'blood-agar') {
+      return {
+        ...e,
+        bloodAgarGrowth: e.bloodAgarGrowth === quality ? null : quality,
+      };
+    } else {
+      return {
+        ...e,
+        macConkeyGrowth: e.macConkeyGrowth === quality ? null : quality,
+      };
+    }
+  });
+}
+
+export function setHemolysis(value: Hemolysis) {
+  evidence.update(e => ({
+    ...e,
+    hemolysis: e.hemolysis === value ? null : value,
+  }));
+}
+
+// Biochemical evidence toggles
+export function toggleCatalase() {
+  evidence.update(e => ({
+    ...e,
+    catalase: e.catalase === null ? true : (e.catalase ? false : null),
+  }));
+}
+
+export function setCatalase(value: boolean) {
+  evidence.update(e => ({
+    ...e,
+    catalase: e.catalase === value ? null : value,
+  }));
+}
+
+export function toggleCoagulase() {
+  evidence.update(e => ({
+    ...e,
+    coagulase: e.coagulase === null ? true : (e.coagulase ? false : null),
+  }));
+}
+
+export function setCoagulase(value: boolean) {
+  evidence.update(e => ({
+    ...e,
+    coagulase: e.coagulase === value ? null : value,
   }));
 }
 

@@ -12,6 +12,23 @@ export type SampleType =
 export type GramStain = 'positive' | 'negative' | 'variable';
 export type Shape = 'cocci' | 'bacilli' | 'spirochete' | 'diplococci' | 'coccobacilli';
 export type Arrangement = 'chains' | 'clusters' | 'pairs' | 'single' | 'palisades';
+export type Hemolysis = 'alpha' | 'beta' | 'gamma' | 'none';
+export type ColonyColor = 'golden' | 'white' | 'gray' | 'pink' | 'colorless' | 'none';
+
+export interface CultureProperties {
+  bloodAgar: {
+    growthQuality: 'good' | 'poor' | 'none';
+    colonyColor: ColonyColor;
+    hemolysis: Hemolysis;
+  };
+  macConkey: {
+    growthQuality: 'good' | 'poor' | 'none';
+    colonyColor: ColonyColor;
+    lactoseFermenter: boolean;
+  };
+  catalase: boolean;
+  coagulase: boolean;
+}
 
 export interface Organism {
   id: string;
@@ -24,6 +41,7 @@ export interface Organism {
   shape: Shape;
   arrangement: Arrangement;
   notes: string;
+  culture?: CultureProperties; // Optional for now, will add to organisms gradually
 }
 
 export interface Case {
@@ -47,6 +65,20 @@ export const ORGANISMS: Organism[] = [
     shape: 'cocci',
     arrangement: 'chains',
     notes: 'Gram-positive cocci in chains, beta-hemolytic on blood agar',
+    culture: {
+      bloodAgar: {
+        growthQuality: 'good',
+        colonyColor: 'gray',
+        hemolysis: 'beta',
+      },
+      macConkey: {
+        growthQuality: 'none',
+        colonyColor: 'none',
+        lactoseFermenter: false,
+      },
+      catalase: false,
+      coagulase: false,
+    },
   },
   {
     id: 'staph_aureus',
@@ -59,6 +91,20 @@ export const ORGANISMS: Organism[] = [
     shape: 'cocci',
     arrangement: 'clusters',
     notes: 'Gram-positive cocci in grape-like clusters, catalase positive, coagulase positive',
+    culture: {
+      bloodAgar: {
+        growthQuality: 'good',
+        colonyColor: 'golden',
+        hemolysis: 'beta',
+      },
+      macConkey: {
+        growthQuality: 'none',
+        colonyColor: 'none',
+        lactoseFermenter: false,
+      },
+      catalase: true,
+      coagulase: true,
+    },
   },
   {
     id: 'e_coli',
@@ -71,6 +117,20 @@ export const ORGANISMS: Organism[] = [
     shape: 'bacilli',
     arrangement: 'single',
     notes: 'Gram-negative rod, lactose fermenter, common intestinal flora',
+    culture: {
+      bloodAgar: {
+        growthQuality: 'good',
+        colonyColor: 'gray',
+        hemolysis: 'gamma',
+      },
+      macConkey: {
+        growthQuality: 'good',
+        colonyColor: 'pink',
+        lactoseFermenter: true,
+      },
+      catalase: true,
+      coagulase: false,
+    },
   },
   {
     id: 'n_gonorrhoeae',
@@ -246,7 +306,7 @@ export const CASES: Case[] = [
     organismId: 'staph_aureus',
     correctSampleType: 'wound',
     story:
-      'Dockworker, age 45. Deep cut on hand (5 days ago), now red, swollen, pus-filled. Local fever.',
+      'Dockworker, age 45. Deep laceration on forearm from rusty metal (5 days ago). Wound is red, swollen, producing thick golden-yellow pus. Patient has fever and the infection is spreading. The wound culture will help identify the pathogen and guide treatment.',
   },
   {
     id: 'case_003',
@@ -359,6 +419,14 @@ export const CASES: Case[] = [
     correctSampleType: 'csf',
     story:
       'Orphanage child, age 4. High fever (2 days), stiff neck, vomiting, lethargy, bulging fontanelle.',
+  },
+  {
+    id: 'case_017',
+    title: 'Skin Abscess Mystery',
+    organismId: 'staph_aureus',
+    correctSampleType: 'wound',
+    story:
+      'Butcher, age 37. Large painful boil on neck (4 days), producing creamy pus. Under the microscope you see Gram-positive cocci... but are they Staphylococcus or Streptococcus? Culture and biochemical tests will reveal the truth.',
   },
 ];
 

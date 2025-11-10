@@ -2,20 +2,42 @@
   import { gameState } from './lib/stores/game-state';
   import CasePresentation from './lib/components/CasePresentation.svelte';
   import SampleSelection from './lib/components/SampleSelection.svelte';
+  import InstrumentSelection from './lib/components/InstrumentSelection.svelte';
   import MicroscopeView from './lib/components/MicroscopeView.svelte';
+  import CulturePlateView from './lib/components/CulturePlateView.svelte';
+  import BiochemicalTestView from './lib/components/BiochemicalTestView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 
 <main>
-  {#if $gameState.gamePhase === 'case-presentation'}
+  <!-- Keep all components mounted to preserve state, show/hide with CSS -->
+  <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'}>
     <CasePresentation />
-  {:else if $gameState.gamePhase === 'sample-selection'}
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'sample-selection'}>
     <SampleSelection />
-  {:else if $gameState.gamePhase === 'microscope-observation'}
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'instrument-selection'}>
+    <InstrumentSelection />
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'microscope-observation'}>
     <MicroscopeView />
-  {:else if $gameState.gamePhase === 'diagnosis'}
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'culture-observation'}>
+    <CulturePlateView />
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'}>
+    <BiochemicalTestView />
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
     <DiagnosisView />
-  {/if}
+  </div>
 </main>
 
 <style>
@@ -28,6 +50,20 @@
     color: #e0e0e0;
     font-family: 'Georgia', serif;
     overflow: hidden;
+    position: relative;
+  }
+
+  .view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+  }
+
+  .view.visible {
+    display: block;
   }
 
   :global(body) {

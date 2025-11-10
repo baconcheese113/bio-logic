@@ -1,8 +1,16 @@
 import { writable, derived } from 'svelte/store';
 import { CASES, ORGANISMS, SAMPLE_BACKGROUNDS, type SampleType } from '../../data/organisms';
 import { clearEvidence } from './evidence';
+import { resetInstrumentState as resetInstruments } from './instrument-state';
 
-export type GamePhase = 'case-presentation' | 'sample-selection' | 'microscope-observation' | 'diagnosis';
+export type GamePhase = 
+  | 'case-presentation' 
+  | 'sample-selection' 
+  | 'instrument-selection'
+  | 'microscope-observation'
+  | 'culture-observation'
+  | 'biochemical-testing'
+  | 'diagnosis';
 
 export type StainType = 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore';
 
@@ -11,6 +19,7 @@ export interface GameState {
   selectedSampleType: SampleType | null;
   currentStain: StainType;
   gamePhase: GamePhase;
+  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing';
   focusDepth: number;
   zoomLevel: number;
 }
@@ -20,6 +29,7 @@ const initialState: GameState = {
   selectedSampleType: null,
   currentStain: 'none',
   gamePhase: 'case-presentation',
+  lastInstrumentPhase: 'microscope-observation',
   focusDepth: 50,
   zoomLevel: 1000,
 };
@@ -63,7 +73,24 @@ export function selectSample(sampleType: SampleType) {
   gameState.update(state => ({
     ...state,
     selectedSampleType: sampleType,
-    gamePhase: 'microscope-observation',
+    gamePhase: 'instrument-selection',
+  }));
+}
+
+export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical') {
+  let phase: GamePhase;
+  if (instrument === 'microscope') {
+    phase = 'microscope-observation';
+  } else if (instrument === 'culture') {
+    phase = 'culture-observation';
+  } else {
+    phase = 'biochemical-testing';
+  }
+  
+  gameState.update(state => ({
+    ...state,
+    gamePhase: phase,
+    lastInstrumentPhase: phase,
   }));
 }
 
@@ -81,7 +108,18 @@ export function setFocus(depth: number) {
   }));
 }
 
+export function resetInstrumentState() {
+  resetInstruments();
+  gameState.update(state => ({
+    ...state,
+    currentStain: 'none',
+    focusDepth: 50,
+  }));
+}
+
 export function returnToSampleSelection() {
+  clearEvidence();
+  resetInstrumentState();
   gameState.update(state => ({
     ...state,
     selectedSampleType: null,
@@ -90,9 +128,38 @@ export function returnToSampleSelection() {
   }));
 }
 
+export function goToDiagnosis() {
+  gameState.update(state => ({
+    ...state,
+    gamePhase: 'diagnosis',
+  }));
+}
+
+export function returnToInstrumentSelection() {
+  gameState.update(state => ({
+    ...state,
+    gamePhase: 'instrument-selection',
+  }));
+}
+
 export function proceedToDiagnosis() {
   gameState.update(state => ({
     ...state,
     gamePhase: 'diagnosis',
+  }));
+}
+
+export function returnToLastInstrument() {
+  gameState.update(state => ({
+    ...state,
+    gamePhase: state.lastInstrumentPhase,
+  }));
+}
+
+export function goToBiochemicalTests() {
+  gameState.update(state => ({
+    ...state,
+    gamePhase: 'biochemical-testing',
+    lastInstrumentPhase: 'biochemical-testing',
   }));
 }

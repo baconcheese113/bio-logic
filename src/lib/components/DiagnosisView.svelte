@@ -1,6 +1,6 @@
 <script lang="ts">
   import { filteredOrganisms, matchCount, evidence } from '../stores/evidence';
-  import { gameState, currentCase, nextCase } from '../stores/game-state';
+  import { currentCase, nextCase, returnToLastInstrument } from '../stores/game-state';
   import { ORGANISMS } from '../../data/organisms';
   import type { Organism } from '../../data/organisms';
 
@@ -37,7 +37,7 @@
   };
 
   function backToMicroscope() {
-    gameState.update(state => ({ ...state, gamePhase: 'microscope-observation' }));
+    returnToLastInstrument();
   }
 
   function formatEvidenceValue(value: string | boolean | null): string {
@@ -52,7 +52,12 @@
            $evidence.arrangement !== null || 
            $evidence.acidFast !== null || 
            $evidence.capsule !== null || 
-           $evidence.spores !== null;
+           $evidence.spores !== null ||
+           $evidence.bloodAgarColor !== null ||
+           $evidence.hemolysis !== null ||
+           $evidence.macConkeyColor !== null ||
+           $evidence.catalase !== null ||
+           $evidence.coagulase !== null;
   }
 
   function selectOrganism(organism: Organism) {
@@ -96,7 +101,7 @@
         <p class="match-count">{$matchCount} organism(s) match your observations</p>
       </div>
       <button class="back-button" onclick={backToMicroscope}>
-        ← Back to Microscope
+        ← Back to Instruments
       </button>
     </div>
 
@@ -114,6 +119,7 @@
       <div class="observations-summary">
         <h3>Your Recorded Observations</h3>
         <div class="observation-badges">
+          <!-- Microscopy observations -->
           {#if $evidence.gramStain !== null}
             <span class="obs-badge">Gram: {formatEvidenceValue($evidence.gramStain)}</span>
           {/if}
@@ -132,12 +138,31 @@
           {#if $evidence.spores !== null}
             <span class="obs-badge">Spores: {formatEvidenceValue($evidence.spores)}</span>
           {/if}
+          
+          <!-- Culture observations -->
+          {#if $evidence.bloodAgarColor !== null}
+            <span class="obs-badge culture">Blood Agar: {formatEvidenceValue($evidence.bloodAgarColor)}</span>
+          {/if}
+          {#if $evidence.hemolysis !== null}
+            <span class="obs-badge culture">Hemolysis: {formatEvidenceValue($evidence.hemolysis)}</span>
+          {/if}
+          {#if $evidence.macConkeyColor !== null}
+            <span class="obs-badge culture">MacConkey: {formatEvidenceValue($evidence.macConkeyColor)}</span>
+          {/if}
+          
+          <!-- Biochemical observations -->
+          {#if $evidence.catalase !== null}
+            <span class="obs-badge biochem">Catalase: {formatEvidenceValue($evidence.catalase)}</span>
+          {/if}
+          {#if $evidence.coagulase !== null}
+            <span class="obs-badge biochem">Coagulase: {formatEvidenceValue($evidence.coagulase)}</span>
+          {/if}
         </div>
       </div>
     {:else}
       <div class="no-observations">
         <p>You haven't recorded any observations yet.</p>
-        <p>Return to the microscope to examine the sample and record your findings.</p>
+        <p>Return to your instruments to examine the sample and record your findings.</p>
       </div>
     {/if}
 
@@ -449,6 +474,18 @@
     border-radius: 12px;
     font-size: 0.85rem;
     border: 1px solid #4a5a6a;
+  }
+
+  .obs-badge.culture {
+    background: #4a3a5a;
+    color: #d0c0e0;
+    border-color: #5a4a6a;
+  }
+
+  .obs-badge.biochem {
+    background: #3a5a4a;
+    color: #c0e0d0;
+    border-color: #4a6a5a;
   }
 
   .no-observations {
