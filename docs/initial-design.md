@@ -61,34 +61,55 @@ The game combines the deductive reasoning of Papers Please, the technical master
 ## Core Gameplay Loop
 
 ### Player Fantasy
-"I am a diagnostic scientist building a laboratory from scratch, solving biological mysteries through careful observation and scientific reasoning."
+"I am experiencing the complete history of diagnostic science, learning what questions each era could answer and discovering why new techniques were invented when old methods failed."
 
 ### The Loop
 
 ```
-1. CASE INTAKE
-   ↓ Patient/sample information arrives (symptoms, history, context)
-   ↓ Player chooses which sample type to request
+1. CASE PRESENTATION
+   ↓ Biological mystery presented (symptoms, context, sample)
+   ↓ Some cases solvable with current techniques, some require future methods
    
-2. SAMPLE ANALYSIS
-   ↓ Examine unstained sample (minimal information visible)
-   ↓ Choose which stain/test to apply based on hypothesis
-   ↓ Observe results (interactive microscopy, gel images, etc.)
-   ↓ Gather additional data if needed (run more tests)
+2. TECHNIQUE SELECTION
+   ↓ Choose which available technique to apply
+   ↓ Each method reveals different evidence types
+   ↓ Player must understand what each technique can/cannot answer
    
-3. DIAGNOSIS
-   ↓ Consult reference manual (logbook)
-   ↓ Compare observations to known pathogen characteristics
-   ↓ Select diagnosis from catalog
-   ↓ Submit answer
+3. CONDUCT ASSAY
+   ↓ Perform the technique with period-appropriate workflow
+   ↓ Make technique-specific observations (morphology, bands, colors, sequences)
+   ↓ Interpret imperfect/ambiguous results (challenge)
+   ↓ Record evidence in deduction system
    
-4. FEEDBACK & PROGRESSION
-   ↓ Receive payment for correct diagnosis
-   ↓ Penalties for incorrect diagnosis
-   ↓ Use earnings to buy equipment and reagents
-   ↓ Unlock new eras and techniques
-   ↓ Accept new, more complex cases
+4. DEDUCTION & DIAGNOSIS
+   ↓ Evidence filters possible organisms/conditions
+   ↓ Compare findings to reference materials
+   ↓ Submit diagnosis when confident
+   
+5. FEEDBACK & PROGRESSION
+   ↓ Learn why answer was correct/wrong
+   ↓ Understand technique limitations
+   ↓ Unlock new techniques when cases reveal gaps
+   ↓ Progress through historical eras
 ```
+
+### Historical Case Evolution
+
+**Example: "Patient with persistent cough and weight loss"**
+- **1880s (Acid-Fast Stain)**: Identify TB by red bacilli → basic identification
+- **1920s (Culture)**: Grow on Löwenstein-Jensen medium → confirmation after 6 weeks
+- **1980s (PCR)**: Detect *M. tuberculosis* DNA → answer in hours instead of weeks
+- **2000s (WGS)**: Sequence genome → identify exact strain + all drug resistance mutations
+
+**Same question, progressively better/faster answers.**
+
+**Example: "Unknown respiratory outbreak"**
+- **1920s (Microscopy)**: If bacterial → can see it; if viral → invisible, unsolvable
+- **1950s (Serology)**: Detect antibodies → know exposure occurred, but not which virus
+- **1980s (PCR)**: Amplify known viral targets → works for known viruses only
+- **2000s (Metagenomics)**: Sequence everything → discover novel pathogens
+
+**Some cases impossible with early tech → drives player to unlock new methods.**
 
 ## Key Mechanics
 

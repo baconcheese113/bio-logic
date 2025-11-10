@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { CASES, ORGANISMS, SAMPLE_BACKGROUNDS, type SampleType } from '../../data/organisms';
+import { clearEvidence } from './evidence';
 
 export type GamePhase = 'case-presentation' | 'sample-selection' | 'microscope-observation' | 'diagnosis';
 
@@ -47,6 +48,7 @@ export const currentBackground = derived(
 
 // Helper functions
 export function nextCase() {
+  clearEvidence();
   gameState.update(state => ({
     ...state,
     currentCaseIndex: (state.currentCaseIndex + 1) % CASES.length,
