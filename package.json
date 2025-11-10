@@ -1,6 +1,7 @@
 {
   "name": "bio-logic",
   "version": "0.1.0",
+  "type": "module",
   "description": "A papers,please and car mechanic simulator inspired game built with TypeScript and Phaser",
   "main": "index.js",
   "scripts": {
@@ -11,13 +12,16 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.{ts,json,css,md}\""
   },
-  "keywords": ["phaser", "typescript", "game", "simulation"],
+  "keywords": [
+    "phaser",
+    "typescript",
+    "game",
+    "simulation"
+  ],
   "author": "bacon",
   "license": "MIT",
-  "dependencies": {
-    "phaser": "^3.90.0"
-  },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@types/node": "^24.5.2",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
@@ -25,7 +29,11 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "prettier": "^3.6.2",
+    "svelte": "^5.43.5",
     "typescript": "^5.9.2",
     "vite": "^7.1.6"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
   }
 }

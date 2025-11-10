@@ -9,16 +9,20 @@ export type SampleType =
   | 'urine'
   | 'tissue';
 
+export type GramStain = 'positive' | 'negative' | 'variable';
+export type Shape = 'cocci' | 'bacilli' | 'spirochete' | 'diplococci' | 'coccobacilli';
+export type Arrangement = 'chains' | 'clusters' | 'pairs' | 'single' | 'palisades';
+
 export interface Organism {
   id: string;
   scientificName: string;
   commonName: string;
-  gramStain: 'positive' | 'negative' | 'variable';
+  gramStain: GramStain;
   acidFast: boolean; // For Ziehl-Neelsen stain
   capsule: boolean; // For capsule stain
   sporeFormer: boolean; // For spore stain
-  shape: 'cocci' | 'bacilli' | 'spirochete' | 'diplococci' | 'coccobacilli';
-  arrangement: 'chains' | 'clusters' | 'pairs' | 'single' | 'palisades';
+  shape: Shape;
+  arrangement: Arrangement;
   notes: string;
 }
 

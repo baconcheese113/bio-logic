@@ -1,17 +1,9 @@
-import Phaser from 'phaser';
-import { LabScene } from './scenes/lab-scene';
+import { mount } from 'svelte';
+import App from './App.svelte';
+import './app.css';
 
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  width: 1280,
-  height: 720,
-  backgroundColor: '#2d2d2d',
-  parent: 'game-container',
-  scene: [LabScene],
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-};
+const app = mount(App, {
+  target: document.getElementById('app')!,
+});
 
-new Phaser.Game(config);
+export default app;
