@@ -3,10 +3,10 @@
   import CasePresentation from './lib/components/CasePresentation.svelte';
   import SampleSelection from './lib/components/SampleSelection.svelte';
   import InstrumentSelection from './lib/components/InstrumentSelection.svelte';
-  import MicroscopeView from './lib/components/MicroscopeView.svelte';
-  import CulturePlateView from './lib/components/CulturePlateView.svelte';
-  import BiochemicalTestView from './lib/components/BiochemicalTestView.svelte';
-  import SerologyView from './lib/components/SerologyView.svelte';
+  import MicroscopeView from './lib/components/instruments/microscope/MicroscopeView.svelte';
+  import CulturePlateView from './lib/components/instruments/culture/CulturePlateView.svelte';
+  import BiochemicalTestView from './lib/components/instruments/biochemical/BiochemicalTestView.svelte';
+  import SerologyView from './lib/components/instruments/serology/SerologyView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 

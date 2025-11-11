@@ -78,10 +78,13 @@
   function submitDiagnosis() {
     if (!selectedAnswer) return;
     
-    const correct = selectedAnswer === $currentCase.correctAnswer;
-    isCorrect = correct;
-    
     const answerFormat = ANSWER_FORMATS[$currentCase.answerFormat];
+    const expectedAnswer = answerFormat.type === 'antibiotic-choice' 
+      ? $currentCase.bestAntibiotic 
+      : $currentCase.correctAnswer;
+    
+    const correct = selectedAnswer === expectedAnswer;
+    isCorrect = correct;
     
     if (correct) {
       if (answerFormat.type === 'organism-id') {
@@ -97,11 +100,17 @@
         feedback = selectedAnswer === 'positive'
           ? 'Correct! Antibodies detected - patient has been exposed.'
           : 'Correct! No antibodies detected - patient has not been exposed.';
+      } else if (answerFormat.type === 'antibiotic-choice') {
+        const antibioticName = selectedAnswer.charAt(0).toUpperCase() + selectedAnswer.slice(1);
+        feedback = `Correct! ${antibioticName} shows the best sensitivity and is the optimal treatment choice.`;
       }
     } else {
       if (answerFormat.type === 'organism-id') {
         const correctOrganism = ORGANISMS.find(o => o.id === $currentCase.correctAnswer);
         feedback = `Incorrect. The correct organism was ${correctOrganism?.scientificName || 'unknown'}.`;
+      } else if (answerFormat.type === 'antibiotic-choice') {
+        const correctAntibiotic = ($currentCase.bestAntibiotic || '').charAt(0).toUpperCase() + ($currentCase.bestAntibiotic || '').slice(1);
+        feedback = `Incorrect. ${correctAntibiotic} showed the best sensitivity and should have been selected.`;
       } else {
         feedback = `Incorrect. The correct answer was ${$currentCase.correctAnswer}.`;
       }
@@ -298,6 +307,47 @@
         <div class="submit-section">
           <button class="submit-button" onclick={submitDiagnosis}>
             Submit Result: {selectedAnswer === 'positive' ? 'Positive' : 'Negative'}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Antibiotic Treatment Selection (for antibiotic-choice cases) -->
+    {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'antibiotic-choice'}
+      <div class="answer-selection-section">
+        <h3>Select Best Antibiotic Treatment</h3>
+        <p class="antibiotic-instruction">Based on your zone measurements, which antibiotic shows the best sensitivity?</p>
+        <div class="antibiotic-options">
+          {#each ANSWER_FORMATS[$currentCase.answerFormat].options || [] as antibiotic}
+            {@const zoneMeasurement = 
+              antibiotic === 'penicillin' ? $evidence.penicillinZone :
+              antibiotic === 'streptomycin' ? $evidence.streptomycinZone :
+              antibiotic === 'tetracycline' ? $evidence.tetracyclineZone :
+              antibiotic === 'chloramphenicol' ? $evidence.chloramphenicolZone :
+              antibiotic === 'erythromycin' ? $evidence.erythromycinZone :
+              null
+            }
+            <button
+              class="answer-option antibiotic"
+              class:selected={selectedAnswer === antibiotic}
+              onclick={() => selectAnswer(antibiotic)}
+              disabled={feedback !== ''}
+            >
+              <div class="antibiotic-name">{antibiotic.charAt(0).toUpperCase() + antibiotic.slice(1)}</div>
+              {#if zoneMeasurement !== null}
+                <div class="zone-display">Zone: {zoneMeasurement}mm</div>
+              {:else}
+                <div class="zone-display not-measured">Not measured</div>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+      
+      {#if selectedAnswer && !feedback}
+        <div class="submit-section">
+          <button class="submit-button" onclick={submitDiagnosis}>
+            Submit Treatment: {selectedAnswer.charAt(0).toUpperCase() + selectedAnswer.slice(1)}
           </button>
         </div>
       {/if}
@@ -648,6 +698,45 @@
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .antibiotic-instruction {
+    text-align: center;
+    color: #b0b0b0;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .antibiotic-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .answer-option.antibiotic {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .antibiotic-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .zone-display {
+    font-size: 0.9rem;
+    color: #8fc98f;
+    font-weight: 500;
+  }
+
+  .zone-display.not-measured {
+    color: #a0a0a0;
+    font-style: italic;
   }
 
   .answer-option {

@@ -27,6 +27,13 @@ export interface Evidence {
   rhFactor: boolean | null; // true = positive, false = negative
   syphilisAntibodies: boolean | null;
   diphtheriaAntitoxin: boolean | null;
+  
+  // Antibiotic evidence
+  penicillinZone: number | null; // Zone size in mm
+  streptomycinZone: number | null;
+  tetracyclineZone: number | null;
+  chloramphenicolZone: number | null;
+  erythromycinZone: number | null;
 }
 
 const initialEvidence: Evidence = {
@@ -54,6 +61,13 @@ const initialEvidence: Evidence = {
   rhFactor: null,
   syphilisAntibodies: null,
   diphtheriaAntitoxin: null,
+  
+  // Antibiotics
+  penicillinZone: null,
+  streptomycinZone: null,
+  tetracyclineZone: null,
+  chloramphenicolZone: null,
+  erythromycinZone: null,
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -258,6 +272,42 @@ export function setDiphtheriaAntitoxin(value: boolean) {
   evidence.update(e => ({
     ...e,
     diphtheriaAntitoxin: e.diphtheriaAntitoxin === value ? null : value,
+  }));
+}
+
+// Antibiotic evidence setters
+export function setPenicillinZone(zoneSize: number) {
+  evidence.update(e => ({
+    ...e,
+    penicillinZone: zoneSize,
+  }));
+}
+
+export function setStreptomycinZone(zoneSize: number) {
+  evidence.update(e => ({
+    ...e,
+    streptomycinZone: zoneSize,
+  }));
+}
+
+export function setTetracyclineZone(zoneSize: number) {
+  evidence.update(e => ({
+    ...e,
+    tetracyclineZone: zoneSize,
+  }));
+}
+
+export function setChloramphenicolZone(zoneSize: number) {
+  evidence.update(e => ({
+    ...e,
+    chloramphenicolZone: zoneSize,
+  }));
+}
+
+export function setErythromycinZone(zoneSize: number) {
+  evidence.update(e => ({
+    ...e,
+    erythromycinZone: zoneSize,
   }));
 }
 

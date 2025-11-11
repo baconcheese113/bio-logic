@@ -199,6 +199,57 @@ export const SEROLOGY_INFO = {
   }
 };
 
+export const ANTIBIOTIC_INFO = {
+  'penicillin': {
+    title: 'Penicillin (1928)',
+    text: 'Alexander Fleming discovered penicillin when Penicillium mold contaminated a bacterial culture. Mass-produced during WWII. First beta-lactam antibiotic - disrupts bacterial cell wall synthesis. Highly effective against Gram-positive bacteria. Resistance emerged by 1940s through beta-lactamase enzymes.'
+  },
+  'streptomycin': {
+    title: 'Streptomycin (1943)',
+    text: 'Selman Waksman discovered streptomycin from soil bacterium Streptomyces griseus. First effective treatment for tuberculosis. Aminoglycoside class - inhibits protein synthesis by binding 30S ribosomal subunit. Effective against many Gram-negative bacteria. Can cause hearing loss and kidney damage.'
+  },
+  'tetracycline': {
+    title: 'Tetracycline (1948)',
+    text: 'Benjamin Duggar isolated chlortetracycline from Streptomyces aureofaciens. Broad-spectrum antibiotic effective against both Gram-positive and Gram-negative bacteria. Inhibits protein synthesis by blocking tRNA binding to ribosome. Widely used but resistance is common. Stains developing teeth yellow.'
+  },
+  'chloramphenicol': {
+    title: 'Chloramphenicol (1947)',
+    text: 'David Gottlieb discovered chloramphenicol from Streptomyces venezuelae. Broad-spectrum, bacteriostatic antibiotic. Inhibits protein synthesis by blocking peptidyl transferase. Extremely effective but can cause fatal aplastic anemia (1:40,000 cases). Reserved for serious infections like bacterial meningitis.'
+  },
+  'erythromycin': {
+    title: 'Erythromycin (1952)',
+    text: 'J.M. McGuire isolated erythromycin from Saccharopolyspora erythraea. First macrolide antibiotic - alternative for penicillin-allergic patients. Inhibits protein synthesis by binding 50S ribosomal subunit. Effective against Gram-positive bacteria and atypical pneumonia. Common side effect: gastrointestinal upset.'
+  },
+  'kirby-bauer': {
+    title: 'Kirby-Bauer Method (1956)',
+    text: 'William Kirby and Alfred Bauer developed standardized disk diffusion method. Paper disks soaked in antibiotics are placed on bacterial lawn. Antibiotics diffuse outward, creating concentration gradient. Zone of inhibition = area where bacteria cannot grow. Zone diameter correlates with antibiotic effectiveness.'
+  },
+  'zone-measurement': {
+    title: 'Zone Diameter Interpretation',
+    text: 'Measure zone from edge to edge in millimeters. Compare to standardized breakpoints: Sensitive (S) = large zone, antibiotic will work; Intermediate (I) = medium zone, may work at high doses; Resistant (R) = small/no zone, antibiotic ineffective. Breakpoints vary by organism and antibiotic combination.'
+  },
+  'resistance': {
+    title: 'Antibiotic Resistance',
+    text: 'Bacteria evolve resistance through mutations or acquiring resistance genes. Mechanisms: enzymes that destroy antibiotics (beta-lactamase), altered drug targets, efflux pumps that expel antibiotics, reduced permeability. Resistance emerged within years of penicillin use. Different strains of same species can have vastly different resistance patterns.'
+  },
+  'sensitivity-s': {
+    title: 'Sensitive (S)',
+    text: 'Large zone of inhibition. Antibiotic concentration at infection site will be high enough to kill or inhibit the bacteria. First-line treatment option. Example: 25mm zone for penicillin against Streptococcus indicates sensitivity.'
+  },
+  'sensitivity-i': {
+    title: 'Intermediate (I)',
+    text: 'Medium zone of inhibition. Antibiotic may work if used at maximum dosage or if infection is in site where drug concentrates (urine, bile). Use with caution or consider alternative. Represents borderline effectiveness.'
+  },
+  'sensitivity-r': {
+    title: 'Resistant (R)',
+    text: 'Small or no zone of inhibition. Bacteria will continue growing despite antibiotic treatment. Do not use this antibiotic - treatment will fail. Select alternative antibiotic showing sensitivity. Example: 0mm zone indicates complete resistance.'
+  },
+  'mueller-hinton': {
+    title: 'Mueller-Hinton Agar',
+    text: 'Standardized medium for antibiotic susceptibility testing. Low in inhibitors, provides consistent results. Depth of 4mm ensures uniform antibiotic diffusion. Developed in 1941, became standard for Kirby-Bauer method. Composition: beef extract, casein hydrolysate, starch.'
+  }
+};
+
 // Helper to get info by key from any category
 export function getInfoContent(key: string) {
   return STAIN_INFO[key as keyof typeof STAIN_INFO] 
@@ -206,5 +257,6 @@ export function getInfoContent(key: string) {
     || CULTURE_INFO[key as keyof typeof CULTURE_INFO]
     || BIOCHEMICAL_INFO[key as keyof typeof BIOCHEMICAL_INFO]
     || SEROLOGY_INFO[key as keyof typeof SEROLOGY_INFO]
+    || ANTIBIOTIC_INFO[key as keyof typeof ANTIBIOTIC_INFO]
     || null;
 }

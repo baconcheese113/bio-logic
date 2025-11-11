@@ -1,11 +1,11 @@
 <script lang="ts">
-  import StageArea from './StageArea.svelte';
-  import NavigationButtons from './NavigationButtons.svelte';
-  import CollapsibleSection from './CollapsibleSection.svelte';
-  import HoverInfoPanel from './HoverInfoPanel.svelte';
-  import { isCorrectSample, currentOrganism } from '../stores/game-state';
-  import { evidence, setCatalase, setCoagulase } from '../stores/evidence';
-  import '../styles/instrument-controls.css';
+  import StageArea from '../../shared/StageArea.svelte';
+  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
+  import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
+  import { isCorrectSample, currentOrganism } from '../../../stores/game-state';
+  import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
+  import '../../../styles/instrument-controls.css';
   
   let showTestsSection = $state(true);
   let showObservationsSection = $state(true);

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import StageArea from './StageArea.svelte';
+  import StageArea from '../../shared/StageArea.svelte';
   import AgglutinationSlide from './AgglutinationSlide.svelte';
-  import HoverInfoPanel from './HoverInfoPanel.svelte';
-  import NavigationButtons from './NavigationButtons.svelte';
-  import CollapsibleSection from './CollapsibleSection.svelte';
-  import { evidence, setBloodType, setRhFactor, setSyphilisAntibodies, setDiphtheriaAntitoxin } from '../stores/evidence';
-  import { currentCase } from '../stores/game-state';
+  import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
+  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
+  import { evidence, setBloodType, setRhFactor, setSyphilisAntibodies, setDiphtheriaAntitoxin } from '../../../stores/evidence';
+  import { currentCase } from '../../../stores/game-state';
 
   let currentTest = $state<'anti-a' | 'anti-b' | 'anti-d' | 'syphilis' | 'diphtheria' | null>(null);
   let testResult = $state<'positive' | 'negative'>('negative');

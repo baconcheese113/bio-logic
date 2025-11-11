@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getInfoContent } from '../../data/info-content';
+  import { getInfoContent } from '../../../data/info-content';
 
   interface Props {
     infoKey: string | null;

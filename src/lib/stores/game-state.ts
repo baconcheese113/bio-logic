@@ -45,8 +45,8 @@ export const currentCase = derived(
 export const currentOrganism = derived(
   currentCase,
   ($case) => {
-    // For organism-identification cases, find the organism
-    if ($case.answerFormat === 'organism-identification') {
+    // For organism-identification and antibiotic-selection cases, find the organism
+    if ($case.answerFormat === 'organism-identification' || $case.answerFormat === 'antibiotic-selection') {
       return ORGANISMS.find(org => org.id === $case.correctAnswer);
     }
     return undefined;

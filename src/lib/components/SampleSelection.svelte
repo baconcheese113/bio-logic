@@ -1,5 +1,5 @@
 <script lang="ts">
-  import StageArea from './StageArea.svelte';
+  import StageArea from './shared/StageArea.svelte';
   import { selectSample } from '../stores/game-state';
   import type { SampleType } from '../../data/organisms';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { returnToSampleSelection, returnToInstrumentSelection, goToDiagnosis } from '../stores/game-state';
+  import { returnToSampleSelection, returnToInstrumentSelection, goToDiagnosis } from '../../stores/game-state';
 
   interface Props {
     primaryAction?: () => void;

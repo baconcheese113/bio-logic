@@ -1,11 +1,11 @@
 <script lang="ts">
-  import StageArea from './StageArea.svelte';
-  import MicroscopeInstrument from './MicroscopeInstrument.svelte';
-  import HoverInfoPanel from './HoverInfoPanel.svelte';
-  import NavigationButtons from './NavigationButtons.svelte';
-  import { gameState, proceedToDiagnosis, setFocus, changeStain } from '../stores/game-state';
-  import type { StainType } from '../stores/game-state';
-  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, filteredOrganisms } from '../stores/evidence';
+  import StageArea from '../../shared/StageArea.svelte';
+  import MicroscopeInstrument from '../../MicroscopeInstrument.svelte';
+  import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
+  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import { gameState, proceedToDiagnosis, setFocus, changeStain } from '../../../stores/game-state';
+  import type { StainType } from '../../../stores/game-state';
+  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, filteredOrganisms } from '../../../stores/evidence';
 
   let showDiagnosis = $state(false);
   let showStainSection = $state(true);
