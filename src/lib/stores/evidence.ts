@@ -156,24 +156,24 @@ export function toggleArrangement(value: Arrangement) {
   }));
 }
 
-export function toggleAcidFast() {
+export function toggleAcidFast(value: boolean) {
   evidence.update(e => ({
     ...e,
-    acidFast: e.acidFast === null ? true : (e.acidFast ? false : null),
+    acidFast: e.acidFast === value ? null : value,
   }));
 }
 
-export function toggleCapsule() {
+export function toggleCapsule(value: boolean) {
   evidence.update(e => ({
     ...e,
-    capsule: e.capsule === null ? true : (e.capsule ? false : null),
+    capsule: e.capsule === value ? null : value,
   }));
 }
 
-export function toggleSpores() {
+export function toggleSpores(value: boolean) {
   evidence.update(e => ({
     ...e,
-    spores: e.spores === null ? true : (e.spores ? false : null),
+    spores: e.spores === value ? null : value,
   }));
 }
 

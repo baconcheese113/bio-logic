@@ -190,7 +190,8 @@ export class Slide {
     private readonly radius: number,
     private readonly hasStain: boolean,
     organism?: Organism,
-    sampleBackground: SampleBackground = 'blood-cells'
+    sampleBackground: SampleBackground = 'blood-cells',
+    private readonly variationSeed: number = 0
   ) {
     // Generate appropriate background based on sample type
     switch (sampleBackground) {
@@ -320,11 +321,11 @@ export class Slide {
   }
 
   private generateArtifacts(): void {
-    // Seed for artifacts (debris, bubbles, stain artifacts)
-    this.rng = new SeededRNG([this.caseIndex.toString(), 'artifacts']);
+    // Debris uses variation seed to randomize on focus change
+    this.rng = new SeededRNG([this.caseIndex.toString(), 'debris', this.variationSeed.toString()]);
 
-    // Debris particles
-    const debrisCount = this.rng.between(8, 15);
+    // Debris particles - increased count for more prevalence
+    const debrisCount = this.rng.between(15, 25);
     for (let i = 0; i < debrisCount; i++) {
       const angle = this.rng.floatBetween(0, Math.PI * 2);
       const distance = this.rng.floatBetween(0, this.radius - 30);
@@ -336,6 +337,9 @@ export class Slide {
 
       this.debris.push({ angle, distance, x, y, size, opacity, zDepth });
     }
+
+    // Other artifacts (bubbles, stain artifacts) use stable seed - don't randomize on focus change
+    this.rng = new SeededRNG([this.caseIndex.toString(), 'artifacts']);
 
     // Air bubbles
     const bubbleCount = this.rng.between(2, 4);

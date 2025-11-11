@@ -13,6 +13,7 @@
   let floatingDust: Phaser.GameObjects.Graphics[] = [];
   let apertureVignette: Phaser.GameObjects.Graphics | null = null;
   let focusOffset = 0;
+  let renderCount = 0; // Increment on each render to randomize artifacts
 
   const centerX = 500;
   const centerY = 350;
@@ -42,7 +43,17 @@
     
     if (newFocusOffset !== focusOffset) {
       focusOffset = newFocusOffset;
-      refreshMicroscopeView();
+      renderMicroscopeContent();
+    }
+  });
+
+  // Refresh when sample background changes
+  $effect(() => {
+    // Access the reactive value to track it
+    $currentBackground;
+    // Only refresh if scene is ready
+    if (currentScene && microscopeContainer) {
+      renderMicroscopeContent();
     }
   });
 
@@ -56,43 +67,42 @@
     mask.fillCircle(centerX, centerY, radius);
 
     microscopeContainer = this.add.container(0, 0);
+    microscopeContainer.setMask(mask.createGeometryMask());
 
-    const backgroundCircle = this.add.graphics();
+    renderMicroscopeContent();
+
+    createApertureBreathing(this);
+    createFloatingDust(this);
+  }
+
+  export function renderMicroscopeContent() {
+    if (!currentScene || !microscopeContainer) return;
+
+    microscopeContainer.removeAll(true);
+
+    const backgroundCircle = currentScene.add.graphics();
     backgroundCircle.fillStyle(0xf5f0e8, 1);
     backgroundCircle.fillCircle(centerX, centerY, radius);
     
-    const vignette = this.add.graphics();
-    vignette.fillStyle(0xe8e3d8, 0.4);
+    const vignette = currentScene.add.graphics();
+    vignette.fillStyle(0xe2ded2, 1);
     vignette.fillCircle(centerX, centerY, radius);
-    vignette.fillStyle(0xd4cfc3, 0.3);
-    vignette.fillCircle(centerX, centerY, radius * 0.9);
 
     microscopeContainer.add([backgroundCircle, vignette]);
-    microscopeContainer.setMask(mask.createGeometryMask());
-
-    addOpticalAberrations(this, microscopeContainer);
 
     const caseIndex = $currentCase ? $currentCase.id.charCodeAt(0) % 100 : 0;
     const organism = $isCorrectSample ? $currentOrganism : undefined;
     const background = $currentBackground || 'blood-cells';
     
-    slide = new Slide(caseIndex, centerX, centerY, radius, $gameState.currentStain !== 'none', organism, background);
+    // Increment render count to randomize artifacts on each render
+    renderCount++;
+    slide = new Slide(caseIndex, centerX, centerY, radius, $gameState.currentStain !== 'none', organism, background, renderCount);
     
-    renderBackgroundCells(this, microscopeContainer);
+    renderBackgroundCells(currentScene, microscopeContainer);
     
     if (organism) {
-      renderBacteria(this, organism, microscopeContainer);
+      renderBacteria(currentScene, organism, microscopeContainer);
     }
-    
-    addFocusBlur(this);
-
-    createApertureBreathing(this);
-    createFloatingDust(this);
-
-    const apertureMask = this.add.graphics();
-    apertureMask.lineStyle(20, 0x1a1a1a);
-    apertureMask.strokeCircle(centerX, centerY, radius + 5);
-    apertureMask.setDepth(4);
   }
 
   function calculateDefocus(zDepth: number, objectSize: number) {
@@ -120,27 +130,6 @@
       opacityMultiplier,
       blurWidth
     };
-  }
-
-  function addOpticalAberrations(scene: Phaser.Scene, container: Phaser.GameObjects.Container) {
-    const aberrations = scene.add.graphics();
-    
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
-      const startRadius = radius * 0.85;
-      
-      aberrations.lineStyle(2, 0xffffff, 0.08 - i * 0.008);
-      aberrations.beginPath();
-      aberrations.arc(centerX, centerY, startRadius + (i * 3), angle - 0.1, angle + 0.1);
-      aberrations.strokePath();
-    }
-
-    for (let i = 0; i < 3; i++) {
-      aberrations.lineStyle(1, 0x000000, 0.03);
-      aberrations.strokeCircle(centerX, centerY, radius * (0.3 + i * 0.25));
-    }
-
-    container.add(aberrations);
   }
 
   function renderBackgroundCells(scene: Phaser.Scene, container: Phaser.GameObjects.Container) {
@@ -441,18 +430,6 @@
     }
   }
 
-  function addFocusBlur(scene: Phaser.Scene) {
-    const blurOverlay = scene.add.graphics();
-    
-    for (let i = 0; i < 3; i++) {
-      const blurRadius = radius - (i * 15);
-      blurOverlay.lineStyle(8, 0xf5f0e8, 0.15 - (i * 0.04));
-      blurOverlay.strokeCircle(centerX, centerY, blurRadius);
-    }
-    
-    blurOverlay.setDepth(1);
-  }
-
   function createApertureBreathing(scene: Phaser.Scene) {
     apertureVignette = scene.add.graphics();
     apertureVignette.setDepth(2);
@@ -460,7 +437,7 @@
     scene.tweens.add({
       targets: apertureVignette,
       alpha: 0.3,
-      duration: 2,
+      duration: 25,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -469,7 +446,7 @@
         
         apertureVignette.clear();
         const vignetteScale = 1 + (apertureVignette.alpha - 0.15) * 0.05;
-        apertureVignette.fillStyle(0x000000, 0.03);
+        apertureVignette.fillStyle(0x000000, 0.09);
         apertureVignette.fillCircle(centerX, centerY, radius * vignetteScale);
         apertureVignette.fillStyle(0xf5f0e8, 0.09);
         apertureVignette.fillCircle(centerX, centerY, radius * vignetteScale);
@@ -521,40 +498,6 @@
         }
       });
     }
-  }
-
-  export function refreshMicroscopeView() {
-    if (!currentScene || !microscopeContainer) return;
-
-    microscopeContainer.removeAll(true);
-
-    const backgroundCircle = currentScene.add.graphics();
-    backgroundCircle.fillStyle(0xf5f0e8, 1);
-    backgroundCircle.fillCircle(centerX, centerY, radius);
-    
-    const vignette = currentScene.add.graphics();
-    vignette.fillStyle(0xe8e3d8, 0.4);
-    vignette.fillCircle(centerX, centerY, radius);
-    vignette.fillStyle(0xd4cfc3, 0.3);
-    vignette.fillCircle(centerX, centerY, radius * 0.9);
-
-    microscopeContainer.add([backgroundCircle, vignette]);
-
-    addOpticalAberrations(currentScene, microscopeContainer);
-
-    const caseIndex = $currentCase ? $currentCase.id.charCodeAt(0) % 100 : 0;
-    const organism = $isCorrectSample ? $currentOrganism : undefined;
-    const background = $currentBackground || 'blood-cells';
-    
-    slide = new Slide(caseIndex, centerX, centerY, radius, $gameState.currentStain !== 'none', organism, background);
-    
-    renderBackgroundCells(currentScene, microscopeContainer);
-    
-    if (organism) {
-      renderBacteria(currentScene, organism, microscopeContainer);
-    }
-    
-    addFocusBlur(currentScene);
   }
 </script>
 

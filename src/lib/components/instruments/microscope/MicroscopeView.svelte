@@ -23,7 +23,7 @@
 
   function handleStainChange(stain: StainType) {
     changeStain(stain);
-    microscopeRef?.refreshMicroscopeView();
+    microscopeRef?.renderMicroscopeContent();
   }
 
   function setHoveredInfo(key: string | null) {
@@ -178,7 +178,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.acidFast === true}
-                      onclick={toggleAcidFast}
+                      onclick={() => toggleAcidFast(true)}
                       onmouseenter={() => setHoveredInfo('acid-fast-pos')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
@@ -187,7 +187,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.acidFast === false}
-                      onclick={toggleAcidFast}
+                      onclick={() => toggleAcidFast(false)}
                       onmouseenter={() => setHoveredInfo('acid-fast-neg')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
@@ -202,7 +202,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.capsule === true}
-                      onclick={toggleCapsule}
+                      onclick={() => toggleCapsule(true)}
                       onmouseenter={() => setHoveredInfo('capsule-pos')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
@@ -211,7 +211,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.capsule === false}
-                      onclick={toggleCapsule}
+                      onclick={() => toggleCapsule(false)}
                       onmouseenter={() => setHoveredInfo('capsule-neg')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
@@ -226,7 +226,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.spores === true}
-                      onclick={toggleSpores}
+                      onclick={() => toggleSpores(true)}
                       onmouseenter={() => setHoveredInfo('spores-pos')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
@@ -235,7 +235,7 @@
                     <button 
                       class="obs-button small" 
                       class:active={$evidence.spores === false}
-                      onclick={toggleSpores}
+                      onclick={() => toggleSpores(false)}
                       onmouseenter={() => setHoveredInfo('spores-neg')}
                       onmouseleave={() => setHoveredInfo(null)}
                     >
