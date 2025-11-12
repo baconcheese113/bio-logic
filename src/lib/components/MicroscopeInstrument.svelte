@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Phaser from 'phaser';
-  import { gameState, currentCase, currentOrganism, isCorrectSample, currentBackground } from '../stores/game-state';
+  import { gameState, currentCase, correctOrganism, isCorrectSample, currentBackground } from '../stores/game-state';
   import { Slide } from '../microscope/slide';
   import type { Organism } from '../../data/organisms';
 
@@ -91,7 +91,7 @@
     microscopeContainer.add([backgroundCircle, vignette]);
 
     const caseIndex = $currentCase ? $currentCase.id.charCodeAt(0) % 100 : 0;
-    const organism = $isCorrectSample ? $currentOrganism : undefined;
+    const organism = $isCorrectSample ? $correctOrganism : undefined;
     const background = $currentBackground || 'blood-cells';
     
     // Increment render count to randomize artifacts on each render

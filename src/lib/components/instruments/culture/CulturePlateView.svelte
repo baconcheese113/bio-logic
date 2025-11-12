@@ -4,7 +4,7 @@
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
-  import { goToBiochemicalTests, isCorrectSample, currentOrganism } from '../../../stores/game-state';
+  import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies, type Colony } from '../../../stores/instrument-state';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
   import type { ColonyColor } from '../../../../data/organisms';
@@ -50,7 +50,7 @@
   };
 
   function generateColonies() {
-    const organism = $currentOrganism;
+    const organism = $correctOrganism;
     if (!organism?.culture) return [];
 
     const cultureProps = $instrumentState.culture.selectedMedia === 'blood-agar' 
@@ -103,7 +103,7 @@
   }
 
   function getColonyColor(): string {
-    const organism = $currentOrganism;
+    const organism = $correctOrganism;
     if (!organism?.culture) return COLONY_COLORS.gray;
 
     const cultureProps = $instrumentState.culture.selectedMedia === 'blood-agar'
@@ -114,7 +114,7 @@
   }
 
   function getHemolysisZone(): number {
-    const organism = $currentOrganism;
+    const organism = $correctOrganism;
     if (!organism?.culture || $instrumentState.culture.selectedMedia !== 'blood-agar') return 0;
 
     const hemolysis = organism.culture.bloodAgar.hemolysis;
@@ -170,7 +170,7 @@
   }
 
   function incubateAntibioticPlate() {
-    const organism = $currentOrganism;
+    const organism = $correctOrganism;
     antibioticIncubating = true;
     incubationProgress = 0;
     

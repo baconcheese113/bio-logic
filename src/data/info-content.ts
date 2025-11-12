@@ -250,6 +250,85 @@ export const ANTIBIOTIC_INFO = {
   }
 };
 
+export const ELECTROPHORESIS_INFO = {
+  'electrophoresis-cellulose': {
+    title: 'Cellulose Acetate Electrophoresis (1957)',
+    text: 'Proteins in serum separate when electric current passes through cellulose acetate strip soaked in buffer (pH 8.6). Proteins migrate toward positive electrode at different rates based on size and charge. After migration, strip is stained to visualize protein bands as dark blue-purple lines. Replaced paper electrophoresis with better resolution.'
+  },
+  'protein-pattern-normal': {
+    title: 'Normal Pattern',
+    text: 'Normal serum shows 5 distinct dark bands after staining. From bottom to top: Albumin (darkest, thickest band, 60% of protein), α₁ (faint, thin), α₂ (light), β (medium), γ (medium, broad band). Pattern is balanced and symmetrical with no unusually dark or faint bands. Use this as your reference for comparison.'
+  },
+  'protein-pattern-m-spike': {
+    title: 'M-Spike (Monoclonal Gammopathy)',
+    text: 'Look for a single very dark, sharp, narrow band in the gamma region - appears as an intense spike rather than the normal broad band. Classic sign of multiple myeloma where one clone of plasma cells overproduces a single antibody type. The spike is noticeably darker and thinner than a normal gamma band.'
+  },
+  'protein-pattern-beta-gamma-bridge': {
+    title: 'Beta-Gamma Bridge',
+    text: 'Beta and gamma bands merge together - instead of two separate bands, you see them connect into one continuous dark region without a clear gap between them. Classic finding in liver cirrhosis. The bridging appears as a joined or fused area where two bands should be distinct.'
+  },
+  'protein-pattern-low-albumin': {
+    title: 'Low Albumin Pattern',
+    text: 'Albumin band appears noticeably fainter and thinner compared to normal reference pattern. Instead of being the darkest band, it appears washed out or pale. Seen in nephrotic syndrome (kidney protein loss), liver disease (reduced production), or malnutrition. Other bands may appear relatively darker by comparison.'
+  },
+  'protein-pattern-polyclonal': {
+    title: 'Polyclonal Gammopathy',
+    text: 'Gamma region appears as a darker, broader band than normal - but still diffuse, not a sharp spike. Multiple antibody types are elevated, causing general darkening rather than one intense line. Seen in chronic infections, autoimmune diseases, or liver disease. Differs from M-spike by being a broad elevation instead of a single sharp band.'
+  },
+  'albumin-level': {
+    title: 'Albumin Protein Band',
+    text: 'Darkest band on normal strip, travels furthest (bottom position). Smallest serum protein - migrates fastest toward positive electrode. Produced by liver. Maintains blood pressure, transports hormones and drugs. Compare darkness to reference: dark = normal, faint = low albumin (liver disease, kidney loss, malnutrition).'
+  },
+  'alpha1-globulin': {
+    title: 'Alpha-1 Globulin Band',
+    text: 'Small, faint band (3-5% of total protein). Contains alpha-1 antitrypsin and clotting factors. If band is absent or very faint, suspect alpha-1 antitrypsin deficiency (genetic disorder affecting lungs and liver). Band darkens during inflammation as acute phase proteins increase.'
+  },
+  'alpha2-globulin': {
+    title: 'Alpha-2 Globulin Band',
+    text: 'Light band (7-10% of total). Contains proteins that bind hemoglobin and copper. Band darkens in inflammation or nephrotic syndrome. These are "acute phase reactants" - proteins that increase when body responds to illness or tissue damage. Compare intensity to reference pattern.'
+  },
+  'beta-globulin': {
+    title: 'Beta Globulin Band',
+    text: 'Medium-intensity band (10-13% of total). Contains transferrin (carries iron) and other transport proteins. In cirrhosis, may merge with gamma band creating "beta-gamma bridge" - bands connect instead of staying separate. Sometimes appears as two close bands instead of one.'
+  },
+  'gamma-globulin': {
+    title: 'Gamma Globulin Band (Antibodies)',
+    text: 'Slowest migrating band near top (15-20% of total). Contains all antibodies (immunoglobulins). Normal = broad, medium-dark band. Sharp, intense spike = myeloma. Very faint = immunodeficiency. Darker broad band = chronic infection/inflammation. This is where you look for M-spikes or polyclonal elevation.'
+  },
+  'staining-ponceau': {
+    title: 'Ponceau S Stain',
+    text: 'Protein dye that makes colorless proteins visible as dark blue-purple bands on the strip. Without staining, proteins are invisible - you must stain to see the pattern. Dye binds to amino acids in proteins. After staining, excess dye is washed away, leaving only protein-bound color visible as bands.'
+  },
+  'run-electrophoresis': {
+    title: 'Running Electrophoresis',
+    text: 'Apply blood serum as a line near the negative electrode (cathode). Apply 120 volts for 30-45 minutes. Proteins migrate toward positive electrode (anode) at different speeds - small proteins (albumin) travel fastest and furthest. Proteins are invisible during migration - only become visible after staining. Migration complete when albumin reaches bottom.'
+  },
+  'albumin-low': {
+    title: 'Low Albumin Band',
+    text: 'Albumin band appears faint, thin, or washed out compared to reference. Instead of being the darkest band, it is pale. Causes: kidney loses protein in urine (nephrotic syndrome), liver produces less (cirrhosis), inadequate protein intake (malnutrition). Patients develop swelling (edema) and fluid in abdomen (ascites).'
+  },
+  'albumin-normal': {
+    title: 'Normal Albumin Band',
+    text: 'Albumin band is the darkest, most prominent band on the strip - clearly darker than all other bands. Should be thick and intense compared to fainter alpha, beta, and gamma bands. Indicates adequate liver function, good nutrition, and no excessive protein loss through kidneys. Maintains proper blood pressure.'
+  },
+  'albumin-high': {
+    title: 'High Albumin Band',
+    text: 'Albumin band appears even darker or relatively increased compared to other bands. Usually means patient is dehydrated - water loss concentrates all proteins, making bands darker. Rarely indicates true overproduction. If all bands look darker than reference, suspect dehydration rather than disease. Patient needs fluids.'
+  },
+  'globulin-low': {
+    title: 'Low Globulin Bands',
+    text: 'Alpha, beta, or gamma bands appear very faint or absent. Faint gamma band = immunodeficiency (cannot make antibodies) - patients get frequent infections. May need antibody replacement therapy. Faint alpha bands = low clotting factors or acute phase proteins. Compare all bands to reference strip for relative darkness.'
+  },
+  'globulin-normal': {
+    title: 'Normal Globulin Bands',
+    text: 'Alpha, beta, and gamma bands appear in expected proportions: α₁ faint, α₂ light, β medium, γ medium-broad band. No bands merge together. No sharp spikes. No unusually dark or faint areas. Pattern matches reference strip. Indicates normal immune function, liver function, and protein balance.'
+  },
+  'globulin-high': {
+    title: 'High Globulin Bands',
+    text: 'Globulin bands appear darker than reference pattern. Pattern of darkening reveals cause: sharp narrow spike in gamma = myeloma, broad gamma darkening = chronic infection, beta-gamma fusion = cirrhosis, overall darkening = dehydration. Compare to reference card to determine which bands are elevated and whether darkening is sharp spike or broad increase.'
+  }
+};
+
 // Helper to get info by key from any category
 export function getInfoContent(key: string) {
   return STAIN_INFO[key as keyof typeof STAIN_INFO] 
@@ -258,5 +337,6 @@ export function getInfoContent(key: string) {
     || BIOCHEMICAL_INFO[key as keyof typeof BIOCHEMICAL_INFO]
     || SEROLOGY_INFO[key as keyof typeof SEROLOGY_INFO]
     || ANTIBIOTIC_INFO[key as keyof typeof ANTIBIOTIC_INFO]
+    || ELECTROPHORESIS_INFO[key as keyof typeof ELECTROPHORESIS_INFO]
     || null;
 }

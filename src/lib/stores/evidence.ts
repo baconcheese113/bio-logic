@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { ORGANISMS } from '../../data/organisms';
-import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis } from '../../data/organisms';
+import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel } from '../../data/organisms';
 
 export interface Evidence {
   // Microscopy evidence
@@ -34,6 +34,11 @@ export interface Evidence {
   tetracyclineZone: number | null;
   chloramphenicolZone: number | null;
   erythromycinZone: number | null;
+  
+  // Protein electrophoresis evidence
+  proteinPattern: ProteinPattern | null;
+  albuminLevel: AlbuminLevel | null;
+  globulinLevel: GlobulinLevel | null;
 }
 
 const initialEvidence: Evidence = {
@@ -68,6 +73,11 @@ const initialEvidence: Evidence = {
   tetracyclineZone: null,
   chloramphenicolZone: null,
   erythromycinZone: null,
+  
+  // Protein electrophoresis
+  proteinPattern: null,
+  albuminLevel: null,
+  globulinLevel: null,
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -121,6 +131,30 @@ export const filteredOrganisms = derived(
         }
         if ($evidence.coagulase !== null && organism.culture.coagulase !== $evidence.coagulase) {
           return false;
+        }
+      }
+      
+      // Protein electrophoresis evidence
+      if (organism.proteinElectrophoresis) {
+        if ($evidence.proteinPattern !== null && organism.proteinElectrophoresis.pattern !== $evidence.proteinPattern) {
+          return false;
+        }
+        
+        // Albumin level matching (approximate ranges based on densitometer values)
+        if ($evidence.albuminLevel !== null) {
+          const albuminValue = organism.proteinElectrophoresis.densitometer.albumin;
+          if ($evidence.albuminLevel === 'low' && albuminValue >= 50) return false;
+          if ($evidence.albuminLevel === 'normal' && (albuminValue < 50 || albuminValue > 70)) return false;
+          if ($evidence.albuminLevel === 'high' && albuminValue <= 70) return false;
+        }
+        
+        // Globulin level matching (sum of alpha, beta, gamma)
+        if ($evidence.globulinLevel !== null) {
+          const { alpha1, alpha2, beta, gamma } = organism.proteinElectrophoresis.densitometer;
+          const globulinTotal = alpha1 + alpha2 + beta + gamma;
+          if ($evidence.globulinLevel === 'low' && globulinTotal >= 35) return false;
+          if ($evidence.globulinLevel === 'normal' && (globulinTotal < 30 || globulinTotal > 50)) return false;
+          if ($evidence.globulinLevel === 'high' && globulinTotal <= 45) return false;
         }
       }
       
@@ -308,6 +342,28 @@ export function setErythromycinZone(zoneSize: number) {
   evidence.update(e => ({
     ...e,
     erythromycinZone: zoneSize,
+  }));
+}
+
+// Protein electrophoresis evidence toggles
+export function toggleProteinPattern(value: ProteinPattern) {
+  evidence.update(e => ({
+    ...e,
+    proteinPattern: e.proteinPattern === value ? null : value,
+  }));
+}
+
+export function setAlbuminLevel(value: AlbuminLevel) {
+  evidence.update(e => ({
+    ...e,
+    albuminLevel: e.albuminLevel === value ? null : value,
+  }));
+}
+
+export function setGlobulinLevel(value: GlobulinLevel) {
+  evidence.update(e => ({
+    ...e,
+    globulinLevel: e.globulinLevel === value ? null : value,
   }));
 }
 

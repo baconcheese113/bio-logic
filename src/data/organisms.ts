@@ -15,6 +15,26 @@ export type Arrangement = 'chains' | 'clusters' | 'pairs' | 'single' | 'palisade
 export type Hemolysis = 'alpha' | 'beta' | 'gamma' | 'none';
 export type ColonyColor = 'golden' | 'white' | 'gray' | 'pink' | 'colorless' | 'none';
 
+// Protein electrophoresis types
+export type ProteinPattern = 
+  | 'normal'
+  | 'm-spike' // Multiple myeloma
+  | 'beta-gamma-bridge' // Cirrhosis
+  | 'low-albumin' // Nephrotic syndrome
+  | 'polyclonal-gammopathy'; // Chronic inflammation
+
+export type AlbuminLevel = 'low' | 'normal' | 'high';
+export type GlobulinLevel = 'low' | 'normal' | 'high';
+
+// Densitometer reading - percentage of total protein in each region
+export interface DensitometerReading {
+  albumin: number; // Normal: 52-68%
+  alpha1: number; // Normal: 2.4-5%
+  alpha2: number; // Normal: 5.1-11%
+  beta: number; // Normal: 7.5-15%
+  gamma: number; // Normal: 10-21%
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';
@@ -52,6 +72,12 @@ export interface AntibioticProperties {
   erythromycin: number;
 }
 
+export interface ProteinElectrophoresisProperties {
+  pattern: ProteinPattern;
+  densitometer: DensitometerReading;
+  clinicalContext: string; // What disease/condition this represents
+}
+
 export interface Organism {
   id: string;
   scientificName: string;
@@ -66,11 +92,12 @@ export interface Organism {
   culture?: CultureProperties; // Optional for now
   serology?: SerologyProperties; // Optional for now
   antibiotics?: AntibioticProperties; // Optional for now
+  proteinElectrophoresis?: ProteinElectrophoresisProperties; // For protein pattern cases
 }
 
 // Answer format configuration for different case types
 export interface AnswerFormat {
-  type: 'organism-id' | 'blood-type' | 'immunity-status' | 'antibody-detection' | 'antibiotic-choice';
+  type: 'organism-id' | 'blood-type' | 'immunity-status' | 'antibody-detection' | 'antibiotic-choice' | 'clinical-diagnosis';
   options?: string[];
 }
 
@@ -93,6 +120,10 @@ export const ANSWER_FORMATS: Record<string, AnswerFormat> = {
   'antibiotic-selection': {
     type: 'antibiotic-choice',
     options: ['penicillin', 'streptomycin', 'tetracycline', 'chloramphenicol', 'erythromycin']
+  },
+  'clinical-diagnosis': {
+    type: 'clinical-diagnosis',
+    options: ['multiple-myeloma', 'liver-cirrhosis', 'nephrotic-syndrome', 'chronic-inflammation', 'normal-serum']
   }
 };
 
@@ -520,6 +551,22 @@ function createImmunityCases(cases: Array<{
   }));
 }
 
+function createClinicalDiagnosisCases(cases: Array<{
+  id: string;
+  title: string;
+  story: string;
+  diagnosis: string;
+}>): Case[] {
+  return cases.map(c => ({
+    id: c.id,
+    title: c.title,
+    story: c.story,
+    correctSampleType: 'blood' as const,
+    answerFormat: 'clinical-diagnosis' as const,
+    correctAnswer: c.diagnosis,
+  }));
+}
+
 // Epic 3+4: Multiple cases for variety
 const INFECTION_CASES = createInfectionCases([
   {
@@ -742,12 +789,47 @@ const ANTIBIOTIC_CASES = createAntibioticCases([
   },
 ]);
 
+// Epic 10: Clinical diagnosis cases for protein electrophoresis
+const CLINICAL_DIAGNOSIS_CASES = createClinicalDiagnosisCases([
+  {
+    id: 'case_protein_001',
+    title: 'Bone Pain and Anemia',
+    story: 'Patient, age 68. Complains of severe back pain for 3 months, fatigue, weight loss. Lab shows anemia, elevated calcium, kidney dysfunction. Protein electrophoresis ordered to investigate abnormal protein production.',
+    diagnosis: 'multiple-myeloma',
+  },
+  {
+    id: 'case_protein_002',
+    title: 'Chronic Alcohol Use',
+    story: 'Patient, age 54. Long history of heavy drinking. Presents with jaundice, swollen abdomen (ascites), spider angiomas on chest. Liver function severely impaired. Protein electrophoresis to assess liver synthetic function.',
+    diagnosis: 'liver-cirrhosis',
+  },
+  {
+    id: 'case_protein_003',
+    title: 'Severe Swelling',
+    story: 'Patient, age 42. Massive swelling in legs and face, foamy urine, high cholesterol. Urine test shows severe protein loss. Protein electrophoresis to characterize protein loss pattern.',
+    diagnosis: 'nephrotic-syndrome',
+  },
+  {
+    id: 'case_protein_004',
+    title: 'Chronic Osteomyelitis',
+    story: 'Patient, age 51. Chronic bone infection (osteomyelitis) for 2 years despite antibiotics. Recurrent fevers, elevated inflammatory markers. Protein electrophoresis to assess chronic immune response.',
+    diagnosis: 'chronic-inflammation',
+  },
+  {
+    id: 'case_protein_005',
+    title: 'Routine Physical',
+    story: 'Patient, age 35. Annual health screening, no complaints. All labs normal. Protein electrophoresis ordered as part of comprehensive metabolic panel for baseline comparison.',
+    diagnosis: 'normal-serum',
+  }
+]);
+
 // Flatten all cases into single array for game use
 export const CASES: Case[] = [
   ...INFECTION_CASES,
   ...BLOOD_TYPING_CASES,
   ...IMMUNITY_CASES,
   ...ANTIBIOTIC_CASES,
+  ...CLINICAL_DIAGNOSIS_CASES,
 ];
 
 // Epic 4: Background material visible for each sample type

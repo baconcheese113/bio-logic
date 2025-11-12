@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { CASES, ORGANISMS, SAMPLE_BACKGROUNDS, type SampleType } from '../../data/organisms';
+import { CLINICAL_DIAGNOSES } from '../../data/clinical-diagnoses';
 import { clearEvidence } from './evidence';
 import { resetInstrumentState as resetInstruments } from './instrument-state';
 
@@ -11,6 +12,7 @@ export type GamePhase =
   | 'culture-observation'
   | 'biochemical-testing'
   | 'serology-testing'
+  | 'electrophoresis-testing'
   | 'diagnosis';
 
 export type StainType = 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore';
@@ -20,7 +22,7 @@ export interface GameState {
   selectedSampleType: SampleType | null;
   currentStain: StainType;
   gamePhase: GamePhase;
-  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing';
+  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing' | 'electrophoresis-testing';
   focusDepth: number;
   zoomLevel: number;
 }
@@ -42,12 +44,47 @@ export const currentCase = derived(
   ($state) => CASES[$state.currentCaseIndex]
 );
 
-export const currentOrganism = derived(
+export const correctOrganism = derived(
   currentCase,
   ($case) => {
     // For organism-identification and antibiotic-selection cases, find the organism
     if ($case.answerFormat === 'organism-identification' || $case.answerFormat === 'antibiotic-selection') {
       return ORGANISMS.find(org => org.id === $case.correctAnswer);
+    }
+    // For clinical-diagnosis cases, there is no organism - just patient serum
+    return undefined;
+  }
+);
+
+export const correctDiagnosis = derived(
+  currentCase,
+  ($case) => {
+    if ($case.answerFormat === 'clinical-diagnosis') {
+      return CLINICAL_DIAGNOSES.find(d => d.id === $case.correctAnswer);
+    }
+    return undefined;
+  }
+);
+
+// Derived store for electrophoresis data (works for both organisms and clinical diagnoses)
+export const currentElectrophoresisData = derived(
+  currentCase,
+  ($case) => {
+    // For organism cases with protein data
+    if ($case.answerFormat === 'organism-identification' || $case.answerFormat === 'antibiotic-selection') {
+      const organism = ORGANISMS.find(org => org.id === $case.correctAnswer);
+      return organism?.proteinElectrophoresis;
+    }
+    // For clinical-diagnosis cases, get from CLINICAL_DIAGNOSES
+    if ($case.answerFormat === 'clinical-diagnosis') {
+      const diagnosis = CLINICAL_DIAGNOSES.find(d => d.id === $case.correctAnswer);
+      if (diagnosis) {
+        return {
+          pattern: diagnosis.electrophoresis.pattern,
+          densitometer: diagnosis.electrophoresis.densitometer,
+          clinicalContext: diagnosis.clinicalPresentation.symptoms.join(', '),
+        };
+      }
     }
     return undefined;
   }
@@ -84,7 +121,7 @@ export function selectSample(sampleType: SampleType) {
   }));
 }
 
-export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology') {
+export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis') {
   let phase: GamePhase;
   if (instrument === 'microscope') {
     phase = 'microscope-observation';
@@ -92,6 +129,8 @@ export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochem
     phase = 'culture-observation';
   } else if (instrument === 'serology') {
     phase = 'serology-testing';
+  } else if (instrument === 'electrophoresis') {
+    phase = 'electrophoresis-testing';
   } else {
     phase = 'biochemical-testing';
   }

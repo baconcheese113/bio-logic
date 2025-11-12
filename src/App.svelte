@@ -7,6 +7,7 @@
   import CulturePlateView from './lib/components/instruments/culture/CulturePlateView.svelte';
   import BiochemicalTestView from './lib/components/instruments/biochemical/BiochemicalTestView.svelte';
   import SerologyView from './lib/components/instruments/serology/SerologyView.svelte';
+  import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 
@@ -38,6 +39,10 @@
   
   <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'}>
     <SerologyView />
+  </div>
+  
+  <div class="view" class:visible={$gameState.gamePhase === 'electrophoresis-testing'}>
+    <ElectrophoresisView />
   </div>
   
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -19,14 +19,18 @@
     serology: {
       title: 'Serology',
       description: 'Detect antibodies and antigens through agglutination reactions. Blood typing, immunity screening, and antibody detection for syphilis and other diseases.'
+    },
+    electrophoresis: {
+      title: 'Protein Electrophoresis',
+      description: 'Separate serum proteins by size and charge to identify abnormal protein patterns in blood disorders, liver disease, and immune conditions.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -84,6 +88,17 @@
       <div class="instrument-icon">🩸</div>
       <h3>Serology</h3>
       <p>Blood typing and antibody detection</p>
+    </button>
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('electrophoresis')}
+      onmouseenter={() => setHoveredInfo('electrophoresis')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">📊</div>
+      <h3>Protein Electrophoresis</h3>
+      <p>Analyze serum protein patterns</p>
     </button>
   </div>
 

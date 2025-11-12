@@ -3,7 +3,7 @@
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import { isCorrectSample, currentOrganism } from '../../../stores/game-state';
+  import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
   import '../../../styles/instrument-controls.css';
   
@@ -49,12 +49,12 @@
 
   function getCatalaseResult(): boolean | null {
     if (!$isCorrectSample || !catalasePerformed) return null;
-    return $currentOrganism?.culture?.catalase ?? null;
+    return $correctOrganism?.culture?.catalase ?? null;
   }
 
   function getCoagulaseResult(): boolean | null {
     if (!$isCorrectSample || !coagulasePerformed) return null;
-    return $currentOrganism?.culture?.coagulase ?? null;
+    return $correctOrganism?.culture?.coagulase ?? null;
   }
 </script>
 

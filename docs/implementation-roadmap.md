@@ -196,9 +196,55 @@
 
   - Growth characteristics as evidence  - Growth characteristics as evidence
 
-## Era 3: Immunological Detection (1900s-1950s)
+## Era 3: Immunological & Protein Analysis (1900s-1950s)
 
-    
+### Epic 10: Serum Protein Electrophoresis
+
+**Historical Context:** Gel electrophoresis (1930s-1950s) separates proteins by size and charge. Serum protein electrophoresis became a powerful diagnostic tool for blood disorders, liver disease, and immune abnormalities by revealing characteristic protein patterns.
+
+**New Question Answered:** "What protein abnormalities does this patient have?"
+
+**Why This Was Revolutionary:**
+- Multiple myeloma detection (abnormal antibody spike)
+- Liver disease patterns (altered protein ratios)  
+- Immune deficiencies (missing antibody bands)
+- Still widely used in clinical labs today
+
+**Technique Components:**
+- **Electrophoresis Chamber**: Apply electric current to separate proteins
+  - Proteins migrate based on size and charge
+  - Visual: gel with separated protein bands migrating
+- **Densitometer Reading**: Scan gel to create pattern graph
+  - Shows peaks and valleys across five regions
+  - Player interprets peak patterns vs normal controls
+
+**New Observation Types:**
+- M-spike present (yes/no) - multiple myeloma indicator
+- Beta-gamma bridging (yes/no) - cirrhosis indicator
+- Albumin level (low/normal/high)
+- Gamma globulin level (low/normal/high)
+
+**Cases This Unlocks:**
+- Multiple myeloma (sharp M-protein spike)
+- Liver cirrhosis (beta-gamma bridging)
+- Nephrotic syndrome (low albumin, high alpha-2)
+- Chronic inflammation (elevated gammas)
+
+**Gameplay:**
+1. Load serum sample into gel
+2. Apply electric current (migration animation)
+3. Stain gel to visualize protein bands
+4. Scan with densitometer to see graph pattern
+5. Compare to normal controls
+6. Record protein pattern observations
+
+**Implementation Notes:**
+- New view: `ElectrophoresisView.svelte`
+- Phaser visualization of migrating protein bands
+- Graph overlay showing densitometer pattern
+- Reference patterns for comparison
+
+---
 
 ### Epic 8: Serological Testing (Antibody Detection)
 

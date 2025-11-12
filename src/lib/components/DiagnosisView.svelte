@@ -2,7 +2,9 @@
   import { filteredOrganisms, matchCount, evidence } from '../stores/evidence';
   import { currentCase, nextCase, returnToLastInstrument } from '../stores/game-state';
   import { ORGANISMS, ANSWER_FORMATS } from '../../data/organisms';
+  import { CLINICAL_DIAGNOSES } from '../../data/clinical-diagnoses';
   import type { Organism } from '../../data/organisms';
+  import ClinicalDiagnosisSelection from './ClinicalDiagnosisSelection.svelte';
 
   let selectedOrganism = $state<Organism | null>(null);
   let selectedAnswer = $state<string | null>(null);
@@ -62,7 +64,10 @@
            $evidence.bloodType !== null ||
            $evidence.rhFactor !== null ||
            $evidence.syphilisAntibodies !== null ||
-           $evidence.diphtheriaAntitoxin !== null;
+           $evidence.diphtheriaAntitoxin !== null ||
+           $evidence.proteinPattern !== null ||
+           $evidence.albuminLevel !== null ||
+           $evidence.globulinLevel !== null;
   }
 
   function selectOrganism(organism: Organism) {
@@ -103,6 +108,11 @@
       } else if (answerFormat.type === 'antibiotic-choice') {
         const antibioticName = selectedAnswer.charAt(0).toUpperCase() + selectedAnswer.slice(1);
         feedback = `Correct! ${antibioticName} shows the best sensitivity and is the optimal treatment choice.`;
+      } else if (answerFormat.type === 'clinical-diagnosis') {
+        const diagnosis = CLINICAL_DIAGNOSES.find(d => d.id === selectedAnswer);
+        feedback = diagnosis 
+          ? `Correct! ${diagnosis.displayName} was the right diagnosis based on the clinical presentation and electrophoresis pattern.`
+          : `Correct! That was the right diagnosis.`;
       }
     } else {
       if (answerFormat.type === 'organism-id') {
@@ -111,6 +121,11 @@
       } else if (answerFormat.type === 'antibiotic-choice') {
         const correctAntibiotic = ($currentCase.bestAntibiotic || '').charAt(0).toUpperCase() + ($currentCase.bestAntibiotic || '').slice(1);
         feedback = `Incorrect. ${correctAntibiotic} showed the best sensitivity and should have been selected.`;
+      } else if (answerFormat.type === 'clinical-diagnosis') {
+        const correctDiagnosis = CLINICAL_DIAGNOSES.find(d => d.id === $currentCase.correctAnswer);
+        feedback = correctDiagnosis 
+          ? `Incorrect. The correct diagnosis was ${correctDiagnosis.displayName}.`
+          : `Incorrect. The correct answer was ${$currentCase.correctAnswer}.`;
       } else {
         feedback = `Incorrect. The correct answer was ${$currentCase.correctAnswer}.`;
       }
@@ -138,7 +153,11 @@
     <div class="header">
       <div>
         <h2>Make Your Diagnosis</h2>
-        <p class="match-count">{$matchCount} organism(s) match your observations</p>
+        {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'organism-id'}
+          <p class="match-count">{$matchCount} organism(s) match your observations</p>
+        {:else if ANSWER_FORMATS[$currentCase.answerFormat].type === 'clinical-diagnosis'}
+          <p class="match-count">Clinical diagnosis based on pattern analysis</p>
+        {/if}
       </div>
       <button class="back-button" onclick={backToMicroscope}>
         ← Back to Instruments
@@ -210,6 +229,17 @@
           {/if}
           {#if $evidence.diphtheriaAntitoxin !== null}
             <span class="obs-badge serology">Diphtheria: {$evidence.diphtheriaAntitoxin ? 'Immune' : 'Not Immune'}</span>
+          {/if}
+          
+          <!-- Protein electrophoresis observations -->
+          {#if $evidence.proteinPattern !== null}
+            <span class="obs-badge protein">Pattern: {formatEvidenceValue($evidence.proteinPattern)}</span>
+          {/if}
+          {#if $evidence.albuminLevel !== null}
+            <span class="obs-badge protein">Albumin: {formatEvidenceValue($evidence.albuminLevel)}</span>
+          {/if}
+          {#if $evidence.globulinLevel !== null}
+            <span class="obs-badge protein">Globulin: {formatEvidenceValue($evidence.globulinLevel)}</span>
           {/if}
         </div>
       </div>
@@ -348,6 +378,24 @@
         <div class="submit-section">
           <button class="submit-button" onclick={submitDiagnosis}>
             Submit Treatment: {selectedAnswer.charAt(0).toUpperCase() + selectedAnswer.slice(1)}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Clinical Diagnosis Selection (for clinical-diagnosis cases) -->
+    {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'clinical-diagnosis'}
+      <ClinicalDiagnosisSelection 
+        {selectedAnswer}
+        {selectAnswer}
+        {feedback}
+        possibleDiagnoses={ANSWER_FORMATS[$currentCase.answerFormat].options || []}
+      />
+      
+      {#if selectedAnswer && !feedback}
+        <div class="submit-section">
+          <button class="submit-button" onclick={submitDiagnosis}>
+            Submit Diagnosis: {CLINICAL_DIAGNOSES.find(d => d.id === selectedAnswer)?.displayName || selectedAnswer}
           </button>
         </div>
       {/if}
