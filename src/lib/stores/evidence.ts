@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { ORGANISMS } from '../../data/organisms';
-import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel } from '../../data/organisms';
+import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel, PrimerDesign } from '../../data/organisms';
 
 export interface Evidence {
   // Microscopy evidence
@@ -39,6 +39,11 @@ export interface Evidence {
   proteinPattern: ProteinPattern | null;
   albuminLevel: AlbuminLevel | null;
   globulinLevel: GlobulinLevel | null;
+  
+  // PCR evidence - Interactive primer design
+  primerDesign: PrimerDesign | null;  // Player's custom primer design
+  pcrComplete: boolean;                // PCR amplification completed
+  estimatedFragmentSize: number | null; // Player's estimate from gel (bp)
 }
 
 const initialEvidence: Evidence = {
@@ -78,6 +83,11 @@ const initialEvidence: Evidence = {
   proteinPattern: null,
   albuminLevel: null,
   globulinLevel: null,
+  
+  // PCR - Interactive primer design
+  primerDesign: null,
+  pcrComplete: false,
+  estimatedFragmentSize: null,
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -364,6 +374,28 @@ export function setGlobulinLevel(value: GlobulinLevel) {
   evidence.update(e => ({
     ...e,
     globulinLevel: e.globulinLevel === value ? null : value,
+  }));
+}
+
+// PCR evidence setters
+export function setPrimerDesign(design: PrimerDesign | null) {
+  evidence.update(e => ({
+    ...e,
+    primerDesign: design,
+  }));
+}
+
+export function setPCRComplete(complete: boolean) {
+  evidence.update(e => ({
+    ...e,
+    pcrComplete: complete,
+  }));
+}
+
+export function setEstimatedFragmentSize(size: number | null) {
+  evidence.update(e => ({
+    ...e,
+    estimatedFragmentSize: size,
   }));
 }
 

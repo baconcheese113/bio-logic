@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { selectInstrument, returnToSampleSelection } from '../stores/game-state';
+  import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -23,18 +23,25 @@
     electrophoresis: {
       title: 'Protein Electrophoresis',
       description: 'Separate serum proteins by size and charge to identify abnormal protein patterns in blood disorders, liver disease, and immune conditions.'
+    },
+    pcr: {
+      title: 'PCR & DNA Gel Electrophoresis',
+      description: 'Amplify specific DNA sequences through thermal cycling, then visualize the products on a DNA gel to detect genetic markers.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
   }
+
+  // Check if PCR is available for this case
+  const showPCR = $derived($currentCase?.pcrTarget !== undefined);
 </script>
 
 <div class="instrument-selection">
@@ -100,6 +107,19 @@
       <h3>Protein Electrophoresis</h3>
       <p>Analyze serum protein patterns</p>
     </button>
+
+    {#if showPCR}
+      <button 
+        class="instrument-card"
+        onclick={() => handleInstrumentSelect('pcr')}
+        onmouseenter={() => setHoveredInfo('pcr')}
+        onmouseleave={() => setHoveredInfo(null)}
+      >
+        <div class="instrument-icon">🧬</div>
+        <h3>PCR & DNA Gel</h3>
+        <p>Amplify and detect genetic markers</p>
+      </button>
+    {/if}
   </div>
 
   <div class="info-panel">

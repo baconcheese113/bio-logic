@@ -34,10 +34,8 @@
     electrophoresisRef?.applyStain();
   }
 
-  function setHoveredInfo(key: string | null) {
-    if (key !== null) {
-      lastHoveredInfo = key;
-    }
+  function setHoveredInfo(key: string) {
+    lastHoveredInfo = key;
   }
 </script>
 
@@ -86,7 +84,6 @@
               disabled={isRunning}
               onclick={startElectrophoresis}
               onmouseenter={() => setHoveredInfo('run-electrophoresis')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               {isRunning ? 'Running...' : 'Run Electrophoresis'}
             </button>
@@ -108,7 +105,6 @@
               disabled={!migrationComplete || isStained}
               onclick={applyStain}
               onmouseenter={() => setHoveredInfo('staining-ponceau')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               {isStained ? 'Stained ✓' : migrationComplete ? 'Apply Ponceau S Stain' : 'Complete Migration First'}
             </button>
@@ -136,7 +132,6 @@
                     class:active={$evidence.proteinPattern === 'normal'}
                     onclick={() => toggleProteinPattern('normal')}
                     onmouseenter={() => setHoveredInfo('protein-pattern-normal')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Normal
                   </button>
@@ -145,7 +140,6 @@
                     class:active={$evidence.proteinPattern === 'm-spike'}
                     onclick={() => toggleProteinPattern('m-spike')}
                     onmouseenter={() => setHoveredInfo('protein-pattern-m-spike')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     M-Spike
                   </button>
@@ -154,7 +148,6 @@
                     class:active={$evidence.proteinPattern === 'beta-gamma-bridge'}
                     onclick={() => toggleProteinPattern('beta-gamma-bridge')}
                     onmouseenter={() => setHoveredInfo('protein-pattern-beta-gamma-bridge')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     β-γ Bridge
                   </button>
@@ -163,7 +156,6 @@
                     class:active={$evidence.proteinPattern === 'low-albumin'}
                     onclick={() => toggleProteinPattern('low-albumin')}
                     onmouseenter={() => setHoveredInfo('protein-pattern-low-albumin')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Low Albumin
                   </button>
@@ -172,7 +164,6 @@
                     class:active={$evidence.proteinPattern === 'polyclonal-gammopathy'}
                     onclick={() => toggleProteinPattern('polyclonal-gammopathy')}
                     onmouseenter={() => setHoveredInfo('protein-pattern-polyclonal')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Polyclonal
                   </button>
@@ -187,7 +178,6 @@
                     class:active={$evidence.albuminLevel === 'low'}
                     onclick={() => setAlbuminLevel('low')}
                     onmouseenter={() => setHoveredInfo('albumin-low')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Low
                   </button>
@@ -196,7 +186,6 @@
                     class:active={$evidence.albuminLevel === 'normal'}
                     onclick={() => setAlbuminLevel('normal')}
                     onmouseenter={() => setHoveredInfo('albumin-normal')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Normal
                   </button>
@@ -205,7 +194,6 @@
                     class:active={$evidence.albuminLevel === 'high'}
                     onclick={() => setAlbuminLevel('high')}
                     onmouseenter={() => setHoveredInfo('albumin-high')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     High
                   </button>
@@ -220,7 +208,6 @@
                     class:active={$evidence.globulinLevel === 'low'}
                     onclick={() => setGlobulinLevel('low')}
                     onmouseenter={() => setHoveredInfo('globulin-low')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Low
                   </button>
@@ -229,7 +216,6 @@
                     class:active={$evidence.globulinLevel === 'normal'}
                     onclick={() => setGlobulinLevel('normal')}
                     onmouseenter={() => setHoveredInfo('globulin-normal')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Normal
                   </button>
@@ -238,7 +224,6 @@
                     class:active={$evidence.globulinLevel === 'high'}
                     onclick={() => setGlobulinLevel('high')}
                     onmouseenter={() => setHoveredInfo('globulin-high')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     High
                   </button>

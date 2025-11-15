@@ -26,10 +26,8 @@
     microscopeRef?.renderMicroscopeContent();
   }
 
-  function setHoveredInfo(key: string | null) {
-    if (key !== null) {
-      lastHoveredInfo = key;
-    }
+  function setHoveredInfo(key: string) {
+    lastHoveredInfo = key;
   }
 </script>
 
@@ -78,7 +76,6 @@
                     class:active={$gameState.currentStain === value}
                     onclick={() => handleStainChange(value)}
                     onmouseenter={() => setHoveredInfo(infoKey)}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     {label}
                   </button>
@@ -121,7 +118,6 @@
                     class:active={$evidence.shape === 'cocci'}
                     onclick={() => toggleShape('cocci')}
                     onmouseenter={() => setHoveredInfo('shape-cocci')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Cocci
                   </button>
@@ -130,7 +126,6 @@
                     class:active={$evidence.shape === 'bacilli'}
                     onclick={() => toggleShape('bacilli')}
                     onmouseenter={() => setHoveredInfo('shape-bacilli')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Bacilli
                   </button>
@@ -139,7 +134,6 @@
                     class:active={$evidence.shape === 'diplococci'}
                     onclick={() => toggleShape('diplococci')}
                     onmouseenter={() => setHoveredInfo('shape-diplococci')}
-                    onmouseleave={() => setHoveredInfo(null)}
                   >
                     Diplo
                   </button>
@@ -156,7 +150,6 @@
                       class:active={$evidence.gramStain === 'positive'}
                       onclick={() => toggleGramStain('positive')}
                       onmouseenter={() => setHoveredInfo('gram-positive')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       +
                     </button>
@@ -165,7 +158,6 @@
                       class:active={$evidence.gramStain === 'negative'}
                       onclick={() => toggleGramStain('negative')}
                       onmouseenter={() => setHoveredInfo('gram-negative')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       -
                     </button>
@@ -180,7 +172,6 @@
                       class:active={$evidence.acidFast === true}
                       onclick={() => toggleAcidFast(true)}
                       onmouseenter={() => setHoveredInfo('acid-fast-pos')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       +
                     </button>
@@ -189,7 +180,6 @@
                       class:active={$evidence.acidFast === false}
                       onclick={() => toggleAcidFast(false)}
                       onmouseenter={() => setHoveredInfo('acid-fast-neg')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       -
                     </button>
@@ -204,7 +194,6 @@
                       class:active={$evidence.capsule === true}
                       onclick={() => toggleCapsule(true)}
                       onmouseenter={() => setHoveredInfo('capsule-pos')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       +
                     </button>
@@ -213,7 +202,6 @@
                       class:active={$evidence.capsule === false}
                       onclick={() => toggleCapsule(false)}
                       onmouseenter={() => setHoveredInfo('capsule-neg')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       -
                     </button>
@@ -228,7 +216,6 @@
                       class:active={$evidence.spores === true}
                       onclick={() => toggleSpores(true)}
                       onmouseenter={() => setHoveredInfo('spores-pos')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       +
                     </button>
@@ -237,7 +224,6 @@
                       class:active={$evidence.spores === false}
                       onclick={() => toggleSpores(false)}
                       onmouseenter={() => setHoveredInfo('spores-neg')}
-                      onmouseleave={() => setHoveredInfo(null)}
                     >
                       -
                     </button>

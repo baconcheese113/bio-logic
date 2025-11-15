@@ -215,15 +215,27 @@
 
     const artifacts = scene.add.graphics();
 
-    for (const debris of slide.debris) {
-      const zDepth = debris.zDepth - focusOffset;
-      const defocus = calculateDefocus(zDepth, debris.size);
-      
-      const size = debris.size * defocus.sizeMultiplier;
-      const opacity = debris.opacity * defocus.opacityMultiplier;
-      
-      artifacts.fillStyle(0xb8b4ac, opacity);
-      artifacts.fillCircle(debris.x, debris.y, size);
+    
+    // Debris uses variation seed to randomize on focus change
+    // const rng = new SeededRNG([this.caseIndex.toString(), 'debris', this.variationSeed.toString()]);
+
+    // // Debris particles - increased count for more prevalence
+    // const debrisCount = this.rng.between(1, 3);
+    // for (let i = 0; i < debrisCount; i++) {
+    //   const angle = this.rng.floatBetween(0, Math.PI * 2);
+    //   const distance = this.rng.floatBetween(0, this.radius - 30);
+    //   const x = this.centerX + distance * Math.cos(angle);
+    //   const y = this.centerY + distance * Math.sin(angle);
+    //   const size = this.rng.floatBetween(1, 3);
+    //   const opacity = this.rng.floatBetween(0.2, 0.5);
+    //   const zDepth = this.rng.floatBetween(-5, 5);
+
+    //   this.debris.push({ angle, distance, x, y, size, opacity, zDepth });
+    // }
+
+    for (const debris of slide.debris) {      
+      artifacts.fillStyle(0x000, 0.05);
+      artifacts.fillCircle(debris.x, debris.y, 2);
     }
 
     if ($gameState.currentStain !== 'none') {

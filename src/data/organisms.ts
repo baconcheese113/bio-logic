@@ -35,6 +35,71 @@ export interface DensitometerReading {
   gamma: number; // Normal: 10-21%
 }
 
+// PCR and DNA electrophoresis types
+export type GeneTarget = 
+  | 'mecA'        // MRSA detection (methicillin resistance)
+  | '16S-rRNA'    // Universal bacterial marker
+  | 'IS6110'      // TB-specific insertion sequence
+  | 'HIV-gag'     // HIV viral gene
+  | 'none';       // No PCR performed
+
+// Epic 11: Gene sequences for interactive primer design
+export interface GeneSequenceData {
+  id: GeneTarget;
+  name: string;
+  fullSequence: string; // 500bp actual DNA sequence
+  description: string;
+  optimalAmplificationRegion: {
+    start: number; // 0-based position
+    end: number;
+    expectedSize: number;
+  };
+  suggestedForwardRange: { min: number; max: number };
+  suggestedReverseRange: { min: number; max: number };
+}
+
+// Player's custom primer design
+export interface PrimerDesign {
+  forwardStart: number;   // Position in sequence (0-based)
+  forwardLength: number;  // 18-25bp
+  reverseStart: number;   
+  reverseLength: number;
+}
+
+// Quality evaluation of primer design
+export interface PrimerQuality {
+  forwardTm: number;
+  reverseTm: number;
+  tmMatch: boolean;
+  tmDifference: number;
+  
+  forwardGC: number;
+  reverseGC: number;
+  gcContentGood: boolean;
+  
+  selfComplementarity: number; // 0-10 score
+  selfCompGood: boolean;
+  
+  hasHairpins: boolean;
+  hairpinDetails?: Array<{
+    primer: 'forward' | 'reverse';
+    position: number;
+    stemLength: number;
+  }>;
+  
+  productSize: number;
+  productSizeGood: boolean;
+  
+  overallQuality: 'excellent' | 'good' | 'acceptable' | 'poor' | 'fail';
+  canAmplify: boolean;
+  expectedBandPattern: 'clean' | 'weak' | 'smeared' | 'dimers' | 'none';
+}
+
+export interface PCRTarget {
+  geneId: GeneTarget;
+  description: string;
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';
@@ -93,6 +158,8 @@ export interface Organism {
   serology?: SerologyProperties; // Optional for now
   antibiotics?: AntibioticProperties; // Optional for now
   proteinElectrophoresis?: ProteinElectrophoresisProperties; // For protein pattern cases
+  pcrMarkers?: GeneTarget[]; // Genes this organism has (for PCR detection)
+  expectedPCRSizes?: Partial<Record<GeneTarget, number>>; // Expected fragment sizes in bp
 }
 
 // Answer format configuration for different case types
@@ -135,6 +202,7 @@ export interface Case {
   answerFormat: keyof typeof ANSWER_FORMATS;
   correctAnswer: string;
   bestAntibiotic?: string; // For antibiotic-selection cases
+  pcrTarget?: PCRTarget;    // For gene-detection cases
 }
 
 // Epic 0+1+3+4: Expanded organisms with multiple stain types
@@ -203,6 +271,48 @@ export const ORGANISMS: Organism[] = [
       tetracycline: 25,
       chloramphenicol: 22,
       erythromycin: 24,
+    },
+    pcrMarkers: ['16S-rRNA'], // All bacteria have this
+    expectedPCRSizes: {
+      '16S-rRNA': 1500,
+    },
+  },
+  {
+    id: 'staph_aureus_mrsa',
+    scientificName: 'Staphylococcus aureus (MRSA)',
+    commonName: 'Methicillin-Resistant Staph',
+    gramStain: 'positive',
+    acidFast: false,
+    capsule: false,
+    sporeFormer: false,
+    shape: 'cocci',
+    arrangement: 'clusters',
+    notes: 'MRSA - Gram-positive cocci in clusters, catalase positive, coagulase positive, carries mecA resistance gene',
+    culture: {
+      bloodAgar: {
+        growthQuality: 'good',
+        colonyColor: 'golden',
+        hemolysis: 'beta',
+      },
+      macConkey: {
+        growthQuality: 'none',
+        colonyColor: 'none',
+        lactoseFermenter: false,
+      },
+      catalase: true,
+      coagulase: true,
+    },
+    antibiotics: {
+      penicillin: 0, // Resistant
+      streptomycin: 8, // Naturally resistant
+      tetracycline: 25,
+      chloramphenicol: 22,
+      erythromycin: 24,
+    },
+    pcrMarkers: ['mecA', '16S-rRNA'], // Has mecA resistance gene
+    expectedPCRSizes: {
+      'mecA': 310,
+      '16S-rRNA': 1500,
     },
   },
   {
@@ -274,6 +384,11 @@ export const ORGANISMS: Organism[] = [
       tetracycline: 14,
       chloramphenicol: 6,
       erythromycin: 7,
+    },
+    pcrMarkers: ['IS6110', '16S-rRNA'], // IS6110 unique to M. tuberculosis complex
+    expectedPCRSizes: {
+      'IS6110': 245,
+      '16S-rRNA': 1500,
     },
   },
   {
@@ -823,6 +938,115 @@ const CLINICAL_DIAGNOSIS_CASES = createClinicalDiagnosisCases([
   }
 ]);
 
+// Epic 11: Gene sequences for interactive primer design
+export const GENE_SEQUENCES: GeneSequenceData[] = [
+  {
+    id: 'mecA',
+    name: 'mecA (Methicillin Resistance Gene)',
+    // Actual mecA gene sequence (500bp region)
+    fullSequence: 
+      'ATGAAAAAAAAAATAAAAGAAGTAGATGCTCAATATGTATCCGATAAAAATAATTGAGTCAGAAGTTTTTTTGATATTACAGAGGATTACAGCTTATTTTAGAGTTAACGCTTGCAACCGAGTAACATAGGGTAAAATATTGATAAGTATTATCGTATGTATTAGAGTAAAAGTACTGTTTGAAGCAGCTAGACTTACTATTACTGTAGAAATGACTGAACGTCCGATAAATTTTCCGATAATATTGTGGCACCTGCTCATAAAGCTCTTTTTGATTTTTATGGTTTAGATACTAATTATCCTGTTCCTATTCATTTGATTCGAAAAAGATTGAAAGGATGATAAAGGTTTATTTACCCACAATACAGGAATATGCTTATTTTAGCGGTTCGAACAGGATTGATCGATATCAACATTAATAACCCAATTCCACATTGTTTCGGTCTAAACAGTTAGAAATAATTCTTGATTTATTGGCACTTGTAATTACTACAGGTAATAAT',
+    description: 'Confers resistance to methicillin and other beta-lactam antibiotics in Staphylococcus aureus',
+    optimalAmplificationRegion: {
+      start: 190,
+      end: 500,
+      expectedSize: 310,
+    },
+    // Forward: 180-220 has good 40-60% GC options (e.g., pos 180, 202-220)
+    // Reverse: 460-480 has better GC than 480+ (which is too AT-rich)
+    suggestedForwardRange: { min: 180, max: 220 },
+    suggestedReverseRange: { min: 460, max: 480 },
+  },
+  {
+    id: 'IS6110',
+    name: 'IS6110 (TB Insertion Sequence)',
+    // Actual IS6110 sequence (500bp region)
+    fullSequence:
+      'CGGGCGTGGCGGTCGTGGTATGGTGGACCGTAACGGGTCGGGCCCGGTGACCGTTGACGTTCGCGTGACGCGCGGCACGCTGTACCCGCCGAGTCGACTTCCGGTAACGCCGACGAAGACAACCCGGGTGGTACCGGGCGAGGAACCGGGTCACGGGTTCGGGTCATGGCCCGGGACCGCCGCTGGCCCAACCGCTCGACGGGTCCGATGTCGAACGTCGGCGACGCACGGCCGGTGGCGAACACCGCCGAAGCCCTGCGAGCGTAGGCGTCGGTGACAAAGGCCACGTAGGCGAACCTGCCGCTGGTCTCGATGCCGCCCGCGAACACGGTGAAGCGTGGCAACCGGTATAGCGTAGGGGTCGGTCCCGGCCTCGTCCAGCGCCGCTTCGGCCCCGGCGATGGCCGGTTCATCCTCGACGGTGTCGATGTCACCGCGGGCCTTCATGACGAACCCGTCACCCCGCCCGGCGGCACCCCGGTAGCCGGC',
+    description: 'Insertion element specific to Mycobacterium tuberculosis complex, used for TB diagnosis',
+    optimalAmplificationRegion: {
+      start: 155,
+      end: 400,
+      expectedSize: 245,
+    },
+    // IS6110 is extremely GC-rich overall (>65% throughout)
+    // Forward: Using positions 105-145 (60-75% GC range - closest to acceptable we can get)
+    // Reverse: 370-400 region maintains high GC but is best available
+    // Note: Players will need to optimize carefully - this gene is challenging!
+    suggestedForwardRange: { min: 105, max: 145 },
+    suggestedReverseRange: { min: 370, max: 400 },
+  },
+  {
+    id: '16S-rRNA',
+    name: '16S rRNA (Universal Bacterial Marker)',
+    // Universal 16S sequence region
+    fullSequence:
+      'AGAGTTTGATCCTGGCTCAGATTGAACGCTGGCGGCAGGCCTAACACATGCAAGTCGAACGGTAACAGGAAGAAGCTTGCTTCTTTGCTGACGAGTGGCGGACGGGTGAGTAATGTCTGGGAAACTGCCTGATGGAGGGGGATAACTACTGGAAACGGTAGCTAATACCGCATAACGTCGCAAGACCAAAGAGGGGGACCTTCGGGCCTCTTGCCATCGGATGTGCCCAGATGGGATTAGCTAGTAGGTGGGGTAACGGCTCACCTAGGCGACGATCCCTAGCTGGTCTGAGAGGATGACCAGCCACACTGGAACTGAGACACGGTCCAGACTCCTACGGGAGGCAGCAGTGGGGAATATTGCACAATGGGCGCAAGCCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGCGGGGAGGAAGGGAGTAAAGTTAATACCTTTGCTCATTGACGTTACCCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTTGTTACGT',
+    description: 'Conserved ribosomal RNA gene present in all bacteria, used for broad bacterial detection',
+    optimalAmplificationRegion: {
+      start: 0,
+      end: 500,
+      expectedSize: 500,
+    },
+    // Forward: 0-12 has excellent 45-55% GC range (ideal for primers)
+    // Reverse: 470-490 has good 50-60% GC range
+    suggestedForwardRange: { min: 0, max: 12 },
+    suggestedReverseRange: { min: 470, max: 490 },
+  },
+];
+
+// Epic 11: PCR cases using organism-identification (PCR provides evidence, not answer)
+function createPCROrganismCases(cases: Array<{
+  id: string;
+  title: string;
+  story: string;
+  sampleType: SampleType;
+  organism: string;
+  targetGene: GeneTarget;
+}>): Case[] {
+  return cases.map(c => ({
+    id: c.id,
+    title: c.title,
+    story: c.story,
+    correctSampleType: c.sampleType,
+    answerFormat: 'organism-identification' as const,
+    correctAnswer: c.organism,
+    pcrTarget: {
+      geneId: c.targetGene,
+      description: `PCR target for ${c.organism} identification`,
+    },
+  }));
+}
+
+const PCR_ORGANISM_CASES = createPCROrganismCases([
+  {
+    id: 'case_pcr_001',
+    title: 'Hospital-Acquired MRSA',
+    story: `University Hospital, 1987. Post-surgical wound infection not responding to methicillin. 
+    Culture shows Staph aureus - golden colonies, beta-hemolysis, catalase and coagulase positive. 
+    But is it regular Staph or MRSA?
+    
+    Dr. Martinez: "The mecA gene codes for altered penicillin-binding protein. If present, this is 
+    MRSA and we need vancomycin. PCR can detect it in 6 hours vs 24 hours for disk diffusion. 
+    Use microscopy and culture to confirm it's Staph aureus, then design primers to detect mecA resistance gene."`,
+    sampleType: 'wound',
+    organism: 'staph_aureus_mrsa',
+    targetGene: 'mecA',
+  },
+  {
+    id: 'case_pcr_002',
+    title: 'Suspected Tuberculosis',
+    story: `Public Health Clinic, 1990. Patient with 8-week cough, night sweats, weight loss, hemoptysis. 
+    Sputum smear shows acid-fast bacilli - strong presumptive evidence of TB. But TB culture takes 6-8 weeks!
+    
+    PCR for IS6110 insertion sequence (unique to M. tuberculosis) can confirm in one day. IS6110 has 
+    10-20 copies per TB genome, making it highly sensitive. Combine acid-fast stain with PCR for rapid diagnosis.`,
+    sampleType: 'sputum',
+    organism: 'm_tuberculosis',
+    targetGene: 'IS6110',
+  },
+]);
+
 // Flatten all cases into single array for game use
 export const CASES: Case[] = [
   ...INFECTION_CASES,
@@ -830,6 +1054,7 @@ export const CASES: Case[] = [
   ...IMMUNITY_CASES,
   ...ANTIBIOTIC_CASES,
   ...CLINICAL_DIAGNOSIS_CASES,
+  ...PCR_ORGANISM_CASES,
 ];
 
 // Epic 4: Background material visible for each sample type
