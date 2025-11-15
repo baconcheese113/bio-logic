@@ -15,7 +15,7 @@
     step,
     isRunning,
     onComplete = () => {},
-    onHover = () => {}
+    // onHover = () => {}
   }: Props = $props();
 
   let canvasContainer = $state<HTMLDivElement>();
@@ -61,13 +61,6 @@
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // Lab bench - white surface
-    graphics.fillStyle(0xd8d8d8, 1);
-    graphics.fillRect(0, 450, 600, 50);
-    
-    // Bench edge shadow
-    graphics.fillStyle(0x000000, 0.2);
-    graphics.fillRect(0, 450, 600, 4);
     
     // === GEL CASTING TRAY (Yellow/Amber) ===
     const trayX = 30;
@@ -331,26 +324,6 @@
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // Status message
-    if (step === 3 && !isRunning) {
-      currentScene.add.text(centerX, 470, 'Electrophoresis complete - Click "View Under UV Light"', {
-        fontSize: '11px',
-        color: '#88cc88',
-        fontFamily: 'Arial'
-      }).setOrigin(0.5);
-    } else if (step === 2 && !isRunning) {
-      currentScene.add.text(centerX, 470, 'Ready to run - Click "Run Gel"', {
-        fontSize: '11px',
-        color: '#88aacc',
-        fontFamily: 'Arial'
-      }).setOrigin(0.5);
-    } else if (isRunning) {
-      currentScene.add.text(centerX, 470, 'DNA fragments migrating through gel...', {
-        fontSize: '11px',
-        color: '#ffaa44',
-        fontFamily: 'Arial'
-      }).setOrigin(0.5);
-    }
   }
 
 
@@ -371,12 +344,6 @@
       fontFamily: 'Arial',
       fontStyle: 'bold'
     }).setOrigin(0.5);
-
-    // Lab bench
-    graphics.fillStyle(0xd8d8d8, 1);
-    graphics.fillRect(0, 450, 600, 50);
-    graphics.fillStyle(0x000000, 0.2);
-    graphics.fillRect(0, 450, 600, 4);
     
     // === GEL CASTING TRAY ===
     const trayX = 30;
@@ -643,25 +610,151 @@
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // Status message
-    currentScene.add.text(centerX, 470, 'DNA bands visible under UV light', {
-      fontSize: '11px',
-      color: '#ffaa66',
-      fontFamily: 'Arial'
-    }).setOrigin(0.5);
+    // Status message (removed - was rendering outside canvas)
+    
+    // Add DNA ladder reference card
+    if (currentScene) createDNALadderReference(currentScene);
   }
 
   function getBandYPosition(size: number, wellY: number): number {
     // Map fragment size to Y position relative to wells
     // Smaller fragments migrate farther from wells
-    // Scaled to use full gel height (~280px available)
+    // Maximum migration distance is ~260px (wellY is ~73, max is ~333 to stay in gel)
     if (size >= 2000) return wellY + 30;
-    if (size >= 1500) return wellY + 70;
-    if (size >= 1000) return wellY + 120;
-    if (size >= 750) return wellY + 170;
-    if (size >= 500) return wellY + 210;
-    if (size >= 250) return wellY + 250;
-    return wellY + 280; // < 250bp
+    if (size >= 1500) return wellY + 65;
+    if (size >= 1000) return wellY + 105;
+    if (size >= 750) return wellY + 150;
+    if (size >= 500) return wellY + 190;
+    if (size >= 250) return wellY + 225;
+    return wellY + 255; // < 250bp - stays within gel bounds
+  }
+
+  function createDNALadderReference(scene: Phaser.Scene) {
+    // DNA ladder reference card (like gel documentation scientists would have)
+    const refCardX = 580;
+    const refCardY = 220;
+    
+    const refCardContainer = scene.add.container(refCardX, refCardY);
+    
+    // Card background (aged manual page/insert)
+    const refCard = scene.add.rectangle(0, 0, 140, 320, 0xf8f4e0);
+    refCard.setStrokeStyle(1, 0xa89878);
+    refCardContainer.add(refCard);
+    
+    // Product header (typical 1980s documentation style)
+    const header = scene.add.text(0, -145, 'BRL', {
+      fontSize: '10px',
+      color: '#2a2a2a',
+      align: 'center',
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+    });
+    header.setOrigin(0.5);
+    refCardContainer.add(header);
+    
+    const productName = scene.add.text(0, -132, '1 kb DNA Ladder', {
+      fontSize: '9px',
+      color: '#3a3a3a',
+      align: 'center',
+      fontFamily: 'Arial',
+    });
+    productName.setOrigin(0.5);
+    refCardContainer.add(productName);
+    
+    const catNum = scene.add.text(0, -120, 'Cat. No. 5615SA', {
+      fontSize: '7px',
+      color: '#666666',
+      align: 'center',
+      fontFamily: 'Courier New',
+    });
+    catNum.setOrigin(0.5);
+    refCardContainer.add(catNum);
+    
+    // Separator line
+    const separator = scene.add.graphics();
+    separator.lineStyle(1, 0xc8c4b8, 1);
+    separator.lineBetween(-60, -108, 60, -108);
+    refCardContainer.add(separator);
+    
+    // Fragment sizes table header
+    const tableHeader = scene.add.text(0, -96, 'Fragment Sizes (bp)', {
+      fontSize: '8px',
+      color: '#2a2a2a',
+      align: 'center',
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+    });
+    tableHeader.setOrigin(0.5);
+    refCardContainer.add(tableHeader);
+    
+    // Ladder sizes in table format
+    const ladderSizes = [
+      { size: 2000, label: '2,000' },
+      { size: 1500, label: '1,500' },
+      { size: 1000, label: '1,000' },
+      { size: 750, label: '750' },
+      { size: 500, label: '500' },
+      { size: 250, label: '250' },
+      { size: 100, label: '100' },
+    ];
+    
+    let yOffset = -75;
+    ladderSizes.forEach((ladder) => {
+      const sizeText = scene.add.text(0, yOffset, ladder.label, {
+        fontSize: '9px',
+        color: '#2a2a2a',
+        fontFamily: 'Courier New',
+        align: 'center',
+      });
+      sizeText.setOrigin(0.5);
+      refCardContainer.add(sizeText);
+      yOffset += 20;
+    });
+    
+    // Footer with manufacturer info
+    const footer1 = scene.add.text(0, 130, 'Bethesda Research', {
+      fontSize: '7px',
+      color: '#666666',
+      align: 'center',
+      fontFamily: 'Arial',
+      fontStyle: 'italic',
+    });
+    footer1.setOrigin(0.5);
+    refCardContainer.add(footer1);
+    
+    const footer2 = scene.add.text(0, 142, 'Laboratories, Inc.', {
+      fontSize: '7px',
+      color: '#666666',
+      align: 'center',
+      fontFamily: 'Arial',
+      fontStyle: 'italic',
+    });
+    footer2.setOrigin(0.5);
+    refCardContainer.add(footer2);
+    
+    // Make draggable
+    refCardContainer.setInteractive(
+      new Phaser.Geom.Rectangle(-70, -160, 140, 320),
+      Phaser.Geom.Rectangle.Contains
+    );
+    refCardContainer.setDepth(1000);
+    
+    scene.input.setDraggable(refCardContainer);
+    
+    scene.input.on('drag', (_pointer: any, gameObject: Phaser.GameObjects.Container, dragX: number, dragY: number) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+    
+    refCardContainer.on('pointerover', () => {
+      scene.input.setDefaultCursor('grab');
+    });
+    
+    refCardContainer.on('pointerout', () => {
+      scene.input.setDefaultCursor('default');
+    });
+    
+    return refCardContainer;
   }
 
   // Initialize Phaser
@@ -670,14 +763,14 @@
 
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      width: 600,
+      width: 800,
       height: 500,
       parent: canvasContainer,
       backgroundColor: '#0a0a0a',
       scene: {
         create: function() {
           currentScene = this;
-          renderGelApparatus(); // Start with empty apparatus
+          renderGelApparatus(); // Start with empty apparatus (includes reference card)
         }
       }
     };
