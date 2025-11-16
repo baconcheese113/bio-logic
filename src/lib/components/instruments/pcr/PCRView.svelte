@@ -6,9 +6,10 @@
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import { proceedToDiagnosis, currentCase } from '../../../stores/game-state';
-  import { setPrimerDesign, setPCRComplete, setEstimatedFragmentSize, filteredOrganisms } from '../../../stores/evidence';
+  import { setPrimerDesign, setPCRComplete, setEstimatedFragmentSize, addDetectedGene, filteredOrganisms } from '../../../stores/evidence';
   import { GENE_SEQUENCES, type PrimerDesign, type PrimerQuality, type GeneSequenceData } from '../../../../data/organisms';
   import { evaluatePrimerQuality } from '../../../utils/primer-calculations';
+  import { get } from 'svelte/store';
 
   let showDiagnosis = $state(false);
   let pcrStageRef = $state<PCRStageView>();
@@ -25,6 +26,7 @@
   // Gel workflow state
   let gelStep = $state<1 | 2 | 3 | 4>(1); // 1=load, 2=run, 3=view UV
   let gelIsRunning = $state(false);
+  let pcrResultMessage = $state<string | null>(null);
 
   const TOTAL_CYCLES = 25;
   const CYCLE_DURATION = 200; // ms per cycle (fast for demo)
@@ -129,6 +131,32 @@
 
   function handleGelComplete(fragmentSize: number) {
     setEstimatedFragmentSize(fragmentSize);
+    
+    // If a band was detected (fragmentSize > 0), record the gene as detected
+    if (fragmentSize > 0 && geneId) {
+      // Capture count BEFORE modifying evidence store (non-reactive read)
+      const countBefore = get(filteredOrganisms).length;
+      
+      // Modify evidence
+      addDetectedGene(geneId);
+      
+      // Show result after filtering (use non-reactive reads to avoid effect loops)
+      setTimeout(() => {
+        const countAfter = get(filteredOrganisms).length;
+        const geneName = geneData?.name || geneId;
+        
+        if (countAfter < countBefore) {
+          pcrResultMessage = `✓ ${geneName} DETECTED - Narrowed from ${countBefore} to ${countAfter} organism(s)`;
+        } else if (countAfter === 1) {
+          pcrResultMessage = `✓ ${geneName} DETECTED - Single organism identified!`;
+        } else {
+          pcrResultMessage = `✓ ${geneName} DETECTED - Fragment size: ${fragmentSize}bp`;
+        }
+      }, 100);
+    } else {
+      const geneName = geneData?.name || geneId || 'Target gene';
+      pcrResultMessage = `✗ ${geneName} NOT DETECTED - No amplification`;
+    }
   }
 
   function resetToPrimerDesign() {
@@ -316,6 +344,12 @@
               >
                 {gelStep > 3 ? '✓ UV Analysis Complete' : '3. View Under UV Light'}
               </button>
+              
+              {#if pcrResultMessage && gelStep === 4}
+                <div class="pcr-result-notification" class:positive={pcrResultMessage.startsWith('✓')}>
+                  {pcrResultMessage}
+                </div>
+              {/if}
             {/if}
           </div>
 
@@ -600,5 +634,34 @@
     padding: 1.5rem;
     text-align: center;
     line-height: 1.5;
+  }
+
+  .pcr-result-notification {
+    margin-top: 1rem;
+    padding: 0.875rem;
+    background: #3a2a2a;
+    border-left: 4px solid #cc6666;
+    border-radius: 4px;
+    color: #e0c0c0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .pcr-result-notification.positive {
+    background: #2a3a2a;
+    border-left-color: #66cc66;
+    color: #d0e0d0;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>

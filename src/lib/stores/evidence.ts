@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { ORGANISMS } from '../../data/organisms';
-import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel, PrimerDesign } from '../../data/organisms';
+import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel, PrimerDesign, GeneTarget } from '../../data/organisms';
 
 export interface Evidence {
   // Microscopy evidence
@@ -44,6 +44,7 @@ export interface Evidence {
   primerDesign: PrimerDesign | null;  // Player's custom primer design
   pcrComplete: boolean;                // PCR amplification completed
   estimatedFragmentSize: number | null; // Player's estimate from gel (bp)
+  detectedGenes: GeneTarget[];         // Genes detected via PCR (mecA, IS6110, etc)
 }
 
 const initialEvidence: Evidence = {
@@ -88,6 +89,7 @@ const initialEvidence: Evidence = {
   primerDesign: null,
   pcrComplete: false,
   estimatedFragmentSize: null,
+  detectedGenes: [],
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -165,6 +167,21 @@ export const filteredOrganisms = derived(
           if ($evidence.globulinLevel === 'low' && globulinTotal >= 35) return false;
           if ($evidence.globulinLevel === 'normal' && (globulinTotal < 30 || globulinTotal > 50)) return false;
           if ($evidence.globulinLevel === 'high' && globulinTotal <= 45) return false;
+        }
+      }
+      
+      // PCR evidence - gene detection filtering
+      if ($evidence.detectedGenes.length > 0) {
+        // If organism has pcrMarkers field, check if all detected genes are present
+        if (organism.pcrMarkers) {
+          for (const detectedGene of $evidence.detectedGenes) {
+            if (!organism.pcrMarkers.includes(detectedGene)) {
+              return false; // Organism doesn't have this detected gene
+            }
+          }
+        } else {
+          // Organism has no PCR markers defined - exclude if any genes detected
+          return false;
         }
       }
       
@@ -396,6 +413,25 @@ export function setEstimatedFragmentSize(size: number | null) {
   evidence.update(e => ({
     ...e,
     estimatedFragmentSize: size,
+  }));
+}
+
+export function addDetectedGene(gene: GeneTarget) {
+  evidence.update(e => {
+    if (e.detectedGenes.includes(gene)) {
+      return e; // Already detected, no change
+    }
+    return {
+      ...e,
+      detectedGenes: [...e.detectedGenes, gene],
+    };
+  });
+}
+
+export function clearDetectedGenes() {
+  evidence.update(e => ({
+    ...e,
+    detectedGenes: [],
   }));
 }
 
