@@ -5,6 +5,7 @@
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import { instrumentState, readElisaWell } from '../../../stores/instrument-state';
   import { currentCase } from '../../../stores/game-state';
+  import { setElisaPositiveControlOD, setElisaNegativeControlOD, setElisaSampleOD, setElisaAntibodiesDetected } from '../../../stores/evidence';
 
   let lastHoveredInfo = $state<string | null>(null);
   let selectedWell = $state<number | null>(null);
@@ -82,11 +83,24 @@
 
     const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
+    const positiveAvg = avg(positiveODs);
+    const negativeAvg = avg(negativeODs);
+    const sampleAvg = avg(sampleODs);
+    const cutoff = negativeAvg + 0.4; // Common cutoff calculation
+    
+    // Record evidence when measurements are available
+    if (positiveAvg > 0) setElisaPositiveControlOD(positiveAvg);
+    if (negativeAvg > 0) setElisaNegativeControlOD(negativeAvg);
+    if (sampleAvg > 0) {
+      setElisaSampleOD(sampleAvg);
+      setElisaAntibodiesDetected(sampleAvg > cutoff);
+    }
+
     return {
-      positiveAvg: avg(positiveODs),
-      negativeAvg: avg(negativeODs),
-      sampleAvg: avg(sampleODs),
-      cutoff: avg(negativeODs) + 0.4, // Common cutoff calculation
+      positiveAvg,
+      negativeAvg,
+      sampleAvg,
+      cutoff,
     };
   });
 
