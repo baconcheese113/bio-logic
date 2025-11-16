@@ -100,6 +100,28 @@ export interface PCRTarget {
   description: string;
 }
 
+// Sanger Sequencing types
+export type DdNTPType = 'ddATP' | 'ddTTP' | 'ddGTP' | 'ddCTP';
+
+export interface SangerSequenceData {
+  id: string;
+  name: string;
+  description: string;
+  templateSequence: string; // The DNA sequence to be read (50-100bp)
+  primerBindingSite: number; // Where the sequencing primer binds
+  readableRegion: {
+    start: number;
+    end: number;
+  };
+}
+
+export interface SangerReactionSetup {
+  templatePrepared: boolean;
+  primerAdded: boolean;
+  selectedDdNTPs: DdNTPType[];
+  polymeraseAdded: boolean;
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';

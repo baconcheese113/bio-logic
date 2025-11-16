@@ -14,6 +14,7 @@ export type GamePhase =
   | 'serology-testing'
   | 'electrophoresis-testing'
   | 'pcr-testing'
+  | 'sanger-sequencing'
   | 'diagnosis';
 
 export type StainType = 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore';
@@ -23,7 +24,7 @@ export interface GameState {
   selectedSampleType: SampleType | null;
   currentStain: StainType;
   gamePhase: GamePhase;
-  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing' | 'electrophoresis-testing' | 'pcr-testing';
+  lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing' | 'electrophoresis-testing' | 'pcr-testing' | 'sanger-sequencing';
   focusDepth: number;
   zoomLevel: number;
 }
@@ -122,7 +123,7 @@ export function selectSample(sampleType: SampleType) {
   }));
 }
 
-export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr') {
+export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger') {
   let phase: GamePhase;
   if (instrument === 'microscope') {
     phase = 'microscope-observation';
@@ -134,6 +135,8 @@ export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochem
     phase = 'electrophoresis-testing';
   } else if (instrument === 'pcr') {
     phase = 'pcr-testing';
+  } else if (instrument === 'sanger') {
+    phase = 'sanger-sequencing';
   } else {
     phase = 'biochemical-testing';
   }
