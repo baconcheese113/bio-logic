@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inventory, getSampleById, setActiveSample } from '../stores/inventory';
+  import { inventory, samples, gelResults, getSampleById, setActiveSample, type InventoryItem } from '../stores/inventory';
   
   let isOpen = false;
   
@@ -29,13 +29,21 @@
     const date = new Date(timestamp);
     return date.toLocaleTimeString();
   }
+  
+  function getItemLabel(item: InventoryItem): string {
+    if (item.type === 'sample') {
+      return getSampleTypeLabel(item.sampleType);
+    } else {
+      return `Gel Result - ${item.detectedGene}`;
+    }
+  }
 </script>
 
 <div class="inventory-container">
   <button class="inventory-toggle" onclick={toggleInventory} title="View Inventory">
     <span class="icon">📋</span>
-    {#if $inventory.samples.length > 0}
-      <span class="count">{$inventory.samples.length}</span>
+    {#if $inventory.items.length > 0}
+      <span class="count">{$inventory.items.length}</span>
     {/if}
   </button>
   
@@ -47,32 +55,54 @@
       </div>
       
       <div class="panel-content">
-        {#if $inventory.samples.length === 0}
+        {#if $inventory.items.length === 0}
           <p class="empty-message">No samples collected yet</p>
         {:else}
           <div class="sample-list">
-            {#each $inventory.samples as sample}
-              {@const isActive = $inventory.activeSampleId === sample.id}
-              <button 
-                class="sample-item" 
-                class:active={isActive}
-                onclick={() => selectSample(sample.id)}
-              >
-                <div class="sample-header">
-                  <span class="sample-type">{getSampleTypeLabel(sample.sampleType)}</span>
-                  {#if isActive}
-                    <span class="active-badge">Active</span>
-                  {/if}
-                </div>
-                <div class="sample-details">
-                  <div class="case-info">
-                    <strong>Case:</strong> {sample.caseTitle}
+            {#each $inventory.items as item}
+              {#if item.type === 'sample'}
+                {@const isActive = $inventory.activeSampleId === item.id}
+                <button 
+                  class="sample-item" 
+                  class:active={isActive}
+                  onclick={() => selectSample(item.id)}
+                >
+                  <div class="sample-header">
+                    <span class="sample-type">{getSampleTypeLabel(item.sampleType)}</span>
+                    {#if isActive}
+                      <span class="active-badge">Active</span>
+                    {/if}
                   </div>
-                  <div class="time-info">
-                    <strong>Collected:</strong> {formatTimestamp(sample.collectedAt)}
+                  <div class="sample-details">
+                    <div class="case-info">
+                      <strong>Case:</strong> {item.caseTitle}
+                    </div>
+                    <div class="time-info">
+                      <strong>Collected:</strong> {formatTimestamp(item.collectedAt)}
+                    </div>
+                  </div>
+                </button>
+              {:else}
+                <div class="result-item">
+                  <div class="result-header">
+                    <span class="result-type">🧬 Gel Electrophoresis Result</span>
+                  </div>
+                  <div class="result-details">
+                    <div class="case-info">
+                      <strong>Case:</strong> {item.caseTitle}
+                    </div>
+                    <div class="gene-info">
+                      <strong>Gene:</strong> {item.detectedGene}
+                    </div>
+                    <div class="size-info">
+                      <strong>Fragment:</strong> {item.fragmentSize} bp
+                    </div>
+                    <div class="time-info">
+                      <strong>Created:</strong> {formatTimestamp(item.createdAt)}
+                    </div>
                   </div>
                 </div>
-              </button>
+              {/if}
             {/each}
           </div>
         {/if}
@@ -248,7 +278,38 @@
   }
   
   .case-info strong,
-  .time-info strong {
+  .time-info strong,
+  .gene-info strong,
+  .size-info strong {
     color: #c0c0c0;
+  }
+  
+  .result-item {
+    background: #3a3a3a;
+    border: 2px solid #6a9fb5;
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  
+  .result-header {
+    margin-bottom: 0.5rem;
+  }
+  
+  .result-type {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #6a9fb5;
+  }
+  
+  .result-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .gene-info,
+  .size-info {
+    font-size: 0.9rem;
+    color: #a0a0a0;
   }
 </style>
