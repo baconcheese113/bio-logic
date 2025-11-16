@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -27,14 +27,18 @@
     pcr: {
       title: 'PCR & DNA Gel Electrophoresis',
       description: 'Amplify specific DNA sequences through thermal cycling, then visualize the products on a DNA gel to detect genetic markers.'
+    },
+    sanger: {
+      title: 'Sanger Sequencing',
+      description: 'Determine the exact nucleotide sequence of DNA using chain-termination method with fluorescent dideoxynucleotides.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -120,6 +124,17 @@
         <p>Amplify and detect genetic markers</p>
       </button>
     {/if}
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('sanger')}
+      onmouseenter={() => setHoveredInfo('sanger')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">🔬</div>
+      <h3>Sanger Sequencing</h3>
+      <p>Read DNA sequences nucleotide by nucleotide</p>
+    </button>
   </div>
 
   <div class="info-panel">
