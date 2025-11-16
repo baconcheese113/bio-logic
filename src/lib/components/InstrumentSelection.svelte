@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -31,14 +31,18 @@
     sanger: {
       title: 'Sanger Sequencing',
       description: 'Determine the exact nucleotide sequence of DNA using chain-termination method with fluorescent dideoxynucleotides.'
+    },
+    elisa: {
+      title: 'ELISA',
+      description: 'Enzyme-Linked Immunosorbent Assay detects antibodies in patient serum using enzyme-linked reagents that produce colored products readable by plate reader.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -124,6 +128,17 @@
         <p>Amplify and detect genetic markers</p>
       </button>
     {/if}
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('elisa')}
+      onmouseenter={() => setHoveredInfo('elisa')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">🧬</div>
+      <h3>ELISA</h3>
+      <p>Detect antibodies using enzyme-linked assay</p>
+    </button>
 
     <button 
       class="instrument-card"

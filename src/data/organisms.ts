@@ -122,6 +122,35 @@ export interface SangerReactionSetup {
   polymeraseAdded: boolean;
 }
 
+// ELISA types (1970s-style enzyme-linked immunosorbent assay)
+export type ElisaWellType = 'sample' | 'positive-control' | 'negative-control' | 'blank';
+export type ElisaStep = 
+  | 'coating'        // Add antigen to coat wells
+  | 'blocking'       // Add blocking buffer
+  | 'sample'         // Add patient sample/antibodies
+  | 'enzyme'         // Add enzyme-conjugated antibody
+  | 'substrate'      // Add substrate for color development
+  | 'reading';       // Read absorbance values
+
+export interface ElisaWellContents {
+  wellType: ElisaWellType;
+  coated: boolean;
+  blocked: boolean;
+  sampleAdded: boolean;
+  enzymeAdded: boolean;
+  substrateAdded: boolean;
+  // Absorbance value (optical density at 405nm or 450nm)
+  absorbance: number | null;
+}
+
+export interface ElisaProperties {
+  detectsAntibodies: boolean;  // Does this test detect antibodies to a pathogen?
+  antigenUsed?: string;        // What antigen is coated on the plate
+  expectedPositiveOD: number;  // Expected optical density for positive result (0.0-3.0)
+  expectedNegativeOD: number;  // Expected optical density for negative result
+  cutoffThreshold: number;     // OD threshold for positive/negative determination
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';
@@ -182,6 +211,7 @@ export interface Organism {
   proteinElectrophoresis?: ProteinElectrophoresisProperties; // For protein pattern cases
   pcrMarkers?: GeneTarget[]; // Genes this organism has (for PCR detection)
   expectedPCRSizes?: Partial<Record<GeneTarget, number>>; // Expected fragment sizes in bp
+  elisa?: ElisaProperties; // For ELISA antibody detection
 }
 
 // Answer format configuration for different case types

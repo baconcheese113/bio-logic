@@ -10,6 +10,8 @@
   import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import PCRView from './lib/components/instruments/pcr/PCRView.svelte';
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
+  import ElisaPlateView from './lib/components/instruments/elisa/ElisaPlateView.svelte';
+  import PlateReaderView from './lib/components/instruments/elisa/PlateReaderView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 
@@ -53,6 +55,14 @@
 
   <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'}>
     <SangerView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'elisa-testing'}>
+    <ElisaPlateView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'plate-reader'}>
+    <PlateReaderView />
   </div>
   
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
