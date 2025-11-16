@@ -10,6 +10,7 @@
   import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import PCRView from './lib/components/instruments/pcr/PCRView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import Inventory from './lib/components/Inventory.svelte';
 </script>
 
 <main>
@@ -53,6 +54,9 @@
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
     <DiagnosisView />
   </div>
+  
+  <!-- Inventory is always visible as an overlay -->
+  <Inventory />
 </main>
 
 <style>
