@@ -122,6 +122,22 @@ export interface SangerReactionSetup {
   polymeraseAdded: boolean;
 }
 
+// Flow Cytometry types (1970s Cytofluorograph 4800A)
+// Cell population characteristics for flow cytometry analysis
+export interface CellPopulation {
+  name: string; // e.g., "Lymphocytes", "Monocytes", "Neutrophils"
+  percentage: number; // % of total cells (0-100)
+  forwardScatterMean: number; // Cell size indicator (0-100)
+  sideScatterMean: number; // Cell granularity/complexity (0-100)
+  fluorescenceIntensity?: number; // Optional fluorescence (0-100)
+}
+
+export interface FlowCytometryProperties {
+  populations: CellPopulation[];
+  totalCellCount?: number; // Optional absolute count
+  clinicalContext: string; // What this pattern indicates
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';
@@ -182,6 +198,7 @@ export interface Organism {
   proteinElectrophoresis?: ProteinElectrophoresisProperties; // For protein pattern cases
   pcrMarkers?: GeneTarget[]; // Genes this organism has (for PCR detection)
   expectedPCRSizes?: Partial<Record<GeneTarget, number>>; // Expected fragment sizes in bp
+  flowCytometry?: FlowCytometryProperties; // For cell population analysis
 }
 
 // Answer format configuration for different case types
@@ -260,6 +277,23 @@ export const ORGANISMS: Organism[] = [
       tetracycline: 24,
       chloramphenicol: 26,
       erythromycin: 27,
+    },
+    flowCytometry: {
+      populations: [
+        {
+          name: 'Cocci',
+          percentage: 85,
+          forwardScatterMean: 25,
+          sideScatterMean: 30,
+        },
+        {
+          name: 'Debris',
+          percentage: 15,
+          forwardScatterMean: 10,
+          sideScatterMean: 15,
+        },
+      ],
+      clinicalContext: 'Bacterial infection with uniform small cocci population',
     },
   },
   {

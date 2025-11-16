@@ -1,6 +1,8 @@
 // Clinical diagnoses for protein electrophoresis cases
 // Types live with the data they describe
 
+import type { FlowCytometryProperties } from './organisms';
+
 export interface ClinicalPresentation {
   age: string;
   symptoms: string[];
@@ -23,6 +25,7 @@ export interface ClinicalDiagnosis {
       gamma: number;
     };
   };
+  flowCytometry?: FlowCytometryProperties; // Optional for flow cytometry cases
 }
 
 export const CLINICAL_DIAGNOSES: ClinicalDiagnosis[] = [
