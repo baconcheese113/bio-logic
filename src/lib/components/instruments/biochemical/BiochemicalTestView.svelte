@@ -16,10 +16,8 @@
   let coagulasePerformed = $state(false);
   let coagulaseAnimating = $state(false);
 
-  function setHoveredInfo(key: string | null) {
-    if (key !== null) {
-      lastHoveredInfo = key;
-    }
+  function setHoveredInfo(key: string) {
+    lastHoveredInfo = key;
   }
 
   function performCatalaseTest() {
@@ -144,7 +142,6 @@
             class="primary-button"
             onclick={performCatalaseTest}
             onmouseenter={() => setHoveredInfo('catalase')}
-            onmouseleave={() => setHoveredInfo(null)}
             disabled={catalasePerformed || catalaseAnimating}
           >
             {catalasePerformed ? 'Catalase Done ✓' : 'Run Catalase Test'}
@@ -159,7 +156,6 @@
             class="primary-button"
             onclick={performCoagulaseTest}
             onmouseenter={() => setHoveredInfo('coagulase')}
-            onmouseleave={() => setHoveredInfo(null)}
             disabled={coagulasePerformed || coagulaseAnimating}
           >
             {coagulasePerformed ? 'Coagulase Done ✓' : 'Run Coagulase Test'}
@@ -188,7 +184,6 @@
               class:active={$evidence.catalase === true}
               onclick={() => setCatalase(true)}
               onmouseenter={() => setHoveredInfo('catalase-positive')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               Positive (+)
             </button>
@@ -197,7 +192,6 @@
               class:active={$evidence.catalase === false}
               onclick={() => setCatalase(false)}
               onmouseenter={() => setHoveredInfo('catalase-negative')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               Negative (−)
             </button>
@@ -213,7 +207,6 @@
               class:active={$evidence.coagulase === true}
               onclick={() => setCoagulase(true)}
               onmouseenter={() => setHoveredInfo('coagulase-positive')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               Positive (+)
             </button>
@@ -222,7 +215,6 @@
               class:active={$evidence.coagulase === false}
               onclick={() => setCoagulase(false)}
               onmouseenter={() => setHoveredInfo('coagulase-negative')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               Negative (−)
             </button>

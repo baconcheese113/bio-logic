@@ -325,7 +325,7 @@ export class Slide {
     this.rng = new SeededRNG([this.caseIndex.toString(), 'debris', this.variationSeed.toString()]);
 
     // Debris particles - increased count for more prevalence
-    const debrisCount = this.rng.between(15, 25);
+    const debrisCount = this.rng.between(1, 3);
     for (let i = 0; i < debrisCount; i++) {
       const angle = this.rng.floatBetween(0, Math.PI * 2);
       const distance = this.rng.floatBetween(0, this.radius - 30);

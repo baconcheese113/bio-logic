@@ -89,10 +89,8 @@
     setDiphtheriaAntitoxin(hasAntitoxin);
   }
 
-  function setHoveredInfo(key: string | null) {
-    if (key !== null) {
-      lastHoveredInfo = key;
-    }
+  function setHoveredInfo(key: string) {
+    lastHoveredInfo = key;
   }
 </script>
 
@@ -114,7 +112,6 @@
             class:active={currentTest === value}
             onclick={() => selectTest(value)}
             onmouseenter={() => setHoveredInfo(infoKey)}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             {label}
           </button>
@@ -131,7 +128,6 @@
             class:active={antiAResult === 'positive'}
             onclick={() => recordAntiAResult('positive')}
             onmouseenter={() => setHoveredInfo('agglutination')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Agglutination (+)
           </button>
@@ -140,7 +136,6 @@
             class:active={antiAResult === 'negative'}
             onclick={() => recordAntiAResult('negative')}
             onmouseenter={() => setHoveredInfo('agglutination')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             No Agglutination (-)
           </button>
@@ -159,7 +154,6 @@
             class:active={antiBResult === 'positive'}
             onclick={() => recordAntiBResult('positive')}
             onmouseenter={() => setHoveredInfo('agglutination')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Agglutination (+)
           </button>
@@ -168,7 +162,6 @@
             class:active={antiBResult === 'negative'}
             onclick={() => recordAntiBResult('negative')}
             onmouseenter={() => setHoveredInfo('agglutination')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             No Agglutination (-)
           </button>
@@ -187,7 +180,6 @@
             class:active={$evidence.rhFactor === true}
             onclick={() => recordRhFactor(true)}
             onmouseenter={() => setHoveredInfo('rh-positive')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Positive (+)
           </button>
@@ -196,7 +188,6 @@
             class:active={$evidence.rhFactor === false}
             onclick={() => recordRhFactor(false)}
             onmouseenter={() => setHoveredInfo('rh-negative')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Negative (-)
           </button>
@@ -210,7 +201,6 @@
             class:active={$evidence.syphilisAntibodies === true}
             onclick={() => recordSyphilis(true)}
             onmouseenter={() => setHoveredInfo('syphilis-positive')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Positive
           </button>
@@ -219,7 +209,6 @@
             class:active={$evidence.syphilisAntibodies === false}
             onclick={() => recordSyphilis(false)}
             onmouseenter={() => setHoveredInfo('syphilis-negative')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Negative
           </button>
@@ -233,7 +222,6 @@
             class:active={$evidence.diphtheriaAntitoxin === true}
             onclick={() => recordDiphtheria(true)}
             onmouseenter={() => setHoveredInfo('diphtheria-immune')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Immune
           </button>
@@ -242,7 +230,6 @@
             class:active={$evidence.diphtheriaAntitoxin === false}
             onclick={() => recordDiphtheria(false)}
             onmouseenter={() => setHoveredInfo('diphtheria-not-immune')}
-            onmouseleave={() => setHoveredInfo(null)}
           >
             Not Immune
           </button>

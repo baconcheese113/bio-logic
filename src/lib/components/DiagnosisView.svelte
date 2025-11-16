@@ -241,6 +241,13 @@
           {#if $evidence.globulinLevel !== null}
             <span class="obs-badge protein">Globulin: {formatEvidenceValue($evidence.globulinLevel)}</span>
           {/if}
+          
+          <!-- PCR gene detection -->
+          {#if $evidence.detectedGenes && $evidence.detectedGenes.length > 0}
+            {#each $evidence.detectedGenes as gene}
+              <span class="obs-badge pcr">Gene: {gene}</span>
+            {/each}
+          {/if}
         </div>
       </div>
     {:else}
@@ -257,7 +264,12 @@
       </div>
     {:else if $filteredOrganisms.length === 1}
       <div class="single-match">
-        <p class="hint">Only one organism matches your observations!</p>
+        <p class="hint">✓ Only one organism matches your observations!</p>
+        <p class="sub-hint">Proceed to diagnosis below</p>
+      </div>
+    {:else if $filteredOrganisms.length <= 5}
+      <div class="few-matches">
+        <p class="hint">{$filteredOrganisms.length} organisms match - additional testing may help narrow down</p>
       </div>
     {/if}
 
@@ -718,6 +730,25 @@
     border-color: #6a4a5a;
   }
 
+  .obs-badge.protein {
+    background: #3a4a3a;
+    color: #d0e0c0;
+    border-color: #4a5a4a;
+  }
+
+  .obs-badge.pcr {
+    background: #2a5a3a;
+    color: #c0ffd0;
+    border-color: #3a6a4a;
+    font-weight: bold;
+    animation: geneDetectedPulse 2s ease-in-out;
+  }
+
+  @keyframes geneDetectedPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+
   .answer-selection-section {
     background: #2a3a4a;
     border: 2px solid #4a5a6a;
@@ -851,6 +882,7 @@
     border-radius: 4px;
     padding: 1rem;
     margin-bottom: 1.5rem;
+    animation: highlightPulse 2s ease-in-out;
   }
 
   .hint {
@@ -858,6 +890,31 @@
     text-align: center;
     color: #8fc98f;
     font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .sub-hint {
+    margin: 0.5rem 0 0 0;
+    text-align: center;
+    color: #7ab87a;
+    font-size: 0.85rem;
+  }
+
+  .few-matches {
+    background: #4a4a3a;
+    border: 2px solid #7c7c5a;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .few-matches .hint {
+    color: #c9c98f;
+  }
+
+  @keyframes highlightPulse {
+    0%, 100% { background: #3a4a3a; }
+    50% { background: #4a5a4a; }
   }
 
   .comparison-container {

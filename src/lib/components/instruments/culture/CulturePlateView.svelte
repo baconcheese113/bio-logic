@@ -23,10 +23,8 @@
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
 
-  function setHoveredInfo(key: string | null) {
-    if (key !== null) {
-      lastHoveredInfo = key;
-    }
+  function setHoveredInfo(key: string) {
+    lastHoveredInfo = key;
   }
 
   const MEDIA_INFO = {

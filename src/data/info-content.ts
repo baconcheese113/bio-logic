@@ -329,6 +329,89 @@ export const ELECTROPHORESIS_INFO = {
   }
 };
 
+export const PCR_INFO = {
+  'gene-sequence': {
+    title: 'Gene Sequence Visualization',
+    text: 'DNA shown as color-coded nucleotides: A (adenine, red), T (thymine, blue), G (guanine, green), C (cytosine, yellow). Primers bind to specific sequences on template DNA - forward primer binds to one strand, reverse primer binds to opposite strand. The region between primers gets amplified millions of times during PCR.'
+  },
+  'sequence-position': {
+    title: 'Sequence Position Numbers',
+    text: 'Numbers show the position of each nucleotide in the gene sequence (starting at position 1). Important for precisely defining where primers bind. Scientists use position numbers to communicate primer locations and to design primers that target specific gene regions.'
+  },
+  'base-A': {
+    title: 'Adenine (A)',
+    text: 'One of the four DNA bases (nucleotides). Pairs with Thymine (T) via 2 hydrogen bonds. Purine base with double-ring structure. ~20-25% of DNA in most organisms.'
+  },
+  'base-T': {
+    title: 'Thymine (T)',
+    text: 'One of the four DNA bases. Pairs with Adenine (A) via 2 hydrogen bonds. Pyrimidine base with single-ring structure. ~20-25% of DNA in most organisms.'
+  },
+  'base-G': {
+    title: 'Guanine (G)',
+    text: 'One of the four DNA bases. Pairs with Cytosine (C) via 3 hydrogen bonds (stronger bond). Purine base. Higher G+C content creates more stable DNA that requires higher temperatures to denature.'
+  },
+  'base-C': {
+    title: 'Cytosine (C)',
+    text: 'One of the four DNA bases. Pairs with Guanine (G) via 3 hydrogen bonds (stronger bond). Pyrimidine base. GC-rich regions are more stable and have higher melting temperatures.'
+  },
+  'primer-forward': {
+    title: 'Forward Primer (Green)',
+    text: 'Short DNA sequence (18-25 bases) that binds to the template DNA strand. Marks the START of the region to amplify. Designed to be complementary to the target sequence. During extension, DNA polymerase adds nucleotides starting from this primer, copying toward the reverse primer.'
+  },
+  'primer-reverse': {
+    title: 'Reverse Primer (Orange)',
+    text: 'Short DNA sequence (18-25 bases) that binds to the opposite DNA strand. Marks the END of the region to amplify. Must be reverse complement of target sequence. During extension, DNA polymerase adds nucleotides starting from this primer, copying toward the forward primer. Product size = distance between primers.'
+  },
+  'quality-overall': {
+    title: 'Overall Primer Quality',
+    text: 'Combines all quality metrics: Excellent = all metrics pass, Good = minor issues, Acceptable = some issues but will amplify, Poor = multiple problems, Fail = will not work. Poor quality primers waste time and reagents. Always design primers to meet all quality criteria before running PCR.'
+  },
+  'metric-tm': {
+    title: 'Melting Temperature (Tm)',
+    text: 'Temperature at which 50% of primers dissociate from DNA. Forward and reverse Tm should match within 5°C for optimal amplification. If Tm values are too different, one primer binds poorly during annealing step. Calculated from DNA sequence: GC bases contribute more (3 bonds) than AT bases (2 bonds). Higher GC% = higher Tm.'
+  },
+  'metric-gc': {
+    title: 'GC Content Percentage',
+    text: 'Percentage of G and C nucleotides in primer. Optimal: 40-60%. Too low (<40%) = weak binding, primer falls off easily. Too high (>60%) = primers stick to wrong places (non-specific binding). GC bases form 3 hydrogen bonds vs 2 for AT, so they bind more strongly. Affects Tm and specificity.'
+  },
+  'metric-complementarity': {
+    title: 'Self-Complementarity Score',
+    text: 'Measures how well primers bind to themselves or each other (primer-dimers). Score 0-10, lower is better. High scores (>6) mean primers stick together instead of binding to template DNA. Primer-dimers appear as ~50-100bp bands on gel. Wastes primers and reduces target amplification. Check 3\' ends especially - strong 3\' binding is worst.'
+  },
+  'metric-hairpins': {
+    title: 'Hairpin Structures',
+    text: 'Primer folds back on itself, forming stem-loop structure when internal sequences are complementary. Prevents primer from binding to template DNA. Even one hairpin can completely block PCR - critical failure. Detected by finding reverse-complementary regions within single primer (≥4bp stem). Redesign primers to eliminate all hairpins.'
+  },
+  'metric-product-size': {
+    title: 'PCR Product Size',
+    text: 'Length of DNA fragment between primers (in base pairs). Calculated from reverse primer position minus forward primer position. Optimal: 100-1000bp. Too small (<100bp) hard to see on gel. Too large (>1000bp) difficult to amplify efficiently - DNA polymerase takes longer, more chance of errors. Determines which gel ladder band to compare.'
+  },
+  'pcr-prediction': {
+    title: 'Expected PCR Result',
+    text: 'Predicts gel appearance based on primer quality. Clean = single bright band (good primers). Weak = faint band (Tm mismatch or poor GC). Dimers = multiple bands at 50-100bp + weak target (high complementarity). Smeared = many sizes (non-specific binding). None = no bands (hairpins block amplification). Helps you understand what gel results mean.'
+  },
+  'run-pcr': {
+    title: 'Running PCR',
+    text: 'Polymerase Chain Reaction (1983, Kary Mullis). 25 cycles of 3 steps: (1) Denaturation 94°C - separates DNA strands, (2) Annealing ~55°C - primers bind to template, (3) Extension 72°C - DNA polymerase copies DNA. Each cycle doubles DNA amount. After 25 cycles: 2²⁵ = 33 million copies! Takes ~1 hour.'
+  },
+  'load-gel': {
+    title: 'DNA Gel Electrophoresis',
+    text: 'Agarose gel with electric field separates DNA by size. Load PCR product into wells. DNA is negatively charged - migrates toward positive electrode. Small fragments move faster/farther than large fragments. Ladder provides size markers (100, 200, 500, 1000bp). UV light + DNA stain makes bands visible as purple. Compare sample band position to ladder to estimate size.'
+  },
+  'load-gel-sample': {
+    title: 'Loading Gel Sample',
+    text: 'Pipette 10µL of PCR product mixed with loading dye into gel well. Loading dye contains glycerol (makes sample dense so it sinks into well) and bromophenol blue tracking dye (blue color for visual tracking during run, migrates at ~300bp equivalent DNA fragment rate).'
+  },
+  'run-gel-electrophoresis': {
+    title: 'Running Gel Electrophoresis',
+    text: 'Apply 100V across gel (typical: 50-100V for 10-20cm gels). DNA is negatively charged and migrates toward positive electrode (anode). Smaller fragments move faster through gel matrix pores. Standard run time: 30-60 minutes. When blue tracking dye reaches 3/4 down gel, separation is usually complete.'
+  },
+  'view-uv-bands': {
+    title: 'UV Visualization',
+    text: 'UV light (302nm wavelength) excites ethidium bromide or similar DNA stain, making DNA bands glow bright orange/pink/purple. Compare your sample band position to ladder markers to estimate fragment size. Ladder shows 100, 200, 500, 1000, and 2000 base pair DNA standards. Band brightness indicates DNA quantity.'
+  }
+};
+
 // Helper to get info by key from any category
 export function getInfoContent(key: string) {
   return STAIN_INFO[key as keyof typeof STAIN_INFO] 
@@ -338,5 +421,6 @@ export function getInfoContent(key: string) {
     || SEROLOGY_INFO[key as keyof typeof SEROLOGY_INFO]
     || ANTIBIOTIC_INFO[key as keyof typeof ANTIBIOTIC_INFO]
     || ELECTROPHORESIS_INFO[key as keyof typeof ELECTROPHORESIS_INFO]
+    || PCR_INFO[key as keyof typeof PCR_INFO]
     || null;
 }
