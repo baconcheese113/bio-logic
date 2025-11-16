@@ -412,6 +412,17 @@ export const PCR_INFO = {
   }
 };
 
+export const FLOW_CYTOMETRY_INFO = {
+  'run-cytometer': {
+    title: 'Flow Cytometry Analysis',
+    text: 'The Cytofluorograph 4800A (1970s) analyzes individual cells as they flow through a laser beam. Forward scatter (X-axis) measures cell size - larger cells scatter more light forward. Side scatter (Y-axis) measures cell complexity/granularity - cells with more internal structures scatter more light sideways. Each dot represents one cell.'
+  },
+  'gate-control': {
+    title: 'Rectangular Gating',
+    text: 'Draw a rectangle (gate) around cell populations of interest. Drag the red corner handles to adjust the gate boundaries. The gate allows you to select and quantify specific cell populations. In the 1970s, rectangular gates were the standard analysis method - more advanced polygon gates came later.'
+  }
+};
+
 // Helper to get info by key from any category
 export function getInfoContent(key: string) {
   return STAIN_INFO[key as keyof typeof STAIN_INFO] 
@@ -422,5 +433,6 @@ export function getInfoContent(key: string) {
     || ANTIBIOTIC_INFO[key as keyof typeof ANTIBIOTIC_INFO]
     || ELECTROPHORESIS_INFO[key as keyof typeof ELECTROPHORESIS_INFO]
     || PCR_INFO[key as keyof typeof PCR_INFO]
+    || FLOW_CYTOMETRY_INFO[key as keyof typeof FLOW_CYTOMETRY_INFO]
     || null;
 }
