@@ -332,7 +332,6 @@
       <div class="media-selection">
             <label class="radio-option"
               onmouseenter={() => setHoveredInfo('blood-agar')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               <input 
                 type="radio" 
@@ -346,7 +345,6 @@
             </label>
             <label class="radio-option"
               onmouseenter={() => setHoveredInfo('macconkey')}
-              onmouseleave={() => setHoveredInfo(null)}
             >
               <input 
                 type="radio" 
@@ -430,7 +428,6 @@
                   class:active={$evidence.hemolysis === 'beta'}
                   onclick={() => setHemolysis('beta')}
                   onmouseenter={() => setHoveredInfo('hemolysis-beta')}
-                  onmouseleave={() => setHoveredInfo(null)}
                 >
                   Beta (Clear)
                 </button>
@@ -439,7 +436,6 @@
                   class:active={$evidence.hemolysis === 'alpha'}
                   onclick={() => setHemolysis('alpha')}
                   onmouseenter={() => setHoveredInfo('hemolysis-alpha')}
-                  onmouseleave={() => setHoveredInfo(null)}
                 >
                   Alpha (Green)
                 </button>
