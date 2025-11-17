@@ -5,6 +5,7 @@ import { clearEvidence } from './evidence';
 import { resetInstrumentState as resetInstruments } from './instrument-state';
 
 export type GamePhase = 
+  | 'job-board'
   | 'case-presentation' 
   | 'sample-selection' 
   | 'instrument-selection'
@@ -33,7 +34,7 @@ export interface GameState {
 const initialState: GameState = {
   currentCaseIndex: 0,
   currentStain: 'none',
-  gamePhase: 'case-presentation',
+  gamePhase: 'job-board',
   lastInstrumentPhase: 'microscope-observation',
   focusDepth: 50,
   zoomLevel: 1000,
