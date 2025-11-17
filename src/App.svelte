@@ -15,7 +15,12 @@
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import MultiQuestionDiagnosis from './lib/components/MultiQuestionDiagnosis.svelte';
   import Inventory from './lib/components/Inventory.svelte';
+  import { currentActiveCase } from './lib/stores/active-cases';
+  
+  // Use new diagnosis view if there's an active case from the new system
+  const useNewDiagnosis = $derived($currentActiveCase !== null);
 </script>
 
 <main>
@@ -75,7 +80,11 @@
       </div>
       
       <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
-        <DiagnosisView />
+        {#if useNewDiagnosis}
+          <MultiQuestionDiagnosis />
+        {:else}
+          <DiagnosisView />
+        {/if}
       </div>
       
       <!-- Inventory is always visible as an overlay -->
