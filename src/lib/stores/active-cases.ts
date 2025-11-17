@@ -1,6 +1,7 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { GameCase, ActiveCase, CaseStatus } from '../../data/case-types';
-import { clearEvidence } from './evidence';
+import { clearEvidence, evidence } from './evidence';
+import type { Evidence } from './evidence';
 
 export interface ActiveCasesState {
   cases: ActiveCase[];
@@ -63,13 +64,38 @@ export function acceptCase(gameCase: GameCase) {
 }
 
 export function switchToCase(caseId: string) {
-  activeCases.update(state => ({
-    ...state,
-    currentCaseId: caseId,
-  }));
+  // Save current evidence to the current case before switching
+  const currentState = get(activeCases);
+  if (currentState.currentCaseId) {
+    const currentEvidence = get(evidence);
+    activeCases.update(state => ({
+      ...state,
+      cases: state.cases.map(c => 
+        c.case.id === currentState.currentCaseId
+          ? { ...c, evidenceCollected: currentEvidence as unknown as Record<string, unknown> }
+          : c
+      ),
+    }));
+  }
   
-  // Clear evidence when switching cases
-  clearEvidence();
+  // Switch to new case
+  activeCases.update(state => {
+    const newCase = state.cases.find(c => c.case.id === caseId);
+    
+    // Restore evidence for the new case
+    if (newCase && newCase.evidenceCollected) {
+      // Set evidence to the stored evidence for this case
+      evidence.set(newCase.evidenceCollected as unknown as Evidence);
+    } else {
+      // Clear evidence if no evidence stored
+      clearEvidence();
+    }
+    
+    return {
+      ...state,
+      currentCaseId: caseId,
+    };
+  });
 }
 
 export function updateCaseStatus(caseId: string, status: CaseStatus) {
