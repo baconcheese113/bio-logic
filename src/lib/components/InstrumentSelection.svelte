@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -31,14 +31,18 @@
     sanger: {
       title: 'Sanger Sequencing',
       description: 'Determine the exact nucleotide sequence of DNA using chain-termination method with fluorescent dideoxynucleotides.'
+    },
+    'flow-cytometry': {
+      title: 'Flow Cytometry',
+      description: 'Analyze individual cells in a fluid stream using light scatter and fluorescence to identify cell populations and characteristics.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -134,6 +138,17 @@
       <div class="instrument-icon">🔬</div>
       <h3>Sanger Sequencing</h3>
       <p>Read DNA sequences nucleotide by nucleotide</p>
+    </button>
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('flow-cytometry')}
+      onmouseenter={() => setHoveredInfo('flow-cytometry')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">🔵</div>
+      <h3>Flow Cytometry</h3>
+      <p>Analyze cell populations with light scatter</p>
     </button>
   </div>
 
