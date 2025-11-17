@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inventory, samples, gelResults, getSampleById, setActiveSample, type InventoryItem } from '../stores/inventory';
+  import { inventory, setActiveSample } from '../stores/inventory';
   
   let isOpen = false;
   
@@ -28,14 +28,6 @@
   function formatTimestamp(timestamp: number): string {
     const date = new Date(timestamp);
     return date.toLocaleTimeString();
-  }
-  
-  function getItemLabel(item: InventoryItem): string {
-    if (item.type === 'sample') {
-      return getSampleTypeLabel(item.sampleType);
-    } else {
-      return `Gel Result - ${item.detectedGene}`;
-    }
   }
 </script>
 

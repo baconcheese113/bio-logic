@@ -3,7 +3,7 @@
   import GelElectrophoresis from '../pcr/GelElectrophoresis.svelte';
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import { currentCase, gameState } from '../../../stores/game-state';
-  import { inventory, gelResults, addGelResultToInventory } from '../../../stores/inventory';
+  import { addGelResultToInventory } from '../../../stores/inventory';
   import { addDetectedGene, setEstimatedFragmentSize } from '../../../stores/evidence';
   import type { PrimerQuality } from '../../../../data/organisms';
   
