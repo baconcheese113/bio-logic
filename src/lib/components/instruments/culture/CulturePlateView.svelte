@@ -4,7 +4,8 @@
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
-  import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
+  import { goToBiochemicalTests, correctOrganism } from '../../../stores/game-state';
+  import { isCorrectSample } from '../../../stores/inventory';
   import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies, type Colony } from '../../../stores/instrument-state';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
   import type { ColonyColor } from '../../../../data/organisms';

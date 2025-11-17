@@ -1,6 +1,6 @@
 <script lang="ts">
   import StageArea from './shared/StageArea.svelte';
-  import { selectSample, currentCase, gameState } from '../stores/game-state';
+  import { currentCase, gameState } from '../stores/game-state';
   import { addSampleToInventory } from '../stores/inventory';
   import type { SampleType } from '../../data/organisms';
 
@@ -26,8 +26,11 @@
       caseIndex
     );
     
-    // Continue with existing flow
-    selectSample(sampleType);
+    // Navigate to instrument selection
+    gameState.update(state => ({
+      ...state,
+      gamePhase: 'instrument-selection',
+    }));
   }
 </script>
 

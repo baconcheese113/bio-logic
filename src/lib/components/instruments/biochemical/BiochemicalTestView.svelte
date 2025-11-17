@@ -3,7 +3,8 @@
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
+  import { correctOrganism } from '../../../stores/game-state';
+  import { isCorrectSample } from '../../../stores/inventory';
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
   import '../../../styles/instrument-controls.css';
   
