@@ -10,6 +10,8 @@
   import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import PCRView from './lib/components/instruments/pcr/PCRView.svelte';
   import GelElectrophoresisView from './lib/components/instruments/gel/GelElectrophoresisView.svelte';
+  import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
+  import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
   import Inventory from './lib/components/Inventory.svelte';
 </script>
@@ -50,6 +52,14 @@
 
   <div class="view" class:visible={$gameState.gamePhase === 'pcr-testing'}>
     <PCRView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'}>
+    <SangerView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'}>
+    <FlowCytometryView />
   </div>
   
   <div class="view" class:visible={$gameState.gamePhase === 'gel-electrophoresis'}>

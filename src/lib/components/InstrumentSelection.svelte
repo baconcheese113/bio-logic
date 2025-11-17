@@ -1,11 +1,10 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
   import { inventory } from '../stores/inventory';
-
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel' | null>(null);
   
   // Check if a sample is loaded
   const hasActiveSample = $derived($inventory.activeSampleId !== null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel' | 'sanger' | 'flow-cytometry'>('microscope');
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -29,27 +28,29 @@
       description: 'Separate serum proteins by size and charge to identify abnormal protein patterns in blood disorders, liver disease, and immune conditions.'
     },
     pcr: {
-      title: 'PCR Thermocycler',
-      description: 'Amplify specific DNA sequences through thermal cycling to detect genetic markers for disease identification and antibiotic resistance.'
+      title: 'PCR & DNA Gel Electrophoresis',
+      description: 'Amplify specific DNA sequences through thermal cycling, then visualize the products on a DNA gel to detect genetic markers.'
     },
     gel: {
       title: 'DNA Gel Electrophoresis',
       description: 'Visualize PCR products by separating DNA fragments by size on an agarose gel under UV light.'
+    },
+    sanger: {
+      title: 'Sanger Sequencing',
+      description: 'Determine the exact nucleotide sequence of DNA using chain-termination method with fluorescent dideoxynucleotides.'
+    },
+    'flow-cytometry': {
+      title: 'Flow Cytometry',
+      description: 'Analyze individual cells in a fluid stream using light scatter and fluorescence to identify cell populations and characteristics.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel') {
-    if (!hasActiveSample && instrument !== 'gel') {
-      alert('Please load a sample from your inventory before using this instrument.');
-      return;
-    }
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel' | 'sanger' | 'flow-cytometry') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel' | null) {
-    if (instrument !== null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'gel' | 'sanger' | 'flow-cytometry') {
       lastHoveredInfo = instrument;
-    }
   }
 
   // Check if PCR is available for this case
@@ -70,7 +71,6 @@
       class:disabled={!hasActiveSample}
       onclick={() => handleInstrumentSelect('microscope')}
       onmouseenter={() => setHoveredInfo('microscope')}
-      onmouseleave={() => setHoveredInfo(null)}
     >
       <div class="instrument-icon">🔬</div>
       <h3>Optical Microscope</h3>
@@ -85,7 +85,6 @@
       class:disabled={!hasActiveSample}
       onclick={() => handleInstrumentSelect('culture')}
       onmouseenter={() => setHoveredInfo('culture')}
-      onmouseleave={() => setHoveredInfo(null)}
     >
       <div class="instrument-icon">🧫</div>
       <h3>Culture Plate</h3>
@@ -100,7 +99,6 @@
       class:disabled={!hasActiveSample}
       onclick={() => handleInstrumentSelect('biochemical')}
       onmouseenter={() => setHoveredInfo('biochemical')}
-      onmouseleave={() => setHoveredInfo(null)}
     >
       <div class="instrument-icon">🧪</div>
       <h3>Biochemical Tests</h3>
@@ -115,7 +113,6 @@
       class:disabled={!hasActiveSample}
       onclick={() => handleInstrumentSelect('serology')}
       onmouseenter={() => setHoveredInfo('serology')}
-      onmouseleave={() => setHoveredInfo(null)}
     >
       <div class="instrument-icon">🩸</div>
       <h3>Serology</h3>
@@ -130,7 +127,6 @@
       class:disabled={!hasActiveSample}
       onclick={() => handleInstrumentSelect('electrophoresis')}
       onmouseenter={() => setHoveredInfo('electrophoresis')}
-      onmouseleave={() => setHoveredInfo(null)}
     >
       <div class="instrument-icon">📊</div>
       <h3>Protein Electrophoresis</h3>
@@ -146,7 +142,6 @@
         class:disabled={!hasActiveSample}
         onclick={() => handleInstrumentSelect('pcr')}
         onmouseenter={() => setHoveredInfo('pcr')}
-        onmouseleave={() => setHoveredInfo(null)}
       >
         <div class="instrument-icon">🧬</div>
         <h3>PCR Thermocycler</h3>
@@ -160,13 +155,32 @@
         class="instrument-card"
         onclick={() => handleInstrumentSelect('gel')}
         onmouseenter={() => setHoveredInfo('gel')}
-        onmouseleave={() => setHoveredInfo(null)}
       >
         <div class="instrument-icon">⚡</div>
         <h3>DNA Gel Electrophoresis</h3>
         <p>Visualize DNA fragments</p>
       </button>
     {/if}
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('sanger')}
+      onmouseenter={() => setHoveredInfo('sanger')}
+    >
+      <div class="instrument-icon">🔬</div>
+      <h3>Sanger Sequencing</h3>
+      <p>Read DNA sequences nucleotide by nucleotide</p>
+    </button>
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('flow-cytometry')}
+      onmouseenter={() => setHoveredInfo('flow-cytometry')}
+    >
+      <div class="instrument-icon">🔵</div>
+      <h3>Flow Cytometry</h3>
+      <p>Analyze cell populations with light scatter</p>
+    </button>
   </div>
 
   <div class="info-panel">
