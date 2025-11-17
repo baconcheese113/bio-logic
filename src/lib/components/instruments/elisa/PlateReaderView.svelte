@@ -87,14 +87,6 @@
     const negativeAvg = avg(negativeODs);
     const sampleAvg = avg(sampleODs);
     const cutoff = negativeAvg + 0.4; // Common cutoff calculation
-    
-    // Record evidence when measurements are available
-    if (positiveAvg > 0) setElisaPositiveControlOD(positiveAvg);
-    if (negativeAvg > 0) setElisaNegativeControlOD(negativeAvg);
-    if (sampleAvg > 0) {
-      setElisaSampleOD(sampleAvg);
-      setElisaAntibodiesDetected(sampleAvg > cutoff);
-    }
 
     return {
       positiveAvg,
@@ -102,6 +94,17 @@
       sampleAvg,
       cutoff,
     };
+  });
+
+  // Record evidence when measurements are available - use $effect to avoid state mutation in $derived
+  $effect(() => {
+    const stats = statistics();
+    if (stats.positiveAvg > 0) setElisaPositiveControlOD(stats.positiveAvg);
+    if (stats.negativeAvg > 0) setElisaNegativeControlOD(stats.negativeAvg);
+    if (stats.sampleAvg > 0) {
+      setElisaSampleOD(stats.sampleAvg);
+      setElisaAntibodiesDetected(stats.sampleAvg > stats.cutoff);
+    }
   });
 
   function getWellColor(well: any): string {
