@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { correctOrganism, currentCase } from '../../../stores/game-state';
   import { CLINICAL_DIAGNOSES } from '../../../../data/clinical-diagnoses';
-  import type { CellPopulation } from '../../../../data/organisms';
+  import { CELL_TYPES } from '../../../../data/organisms';
 
   // Gate boundaries (player can adjust these)
   let gateX1 = $state(30);
@@ -12,9 +12,32 @@
 
   let isDragging = $state(false);
   let dragCorner: 'tl' | 'tr' | 'bl' | 'br' | null = $state(null);
-  let isRunning = $state(false);
   let canvas: HTMLCanvasElement;
   let cells: Array<{ x: number; y: number; population: string }> = [];
+
+  // Gaussian (normal) distribution random number generator (Box-Muller transform)
+  function gaussianRandom(mean: number, stdDev: number): number {
+    let u1 = Math.random();
+    let u2 = Math.random();
+    let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    return z0 * stdDev + mean;
+  }
+
+  // Generate outlier cells that appear far from main cluster
+  function generateOutlier(): { x: number; y: number } {
+    // Outliers can appear anywhere, often near debris region or edges
+    const regions = [
+      { x: 5, y: 5, spread: 3 },    // Near debris
+      { x: 90, y: 90, spread: 5 },  // High scatter corner
+      { x: 15, y: 80, spread: 4 },  // Random middle
+      { x: 80, y: 15, spread: 4 },  // Random middle
+    ];
+    const region = regions[Math.floor(Math.random() * regions.length)];
+    return {
+      x: Math.max(0, Math.min(100, gaussianRandom(region.x, region.spread))),
+      y: Math.max(0, Math.min(100, gaussianRandom(region.y, region.spread))),
+    };
+  }
 
   // Get flow cytometry data
   const flowData = $derived(() => {
@@ -26,26 +49,43 @@
   });
 
   export function runCytometer() {
-    isRunning = true;
     cells = [];
     
     const data = flowData();
     if (!data) {
-      isRunning = false;
       return;
     }
 
-    // Generate cells based on populations
+    // Generate cells based on populations with random variation
     const totalCells = 1000;
-    data.populations.forEach((pop: CellPopulation) => {
-      const count = Math.floor((pop.percentage / 100) * totalCells);
-      for (let i = 0; i < count; i++) {
-        // Add some gaussian noise around the mean position
-        const x = Math.max(0, Math.min(100, pop.forwardScatterMean + (Math.random() - 0.5) * 20));
-        const y = Math.max(0, Math.min(100, pop.sideScatterMean + (Math.random() - 0.5) * 20));
-        cells.push({ x, y, population: pop.name });
+    data.populations.forEach((pop) => {
+      const cellType = CELL_TYPES[pop.type];
+      // Add ±5-10% random variation to percentages
+      const variance = (Math.random() - 0.5) * 0.15; // ±7.5%
+      const adjustedPercentage = Math.max(5, Math.min(95, pop.percentage * (1 + variance)));
+      const count = Math.floor((adjustedPercentage / 100) * totalCells);
+      const outlierCount = Math.floor(count * (cellType.outlierPercentage / 100));
+      const normalCount = count - outlierCount;
+      
+      // Generate normal cells in tight cluster
+      for (let i = 0; i < normalCount; i++) {
+        const x = Math.max(0, Math.min(100, gaussianRandom(cellType.forwardScatterMean, cellType.stdDevFSC)));
+        const y = Math.max(0, Math.min(100, gaussianRandom(cellType.sideScatterMean, cellType.stdDevSSC)));
+        cells.push({ x, y, population: cellType.name });
+      }
+      
+      // Generate outlier cells scattered randomly
+      for (let i = 0; i < outlierCount; i++) {
+        const outlier = generateOutlier();
+        cells.push({ x: outlier.x, y: outlier.y, population: cellType.name });
       }
     });
+
+    // Shuffle cells array to simulate random order of cells flowing through cytometer
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
 
     // Render cells gradually
     let cellIndex = 0;
@@ -55,7 +95,6 @@
         cellIndex += 10;
       } else {
         clearInterval(renderInterval);
-        isRunning = false;
       }
     }, 20);
   }
@@ -82,6 +121,50 @@
       ctx.moveTo(0, pos);
       ctx.lineTo(canvas.width, pos);
       ctx.stroke();
+    }
+
+    // Draw axis tick marks and labels
+    ctx.fillStyle = '#6a9fb5';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    
+    // X-axis (FSC) tick marks
+    for (let i = 0; i <= 10; i++) {
+      const value = i * 10;
+      const x = (i / 10) * canvas.width;
+      
+      // Tick mark
+      ctx.strokeStyle = '#6a9fb5';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, canvas.height - 25);
+      ctx.lineTo(x, canvas.height - 20);
+      ctx.stroke();
+      
+      // Label (only show 0, 20, 40, 60, 80, 100 to avoid clutter)
+      if (i % 2 === 0 || i === 0 || i === 10) {
+        ctx.fillText(value.toString(), x, canvas.height - 8);
+      }
+    }
+    
+    // Y-axis (SSC) tick marks
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= 10; i++) {
+      const value = i * 10;
+      const y = canvas.height - (i / 10) * canvas.height;
+      
+      // Tick mark
+      ctx.strokeStyle = '#6a9fb5';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(10, y);
+      ctx.stroke();
+      
+      // Label (only show 0, 20, 40, 60, 80, 100 to avoid clutter)
+      if (i % 2 === 0 || i === 0 || i === 10) {
+        ctx.fillText(value.toString(), 12, y + 3);
+      }
     }
 
     // Draw cells
@@ -190,22 +273,73 @@
 
     return cells.length > 0 ? (gatedCells.length / cells.length) * 100 : 0;
   }
+  
+  export function getGatedPopulations(): { name: string; percentage: number }[] {
+    const minX = Math.min(gateX1, gateX2);
+    const maxX = Math.max(gateX1, gateX2);
+    const minY = Math.min(gateY1, gateY2);
+    const maxY = Math.max(gateY1, gateY2);
+
+    const gatedCells = cells.filter(cell => 
+      cell.x >= minX && cell.x <= maxX && cell.y >= minY && cell.y <= maxY
+    );
+
+    // Count cells by population
+    const populationCounts: Record<string, number> = {};
+    gatedCells.forEach(cell => {
+      populationCounts[cell.population] = (populationCounts[cell.population] || 0) + 1;
+    });
+
+    // Convert to percentages
+    const total = gatedCells.length;
+    return Object.entries(populationCounts)
+      .map(([name, count]) => ({
+        name,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      }))
+      .filter(pop => pop.percentage > 5) // Only include populations >5%
+      .sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
+  }
+  
+  export function getGatedMeasurements(): { count: number; percentage: number; meanFSC: number; meanSSC: number } {
+    const minX = Math.min(gateX1, gateX2);
+    const maxX = Math.max(gateX1, gateX2);
+    const minY = Math.min(gateY1, gateY2);
+    const maxY = Math.max(gateY1, gateY2);
+
+    const gatedCells = cells.filter(cell => 
+      cell.x >= minX && cell.x <= maxX && cell.y >= minY && cell.y <= maxY
+    );
+
+    const count = gatedCells.length;
+    const percentage = cells.length > 0 ? (count / cells.length) * 100 : 0;
+    
+    // Calculate mean FSC and SSC
+    const meanFSC = count > 0 
+      ? Math.round(gatedCells.reduce((sum, cell) => sum + cell.x, 0) / count)
+      : 0;
+    const meanSSC = count > 0
+      ? Math.round(gatedCells.reduce((sum, cell) => sum + cell.y, 0) / count)
+      : 0;
+
+    return { count, percentage, meanFSC, meanSSC };
+  }
 </script>
 
 <div class="cytometer-container">
   <div class="screen-bezel">
     <div class="screen-label">CYTOFLUOROGRAPH 4800A</div>
-    <canvas
-      bind:this={canvas}
-      class="cytometer-screen"
-      onmousedown={handleMouseDown}
-      onmousemove={handleMouseMove}
-      onmouseup={handleMouseUp}
-      onmouseleave={handleMouseUp}
-    ></canvas>
     <div class="axis-labels">
       <div class="y-axis-label">Side Scatter (Granularity) →</div>
       <div class="x-axis-label">Forward Scatter (Size) →</div>
+      <canvas
+        bind:this={canvas}
+        class="cytometer-screen"
+        onmousedown={handleMouseDown}
+        onmousemove={handleMouseMove}
+        onmouseup={handleMouseUp}
+        onmouseleave={handleMouseUp}
+      ></canvas>
     </div>
   </div>
 </div>
@@ -244,23 +378,29 @@
     border: 2px solid #1a1a1a;
     cursor: crosshair;
     box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+    pointer-events: auto;
   }
 
   .axis-labels {
-    margin-top: 1rem;
     position: relative;
+    width: 600px;
+    height: 600px;
+    pointer-events: none;
   }
 
   .x-axis-label {
+    position: absolute;
+    bottom: -1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
     color: #888;
     font-size: 0.9rem;
-    margin-top: 0.5rem;
   }
 
   .y-axis-label {
     position: absolute;
-    left: -2rem;
+    left: -6rem;
     top: 50%;
     transform: translateY(-50%) rotate(-90deg);
     transform-origin: center;

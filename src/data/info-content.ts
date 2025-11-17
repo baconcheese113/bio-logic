@@ -415,11 +415,11 @@ export const PCR_INFO = {
 export const FLOW_CYTOMETRY_INFO = {
   'run-cytometer': {
     title: 'Flow Cytometry Analysis',
-    text: 'The Cytofluorograph 4800A (1970s) analyzes individual cells as they flow through a laser beam. Forward scatter (X-axis) measures cell size - larger cells scatter more light forward. Side scatter (Y-axis) measures cell complexity/granularity - cells with more internal structures scatter more light sideways. Each dot represents one cell.'
+    text: 'The Cytofluorograph 4800A (1971) analyzes individual cells flowing through a laser beam one at a time. Forward scatter (X-axis, 0-100) measures cell size - larger cells scatter more light forward. Side scatter (Y-axis, 0-100) measures cell granularity/complexity - cells with more internal structures scatter light sideways. Each green dot represents one detected cell. The axis tick marks show the normalized scatter intensity values.'
   },
   'gate-control': {
     title: 'Rectangular Gating',
-    text: 'Draw a rectangle (gate) around cell populations of interest. Drag the red corner handles to adjust the gate boundaries. The gate allows you to select and quantify specific cell populations. In the 1970s, rectangular gates were the standard analysis method - more advanced polygon gates came later.'
+    text: 'Draw a rectangle (gate) around cell populations of interest by dragging the red corner handles. In the early 1970s, flow cytometers simply counted how many cells fell within each gate - the analysis was purely quantitative. Measure the gated cells to see their scatter properties (FSC/SSC values), then interpret what cell type they represent based on their size and granularity. Compare measurements to the reference chart to identify bacteria, white blood cells, debris, or other cell types.'
   }
 };
 

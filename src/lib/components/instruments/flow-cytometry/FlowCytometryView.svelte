@@ -1,38 +1,77 @@
 <script lang="ts">
   import StageArea from '../../shared/StageArea.svelte';
   import FlowCytometryInstrument from './FlowCytometryInstrument.svelte';
+  import FlowCytometryReferenceCard from './FlowCytometryReferenceCard.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
-  import { proceedToDiagnosis, currentCase } from '../../../stores/game-state';
-  import { evidence, filteredOrganisms } from '../../../stores/evidence';
-  import { CLINICAL_DIAGNOSES } from '../../../../data/clinical-diagnoses';
+  import { currentCase } from '../../../stores/game-state';
+  import { filteredOrganisms, addFlowCytometryPopulation, type FlowCytometryPopulationType } from '../../../stores/evidence';
   import { ANSWER_FORMATS } from '../../../../data/organisms';
+  import { CLINICAL_DIAGNOSES } from '../../../../data/clinical-diagnoses';
+  import { get } from 'svelte/store';
 
   let showDiagnosis = $state(false);
   let showObservationsSection = $state(true);
+  let showMeasurementSection = $state(true);
+  let showResultsSection = $state(true);
+  let showInterpretationSection = $state(true);
   let cytometerRef = $state<FlowCytometryInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
   let isRunning = $state(false);
   let hasRun = $state(false);
+  let measurements = $state<{ count: number; percentage: number; meanFSC: number; meanSSC: number } | null>(null);
   let observations = $state<string[]>([]);
 
   function startAnalysis() {
     isRunning = true;
     hasRun = true;
+    measurements = null; // Clear previous measurements
     cytometerRef?.runCytometer();
     setTimeout(() => {
       isRunning = false;
     }, 2500);
   }
 
-  function addObservation() {
-    const gatedPercentage = cytometerRef?.getGatedPercentage() || 0;
-    const observation = `Gate ${observations.length + 1}: ${gatedPercentage.toFixed(1)}% of cells`;
-    observations = [...observations, observation];
+  function measureGatedPopulation() {
+    measurements = cytometerRef?.getGatedMeasurements() || null;
+  }
+
+  function interpretPopulation(popType: FlowCytometryPopulationType) {
+    if (!measurements) return;
+
+    // Record to evidence store
+    const countBefore = get(filteredOrganisms).length;
+    addFlowCytometryPopulation(popType);
+    
+    // Store measurements for observation (they'll be cleared after)
+    const currentMeasurements = measurements;
+    
+    // Wait briefly for evidence to update
+    setTimeout(() => {
+      const countAfter = get(filteredOrganisms).length;
+      
+      // Create observation with interpretation
+      const cellTypeNames: Record<FlowCytometryPopulationType, string> = {
+        bacteria: 'Bacterial Cells',
+        wbc: 'White Blood Cells',
+        debris: 'Debris/Dead Cells',
+        epithelial: 'Epithelial Cells'
+      };
+      
+      let observation = `Gate ${observations.length + 1}: ${cellTypeNames[popType]} - ${currentMeasurements.count} cells (${currentMeasurements.percentage.toFixed(1)}%), FSC: ${currentMeasurements.meanFSC}, SSC: ${currentMeasurements.meanSSC}`;
+      
+      if (countBefore !== countAfter) {
+        observation += ` → Narrowed from ${countBefore} to ${countAfter} organism(s)`;
+      }
+      
+      observations = [...observations, observation];
+      measurements = null; // Clear measurements after interpretation
+    }, 100);
   }
 
   function clearObservations() {
     observations = [];
+    measurements = null;
   }
 
   function setHoveredInfo(key: string) {
@@ -102,23 +141,101 @@
 
         <!-- Gating Controls -->
         {#if hasRun}
+          <!-- Reference Card -->
+          <FlowCytometryReferenceCard />
+
           <div class="section">
-            <div class="section-header-static">
-              <span class="section-title">Rectangular Gate</span>
-            </div>
-            <div class="section-content vintage-panel">
-              <button 
-                class="gate-button vintage-button"
-                onclick={addObservation}
-                onmouseenter={() => setHoveredInfo('gate-control')}
-              >
-                RECORD GATE
-              </button>
-              <div class="help-text">
-                Drag gate corners on plot to select cell population
+            <button class="section-header" onclick={() => showMeasurementSection = !showMeasurementSection}>
+              <span class="section-title">Measurement</span>
+              <span class="collapse-icon">{showMeasurementSection ? '▼' : '▶'}</span>
+            </button>
+            {#if showMeasurementSection}
+              <div class="section-content vintage-panel">
+                <button 
+                  class="gate-button vintage-button"
+                  onclick={measureGatedPopulation}
+                  onmouseenter={() => setHoveredInfo('gate-control')}
+                >
+                  MEASURE GATED POPULATION
+                </button>
+                <div class="help-text">
+                  Drag gate corners on plot to select cells, then measure
+                </div>
               </div>
-            </div>
+            {/if}
           </div>
+
+          <!-- Measurement Results and Interpretation -->
+          {#if measurements}
+            <div class="section">
+              <button class="section-header" onclick={() => showResultsSection = !showResultsSection}>
+                <span class="section-title">Measurement Results</span>
+                <span class="collapse-icon">{showResultsSection ? '▼' : '▶'}</span>
+              </button>
+              {#if showResultsSection}
+                <div class="section-content vintage-panel">
+                  <div class="measurement-stats">
+                    <div class="stat-row">
+                      <span class="stat-label">Cell Count:</span>
+                      <span class="stat-value">{measurements.count}</span>
+                    </div>
+                    <div class="stat-row">
+                      <span class="stat-label">Percentage:</span>
+                      <span class="stat-value">{measurements.percentage.toFixed(1)}%</span>
+                    </div>
+                    <div class="stat-row">
+                      <span class="stat-label">Mean FSC:</span>
+                      <span class="stat-value">{measurements.meanFSC}</span>
+                    </div>
+                    <div class="stat-row">
+                      <span class="stat-label">Mean SSC:</span>
+                      <span class="stat-value">{measurements.meanSSC}</span>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <div class="section">
+              <button class="section-header" onclick={() => showInterpretationSection = !showInterpretationSection}>
+                <span class="section-title">Interpretation</span>
+                <span class="collapse-icon">{showInterpretationSection ? '▼' : '▶'}</span>
+              </button>
+              {#if showInterpretationSection}
+                <div class="section-content vintage-panel">
+                  <div class="help-text">
+                    Based on scatter properties, classify this population:
+                  </div>
+                  <div class="interpretation-buttons">
+                    <button 
+                      class="interpret-button vintage-button"
+                      onclick={() => interpretPopulation('bacteria')}
+                    >
+                      Bacterial Cells
+                    </button>
+                    <button 
+                      class="interpret-button vintage-button"
+                      onclick={() => interpretPopulation('wbc')}
+                    >
+                      White Blood Cells
+                    </button>
+                    <button 
+                      class="interpret-button vintage-button"
+                      onclick={() => interpretPopulation('debris')}
+                    >
+                      Debris/Dead Cells
+                    </button>
+                    <button 
+                      class="interpret-button vintage-button"
+                      onclick={() => interpretPopulation('epithelial')}
+                    >
+                      Epithelial Cells
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/if}
 
           <!-- Observations Section -->
           <div class="section">
@@ -150,10 +267,46 @@
           </div>
         {/if}
       </div>
+
+      <NavigationButtons />
     {:else}
       <!-- Diagnosis Tab -->
-      <div class="panel-content">
-        <NavigationButtons />
+      <div class="panel-content diagnosis-content">
+        {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'clinical-diagnosis'}
+          <!-- Show clinical diagnoses for protein cases -->
+          <p class="match-info">{ANSWER_FORMATS[$currentCase.answerFormat].options?.length || 0} possible diagnosis(es)</p>
+          
+          <div class="organism-list">
+            {#each (ANSWER_FORMATS[$currentCase.answerFormat].options || []) as diagnosisId}
+              {@const diagnosis = CLINICAL_DIAGNOSES.find(d => d.id === diagnosisId)}
+              {#if diagnosis}
+                <div class="organism-option">
+                  <div class="org-name">{diagnosis.displayName}</div>
+                  <div class="org-common">{diagnosis.description}</div>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        {:else}
+          <!-- Show organisms for bacterial cases -->
+          <p class="match-info">{$filteredOrganisms.length} matching organism(s)</p>
+          
+          <div class="organism-list">
+            {#each $filteredOrganisms as organism}
+              <div class="organism-option">
+                <div class="org-name">{organism.scientificName}</div>
+                <div class="org-common">{organism.commonName}</div>
+              </div>
+            {/each}
+            
+            {#if $filteredOrganisms.length === 0}
+              <div class="no-matches">
+                No organisms match your observations.
+                Try adjusting your findings.
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -184,41 +337,48 @@
 
   .panel-tabs {
     display: flex;
-    border-bottom: 2px solid #4a4a4a;
-    background: #1a1a1a;
+    gap: 0.5rem;
   }
 
   .tab {
     flex: 1;
-    padding: 1rem;
-    background: none;
-    border: none;
-    color: #888;
+    padding: 0.75rem 1rem;
+    background: #3a3a3a;
+    color: #a0a0a0;
+    border: 2px solid #4a4a4a;
+    border-radius: 4px 4px 0 0;
+    font-size: 0.85rem;
     cursor: pointer;
-    font-size: 1rem;
     transition: all 0.2s;
-    border-bottom: 3px solid transparent;
   }
 
   .tab:hover {
-    background: #2a2a2a;
-    color: #aaa;
+    background: #4a4a4a;
+    color: #e0e0e0;
   }
 
   .tab.active {
-    color: #6a9fb5;
-    border-bottom-color: #6a9fb5;
     background: #2a2a2a;
+    color: #ffd700;
+    border-bottom-color: #2a2a2a;
   }
 
   .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 1.5rem;
+    padding: 0.5rem;
+    min-height: 0;
+  }
+
+  .panel-content > * {
+    margin-bottom: 0.5rem;
+  }
+
+  .panel-content > *:last-child {
+    margin-bottom: 0;
   }
 
   .section {
-    margin-bottom: 1.5rem;
     background: #1a1a1a;
     border: 1px solid #3a3a3a;
     border-radius: 4px;
@@ -262,13 +422,13 @@
   }
 
   .section-content {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   .vintage-panel {
     background: #1a1a1a;
     border: 2px solid #4a4a4a;
-    padding: 1.5rem;
+    padding: 0.75rem;
   }
 
   .vintage-button {
@@ -301,11 +461,11 @@
   }
 
   .run-button {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .gate-button {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .help-text {
@@ -379,4 +539,112 @@
     background: #4a2a2a;
     border-color: #8a6a6a;
   }
+
+  .measurement-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: #0a0a0a;
+    border: 1px solid #3a3a3a;
+  }
+
+  .stat-label {
+    color: #888;
+    font-size: 0.9rem;
+  }
+
+  .stat-value {
+    color: #6a9fb5;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+
+  .interpretation-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .interpret-button {
+    padding: 0.75rem;
+    background: #1a1a1a;
+    border: 2px solid #5a8a5a;
+    color: #8ab98a;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .interpret-button:hover {
+    background: #2a3a2a;
+    border-color: #7ab97a;
+    color: #9ac99a;
+    box-shadow: 0 0 8px rgba(90, 138, 90, 0.3);
+  }
+
+  /* Diagnosis Tab */
+  .diagnosis-content {
+    overflow-y: auto;
+  }
+
+  .match-info {
+    font-size: 0.9rem;
+    color: #ffd700;
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+
+  .organism-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .organism-option {
+    background: #3a3a3a;
+    border: 2px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 0.75rem;
+    text-align: left;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .organism-option:hover {
+    background: #4a7c59;
+    border-color: #5a8c69;
+  }
+
+  .org-name {
+    font-weight: bold;
+    font-style: italic;
+    color: #e0e0e0;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+  }
+
+  .org-common {
+    color: #a0a0a0;
+    font-size: 0.8rem;
+  }
+
+  .no-matches {
+    text-align: center;
+    color: #a0a0a0;
+    padding: 1.5rem;
+    font-style: italic;
+    font-size: 0.85rem;
+  }
 </style>
+

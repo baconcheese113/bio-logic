@@ -123,19 +123,42 @@ export interface SangerReactionSetup {
 }
 
 // Flow Cytometry types (1970s Cytofluorograph 4800A)
-// Cell population characteristics for flow cytometry analysis
-export interface CellPopulation {
-  name: string; // e.g., "Lymphocytes", "Monocytes", "Neutrophils"
-  percentage: number; // % of total cells (0-100)
-  forwardScatterMean: number; // Cell size indicator (0-100)
-  sideScatterMean: number; // Cell granularity/complexity (0-100)
-  fluorescenceIntensity?: number; // Optional fluorescence (0-100)
+// Standard cell types with fixed scatter properties
+export type CellTypeName = 
+  | 'debris' 
+  | 'rbc' 
+  | 'lymphocyte' 
+  | 'monocyte' 
+  | 'neutrophil' 
+  | 'epithelial'
+  | 'bacteria-cocci'
+  | 'bacteria-bacilli';
+
+export interface StandardCellType {
+  name: string;
+  forwardScatterMean: number;
+  sideScatterMean: number;
+  stdDevFSC: number;
+  stdDevSSC: number;
+  outlierPercentage: number;
 }
 
+// Standard cell types - same FSC/SSC regardless of sample
+export const CELL_TYPES: Record<CellTypeName, StandardCellType> = {
+  'debris': { name: 'Debris/Dead Cells', forwardScatterMean: 10, sideScatterMean: 12, stdDevFSC: 2.5, stdDevSSC: 3, outlierPercentage: 8 },
+  'rbc': { name: 'Red Blood Cells', forwardScatterMean: 20, sideScatterMean: 10, stdDevFSC: 3, stdDevSSC: 2, outlierPercentage: 2 },
+  'lymphocyte': { name: 'Lymphocytes', forwardScatterMean: 48, sideScatterMean: 30, stdDevFSC: 6, stdDevSSC: 8, outlierPercentage: 4 },
+  'monocyte': { name: 'Monocytes', forwardScatterMean: 63, sideScatterMean: 50, stdDevFSC: 7, stdDevSSC: 9, outlierPercentage: 5 },
+  'neutrophil': { name: 'Neutrophils', forwardScatterMean: 68, sideScatterMean: 75, stdDevFSC: 8, stdDevSSC: 10, outlierPercentage: 5 },
+  'epithelial': { name: 'Epithelial Cells', forwardScatterMean: 52, sideScatterMean: 42, stdDevFSC: 7, stdDevSSC: 8, outlierPercentage: 6 },
+  'bacteria-cocci': { name: 'Bacterial Cocci', forwardScatterMean: 18, sideScatterMean: 22, stdDevFSC: 4, stdDevSSC: 4.5, outlierPercentage: 3 },
+  'bacteria-bacilli': { name: 'Bacterial Bacilli', forwardScatterMean: 25, sideScatterMean: 20, stdDevFSC: 5, stdDevSSC: 4, outlierPercentage: 3 },
+};
+
+// What actually varies: which cells appear and their percentages
 export interface FlowCytometryProperties {
-  populations: CellPopulation[];
-  totalCellCount?: number; // Optional absolute count
-  clinicalContext: string; // What this pattern indicates
+  populations: { type: CellTypeName; percentage: number }[];
+  clinicalContext: string;
 }
 
 export interface CultureProperties {
@@ -280,20 +303,11 @@ export const ORGANISMS: Organism[] = [
     },
     flowCytometry: {
       populations: [
-        {
-          name: 'Cocci',
-          percentage: 85,
-          forwardScatterMean: 25,
-          sideScatterMean: 30,
-        },
-        {
-          name: 'Debris',
-          percentage: 15,
-          forwardScatterMean: 10,
-          sideScatterMean: 15,
-        },
+        { type: 'bacteria-cocci', percentage: 45 },
+        { type: 'neutrophil', percentage: 35 },
+        { type: 'debris', percentage: 20 },
       ],
-      clinicalContext: 'Bacterial infection with uniform small cocci population',
+      clinicalContext: 'Bacterial throat infection showing small bacterial cocci with elevated neutrophil response',
     },
   },
   {
