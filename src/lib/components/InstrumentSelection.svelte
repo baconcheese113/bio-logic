@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
+  import { selectInstrument, returnToSampleSelection, currentCase, gameState } from '../stores/game-state';
   import { inventory } from '../stores/inventory';
   
   // Check if a sample is loaded
@@ -59,9 +59,14 @@
 
 <div class="instrument-selection">
   <div class="header">
-    <button class="back-button" onclick={() => returnToSampleSelection()}>
-      ← Back to Sample Selection
-    </button>
+    <div class="header-buttons">
+      <button class="back-button" onclick={() => returnToSampleSelection()}>
+        ← Back to Sample Selection
+      </button>
+      <button class="back-button secondary" onclick={() => gameState.update(s => ({ ...s, gamePhase: 'job-board' }))}>
+        📋 Job Board
+      </button>
+    </div>
     <h2>Select Analysis Method</h2>
   </div>
 
@@ -209,6 +214,12 @@
   .header {
     margin-bottom: 2rem;
   }
+  
+  .header-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
 
   .back-button {
     background: none;
@@ -217,12 +228,21 @@
     padding: 0.5rem 1rem;
     cursor: pointer;
     border-radius: 4px;
-    margin-bottom: 1rem;
+  }
+  
+  .back-button.secondary {
+    border-color: #6a9fb5;
+    color: #6a9fb5;
   }
 
   .back-button:hover {
     background: #3a3a3a;
     border-color: #6a6a6a;
+  }
+  
+  .back-button.secondary:hover {
+    border-color: #8abfd5;
+    color: #8abfd5;
   }
 
   h2 {
