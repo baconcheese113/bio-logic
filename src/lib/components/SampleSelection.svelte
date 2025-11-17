@@ -1,6 +1,7 @@
 <script lang="ts">
   import StageArea from './shared/StageArea.svelte';
-  import { selectSample } from '../stores/game-state';
+  import { selectSample, currentCase, gameState } from '../stores/game-state';
+  import { addSampleToInventory } from '../stores/inventory';
   import type { SampleType } from '../../data/organisms';
 
   const sampleTypes: { type: SampleType; label: string }[] = [
@@ -15,6 +16,17 @@
   ];
 
   function handleSelectSample(sampleType: SampleType) {
+    // Add sample to inventory with case information
+    const caseData = $currentCase;
+    const caseIndex = $gameState.currentCaseIndex;
+    addSampleToInventory(
+      sampleType,
+      caseData.id,
+      caseData.title,
+      caseIndex
+    );
+    
+    // Continue with existing flow
     selectSample(sampleType);
   }
 </script>

@@ -9,9 +9,11 @@
   import SerologyView from './lib/components/instruments/serology/SerologyView.svelte';
   import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import PCRView from './lib/components/instruments/pcr/PCRView.svelte';
+  import GelElectrophoresisView from './lib/components/instruments/gel/GelElectrophoresisView.svelte';
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import Inventory from './lib/components/Inventory.svelte';
 </script>
 
 <main>
@@ -60,9 +62,16 @@
     <FlowCytometryView />
   </div>
   
+  <div class="view" class:visible={$gameState.gamePhase === 'gel-electrophoresis'}>
+    <GelElectrophoresisView />
+  </div>
+  
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
     <DiagnosisView />
   </div>
+  
+  <!-- Inventory is always visible as an overlay -->
+  <Inventory />
 </main>
 
 <style>
