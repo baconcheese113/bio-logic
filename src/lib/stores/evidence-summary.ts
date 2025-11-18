@@ -5,6 +5,7 @@ export interface EvidencePhrase {
   id: string;
   text: string;
   source: string; // e.g., 'microscopy', 'culture', 'pcr'
+  field?: string; // e.g., 'gramStain', 'shape', 'arrangement' - used for replacement logic
   timestamp: number;
 }
 
@@ -37,28 +38,63 @@ export function initializeEvidenceSummary(caseId: string, presentingComplaint: s
   });
 }
 
-// Add a phrase to the evidence summary
-export function addEvidencePhrase(caseId: string, text: string, source: string) {
+// Add or update a phrase in the evidence summary
+// If a phrase with the same source and field already exists, it will be replaced
+export function addEvidencePhrase(caseId: string, text: string, source: string, field?: string) {
   evidenceSummaries.update(state => {
     const newSummaries = new Map(state.summaries);
     const summary = newSummaries.get(caseId);
     
     if (!summary) return state;
     
-    // Check if phrase already exists to avoid duplicates
-    const exists = summary.phrases.some(p => p.text === text && p.source === source);
-    if (exists) return state;
+    // If field is provided, remove any existing phrase for that field from the same source
+    let filteredPhrases = summary.phrases;
+    if (field) {
+      filteredPhrases = summary.phrases.filter(p => !(p.source === source && p.field === field));
+    } else {
+      // Check if exact phrase already exists to avoid duplicates
+      const exists = summary.phrases.some(p => p.text === text && p.source === source);
+      if (exists) return state;
+    }
+    
+    // Don't add empty phrases
+    if (!text || text.trim() === '') return state;
     
     const newPhrase: EvidencePhrase = {
       id: `phrase-${Date.now()}-${Math.random()}`,
       text,
       source,
+      field,
       timestamp: Date.now(),
     };
     
     newSummaries.set(caseId, {
       ...summary,
-      phrases: [...summary.phrases, newPhrase],
+      phrases: [...filteredPhrases, newPhrase],
+    });
+    
+    return { summaries: newSummaries };
+  });
+}
+
+// Remove phrases from evidence summary by source and optional field
+export function removeEvidencePhrase(caseId: string, source: string, field?: string) {
+  evidenceSummaries.update(state => {
+    const newSummaries = new Map(state.summaries);
+    const summary = newSummaries.get(caseId);
+    
+    if (!summary) return state;
+    
+    const filteredPhrases = summary.phrases.filter(p => {
+      if (field) {
+        return !(p.source === source && p.field === field);
+      }
+      return p.source !== source;
+    });
+    
+    newSummaries.set(caseId, {
+      ...summary,
+      phrases: filteredPhrases,
     });
     
     return { summaries: newSummaries };

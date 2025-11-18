@@ -174,10 +174,11 @@
     display: flex;
     flex-direction: column;
     background: #1a1a1a;
+    font-size: 0.85rem;
   }
   
   .panel-header {
-    padding: 1rem;
+    padding: 0.6rem 0.8rem;
     border-bottom: 2px solid #3a3a3a;
     background: #2a2a2a;
   }
@@ -185,28 +186,29 @@
   .panel-header h3 {
     margin: 0;
     color: #e0e0e0;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 600;
   }
   
   .inventory-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem;
+    padding: 0.4rem;
   }
   
   .empty-state {
     text-align: center;
-    padding: 3rem 1rem;
+    padding: 2rem 0.8rem;
     color: #888;
   }
   
   .empty-state p {
-    margin: 0.5rem 0;
+    margin: 0.4rem 0;
+    font-size: 0.85rem;
   }
   
   .empty-state .hint {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-style: italic;
     color: #666;
   }
@@ -214,33 +216,34 @@
   .case-sections {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
   
   .case-section {
     background: #2a2a2a;
     border: 1px solid #3a3a3a;
-    border-radius: 6px;
+    border-radius: 4px;
     overflow: hidden;
   }
   
   .case-section.active {
     border-color: #4a6a8a;
-    box-shadow: 0 0 8px rgba(74, 106, 138, 0.3);
+    box-shadow: 0 0 6px rgba(74, 106, 138, 0.3);
   }
   
   .case-header {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
     background: transparent;
     border: none;
     cursor: pointer;
     text-align: left;
     color: #e0e0e0;
     transition: background 0.2s;
+    font-size: 0.85rem;
   }
   
   .case-header:hover {
@@ -249,38 +252,38 @@
   
   .expand-icon {
     color: #888;
-    font-size: 0.8rem;
-    width: 1rem;
+    font-size: 0.7rem;
+    width: 0.8rem;
   }
   
   .case-badge {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
   }
   
   .item-count {
     margin-left: auto;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: #999;
   }
   
   .active-badge {
     background: #4a6a8a;
     color: white;
-    padding: 0.2rem 0.5rem;
+    padding: 0.15rem 0.4rem;
     border-radius: 3px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: bold;
   }
   
   .case-items {
-    padding: 1rem;
+    padding: 0.6rem;
     border-top: 1px solid #3a3a3a;
     background: #1a1a1a;
   }
   
   .item-category {
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
   }
   
   .item-category:last-child {
@@ -288,9 +291,9 @@
   }
   
   .item-category h4 {
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.4rem 0;
     color: #999;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -299,17 +302,17 @@
   .items-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.3rem;
   }
   
   .inventory-item {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: 0.5rem;
+    padding: 0.5rem;
     background: #2a2a2a;
     border: 1px solid #3a3a3a;
-    border-radius: 4px;
+    border-radius: 3px;
     transition: all 0.2s;
     cursor: pointer;
   }
@@ -317,7 +320,7 @@
   .inventory-item:hover {
     background: #3a3a3a;
     border-color: #4a4a4a;
-    transform: translateX(4px);
+    transform: translateX(3px);
   }
   
   .inventory-item.selected {
@@ -326,51 +329,52 @@
   }
   
   .inventory-item.sample {
-    border-left: 3px solid #4a7c59;
+    border-left: 2px solid #4a7c59;
   }
   
   .inventory-item.result {
-    border-left: 3px solid #6a9fb5;
+    border-left: 2px solid #6a9fb5;
   }
   
   .item-icon {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
   }
   
   .item-details {
     flex: 1;
+    min-width: 0;
   }
   
   .item-name {
     color: #e0e0e0;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.15rem;
   }
   
   .item-time {
     color: #888;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   
   .no-items {
     text-align: center;
-    padding: 1rem;
+    padding: 0.8rem;
     color: #666;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
   }
   
   .item-extra-details {
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
     border-top: 1px solid #3a3a3a;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   
   .detail-row {
     display: flex;
-    gap: 0.5rem;
-    margin: 0.25rem 0;
+    gap: 0.4rem;
+    margin: 0.2rem 0;
   }
   
   .detail-label {

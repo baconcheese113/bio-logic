@@ -2,7 +2,8 @@ import { get } from 'svelte/store';
 import { currentActiveCase } from './active-cases';
 import { evidence } from './evidence';
 import { 
-  addEvidencePhrase, 
+  addEvidencePhrase,
+  removeEvidencePhrase,
   generateMicroscopyPhrase,
   generateAcidFastPhrase,
   generateCapsulePhrase,
@@ -30,9 +31,31 @@ export function recordMicroscopyObservation(
   const activeCase = get(currentActiveCase);
   if (!activeCase) return;
   
-  const phrase = generateMicroscopyPhrase(gramStain, shape, arrangement);
-  if (phrase) {
-    addEvidencePhrase(activeCase.caseId, phrase, 'microscopy');
+  // Record gram stain (replace any existing gram stain evidence)
+  if (gramStain) {
+    const phrase = `Gram-${gramStain}`;
+    addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'gramStain');
+  } else {
+    // Remove gram stain evidence if null
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'gramStain');
+  }
+  
+  // Record shape (replace any existing shape evidence)
+  if (shape) {
+    addEvidencePhrase(activeCase.caseId, shape, 'microscopy', 'shape');
+  } else {
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'shape');
+  }
+  
+  // Record arrangement (replace any existing arrangement evidence)
+  if (arrangement) {
+    addEvidencePhrase(activeCase.caseId, `in ${arrangement}`, 'microscopy', 'arrangement');
+  } else {
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'arrangement');
+  }
+  
+  // Update inventory with complete observation
+  if (gramStain || shape || arrangement) {
     addResult(activeCase.caseId, 'microscopy', 'Microscopy Observation', {
       gramStain,
       shape,
@@ -41,37 +64,55 @@ export function recordMicroscopyObservation(
   }
 }
 
-export function recordAcidFastObservation(isAcidFast: boolean) {
+export function recordAcidFastObservation(isAcidFast: boolean | null) {
   const activeCase = get(currentActiveCase);
   if (!activeCase) return;
   
-  const phrase = generateAcidFastPhrase(isAcidFast);
-  addEvidencePhrase(activeCase.caseId, phrase, 'microscopy');
-  addResult(activeCase.caseId, 'acid-fast-stain', 'Acid-Fast Stain Result', {
-    isAcidFast
-  });
+  if (isAcidFast !== null) {
+    const phrase = isAcidFast 
+      ? 'acid-fast bacilli' 
+      : 'no acid-fast bacilli';
+    addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'acidFast');
+    addResult(activeCase.caseId, 'acid-fast-stain', 'Acid-Fast Stain', {
+      isAcidFast
+    });
+  } else {
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'acidFast');
+  }
 }
 
-export function recordCapsuleObservation(hasCapsule: boolean) {
+export function recordCapsuleObservation(hasCapsule: boolean | null) {
   const activeCase = get(currentActiveCase);
   if (!activeCase) return;
   
-  const phrase = generateCapsulePhrase(hasCapsule);
-  addEvidencePhrase(activeCase.caseId, phrase, 'microscopy');
-  addResult(activeCase.caseId, 'capsule-stain', 'Capsule Stain Result', {
-    hasCapsule
-  });
+  if (hasCapsule !== null) {
+    const phrase = hasCapsule 
+      ? 'capsule present' 
+      : 'no capsule';
+    addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'capsule');
+    addResult(activeCase.caseId, 'capsule-stain', 'Capsule Stain', {
+      hasCapsule
+    });
+  } else {
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'capsule');
+  }
 }
 
-export function recordSporeObservation(hasSpores: boolean) {
+export function recordSporeObservation(hasSpores: boolean | null) {
   const activeCase = get(currentActiveCase);
   if (!activeCase) return;
   
-  const phrase = generateSporePhrase(hasSpores);
-  addEvidencePhrase(activeCase.caseId, phrase, 'microscopy');
-  addResult(activeCase.caseId, 'spore-stain', 'Spore Stain Result', {
-    hasSpores
-  });
+  if (hasSpores !== null) {
+    const phrase = hasSpores 
+      ? 'endospores' 
+      : 'no spores';
+    addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'spores');
+    addResult(activeCase.caseId, 'spore-stain', 'Spore Stain', {
+      hasSpores
+    });
+  } else {
+    removeEvidencePhrase(activeCase.caseId, 'microscopy', 'spores');
+  }
 }
 
 // Culture observations
