@@ -11,6 +11,8 @@
   let selectedWell = $state<number | null>(null);
   let readingInProgress = $state(false);
   let currentReading = $state<number | null>(null);
+  let scanningAll = $state(false);
+  let scanProgress = $state(0);
 
   // Simulate plate reader taking measurements
   function readWell(wellIndex: number) {
@@ -51,17 +53,43 @@
     }, 1500);
   }
 
-  function readAllWells() {
-    // Read wells sequentially (authentic to 1970s operation)
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < $instrumentState.elisa.wells.length) {
-        readWell(index);
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 1800);
+  async function readAllWells() {
+    scanningAll = true;
+    scanProgress = 0;
+    
+    // Read wells sequentially with animated scanning
+    for (let index = 0; index < $instrumentState.elisa.wells.length; index++) {
+      scanProgress = index;
+      await new Promise<void>((resolve) => {
+        selectedWell = index;
+        readingInProgress = true;
+        currentReading = null;
+
+        setTimeout(() => {
+          const well = $instrumentState.elisa.wells[index];
+          let absorbance = 0;
+
+          if (well.wellType === 'positive-control') {
+            absorbance = 1.8 + Math.random() * 0.4;
+          } else if (well.wellType === 'negative-control') {
+            absorbance = 0.08 + Math.random() * 0.05;
+          } else if (well.wellType === 'blank') {
+            absorbance = 0.02 + Math.random() * 0.03;
+          } else if (well.wellType === 'sample') {
+            absorbance = 1.2 + Math.random() * 0.6;
+          }
+
+          absorbance = Math.round(absorbance * 1000) / 1000;
+          currentReading = absorbance;
+          readElisaWell(index, absorbance);
+          readingInProgress = false;
+          resolve();
+        }, 1500);
+      });
+    }
+    
+    scanningAll = false;
+    selectedWell = null;
   }
 
   function setHoveredInfo(key: string) {
@@ -116,6 +144,14 @@
     if (well.absorbance > 0.4) return '#fff4cc'; // Low positive
     return '#ffffee'; // Negative
   }
+
+  // Calculate needle rotation angle for analog gauge
+  const needleAngle = $derived(() => {
+    if (currentReading === null) return -90;
+    // Map 0-3.0 OD to -90 to +90 degrees
+    const normalized = Math.min(currentReading / 3.0, 1.0);
+    return -90 + (normalized * 180);
+  });
 </script>
 
 <div class="plate-reader-view">
@@ -129,12 +165,20 @@
         </div>
 
         <div class="plate-display">
+          {#if scanningAll}
+            <div class="scanning-indicator">
+              <div class="scan-head" style="left: {(scanProgress / 16) * 100}%"></div>
+              <div class="scan-message">Scanning well {scanProgress + 1}/16...</div>
+            </div>
+          {/if}
+          
           <div class="plate-grid">
             {#each $instrumentState.elisa.wells as well, index}
               <button 
                 class="reader-well"
                 class:selected={selectedWell === index}
                 class:reading={readingInProgress && selectedWell === index}
+                class:scanned={well.absorbance !== null}
                 style="background-color: {getWellColor(well)}"
                 onclick={() => readWell(index)}
               >
@@ -147,13 +191,65 @@
           </div>
         </div>
 
-        {#if currentReading !== null}
-          <div class="digital-display">
-            <div class="display-label">OPTICAL DENSITY</div>
-            <div class="display-value">{currentReading.toFixed(3)}</div>
-            <div class="display-unit">AU @ 450nm</div>
+        <!-- Analog Gauge Display -->
+        <div class="analog-gauge">
+          <div class="gauge-container">
+            <svg viewBox="0 0 200 120" class="gauge-svg">
+              <!-- Gauge arc -->
+              <path
+                d="M 20 100 A 80 80 0 0 1 180 100"
+                fill="none"
+                stroke="#444"
+                stroke-width="2"
+              />
+              
+              <!-- Tick marks -->
+              {#each Array(11) as _, i}
+                <line
+                  x1={100 + 75 * Math.cos((Math.PI * (i / 10)) + Math.PI)}
+                  y1={100 + 75 * Math.sin((Math.PI * (i / 10)) + Math.PI)}
+                  x2={100 + 85 * Math.cos((Math.PI * (i / 10)) + Math.PI)}
+                  y2={100 + 85 * Math.sin((Math.PI * (i / 10)) + Math.PI)}
+                  stroke="#666"
+                  stroke-width={i % 2 === 0 ? "2" : "1"}
+                />
+                {#if i % 2 === 0}
+                  <text
+                    x={100 + 65 * Math.cos((Math.PI * (i / 10)) + Math.PI)}
+                    y={100 + 65 * Math.sin((Math.PI * (i / 10)) + Math.PI)}
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    fill="#888"
+                    font-size="10"
+                  >
+                    {(i * 0.3).toFixed(1)}
+                  </text>
+                {/if}
+              {/each}
+              
+              <!-- Needle -->
+              <line
+                x1="100"
+                y1="100"
+                x2={100 + 70 * Math.cos((needleAngle() * Math.PI / 180) + Math.PI)}
+                y2={100 + 70 * Math.sin((needleAngle() * Math.PI / 180) + Math.PI)}
+                stroke="#d32f2f"
+                stroke-width="2"
+                class="gauge-needle"
+              />
+              
+              <!-- Center pivot -->
+              <circle cx="100" cy="100" r="4" fill="#d32f2f" />
+            </svg>
+            
+            <div class="gauge-label">OPTICAL DENSITY</div>
+            {#if currentReading !== null}
+              <div class="gauge-digital">{currentReading.toFixed(3)} AU</div>
+            {:else}
+              <div class="gauge-digital">---</div>
+            {/if}
           </div>
-        {/if}
+        </div>
       </div>
     </StageArea>
 
@@ -282,6 +378,39 @@
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    position: relative;
+  }
+
+  .scanning-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    border-radius: 8px;
+  }
+
+  .scan-head {
+    position: absolute;
+    top: 2rem;
+    width: 8px;
+    height: calc(100% - 4rem);
+    background: linear-gradient(90deg, transparent, #6a9fb5, transparent);
+    box-shadow: 0 0 20px #6a9fb5;
+    transition: left 1.5s ease-in-out;
+  }
+
+  .scan-message {
+    color: #6a9fb5;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px #6a9fb5;
+    z-index: 11;
   }
 
   .plate-grid {
@@ -318,6 +447,10 @@
 
   .reader-well.reading {
     animation: pulse 1s infinite;
+  }
+
+  .reader-well.scanned {
+    border-color: #4a8a5a;
   }
 
   @keyframes pulse {
@@ -368,6 +501,54 @@
     color: #888;
     font-size: 0.9rem;
     margin-top: 0.5rem;
+  }
+
+  /* Analog Gauge Styles */
+  .analog-gauge {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .gauge-container {
+    background: #2a2a2a;
+    border: 4px solid #4a4a4a;
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-width: 280px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+
+  .gauge-svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+
+  .gauge-needle {
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 3px #d32f2f);
+  }
+
+  .gauge-label {
+    text-align: center;
+    color: #888;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    margin-top: 0.5rem;
+  }
+
+  .gauge-digital {
+    text-align: center;
+    color: #00ff00;
+    font-size: 1.8rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+    margin-top: 0.5rem;
+    background: #1a1a1a;
+    padding: 0.5rem;
+    border-radius: 4px;
   }
 
   .controls-panel {
