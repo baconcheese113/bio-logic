@@ -16,50 +16,46 @@
   let microscopeRef = $state<MicroscopeInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
   
-  // Track if observation has been recorded for this session
-  let observationRecorded = $state(false);
+  // Track what has been recorded to avoid duplicate submissions
+  let lastRecordedState = $state<string>('');
   
-  // Reset observationRecorded when evidence changes
+  // Auto-record observations when evidence changes
   $effect(() => {
-    // Watch for changes in evidence
-    const hasEvidence = $evidence.gramStain || $evidence.shape || $evidence.arrangement ||
-                        $evidence.acidFast !== null || $evidence.capsule !== null || $evidence.spores !== null;
-    // If evidence changes after recording, allow recording again
-    if (hasEvidence && observationRecorded) {
-      observationRecorded = false;
+    const currentState = JSON.stringify({
+      gramStain: $evidence.gramStain,
+      shape: $evidence.shape,
+      arrangement: $evidence.arrangement,
+      acidFast: $evidence.acidFast,
+      capsule: $evidence.capsule,
+      spores: $evidence.spores
+    });
+    
+    // Only record if state has changed and we have some evidence
+    if (currentState !== lastRecordedState && currentState !== '{}') {
+      const hasEvidence = $evidence.gramStain || $evidence.shape || $evidence.arrangement ||
+                          $evidence.acidFast !== null || $evidence.capsule !== null || $evidence.spores !== null;
+      
+      if (hasEvidence) {
+        // Record main microscopy observation if we have shape or gram stain
+        if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
+          recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
+        }
+        
+        // Record special stains if observed
+        if ($evidence.acidFast !== null) {
+          recordAcidFastObservation($evidence.acidFast);
+        }
+        if ($evidence.capsule !== null) {
+          recordCapsuleObservation($evidence.capsule);
+        }
+        if ($evidence.spores !== null) {
+          recordSporeObservation($evidence.spores);
+        }
+        
+        lastRecordedState = currentState;
+      }
     }
   });
-  
-  function handleRecordObservation() {
-    // Record main microscopy observation if we have shape or gram stain
-    if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
-      recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
-    }
-    
-    // Record special stains if observed
-    if ($evidence.acidFast !== null) {
-      recordAcidFastObservation($evidence.acidFast);
-    }
-    if ($evidence.capsule !== null) {
-      recordCapsuleObservation($evidence.capsule);
-    }
-    if ($evidence.spores !== null) {
-      recordSporeObservation($evidence.spores);
-    }
-    
-    observationRecorded = true;
-    
-    // Auto-switch to inventory tab to show what was added
-    setTimeout(() => {
-      showInventory = true;
-      showDiagnosis = false;
-    }, 300);
-    
-    // Reset the indicator after a few seconds
-    setTimeout(() => {
-      observationRecorded = false;
-    }, 2000);
-  }
 
   const stains: { value: StainType; label: string; infoKey: string }[] = [
     { value: 'none', label: 'No Stain', infoKey: 'stain-none' },
@@ -287,20 +283,6 @@
                     </button>
                   </div>
                 </div>
-              </div>
-              
-              <!-- Record Observation Button -->
-              <div class="record-section">
-                <button 
-                  class="record-button"
-                  onclick={handleRecordObservation}
-                  disabled={!$evidence.gramStain && !$evidence.shape && !$evidence.arrangement}
-                >
-                  📝 Record Observation
-                </button>
-                {#if observationRecorded}
-                  <div class="recorded-indicator">✓ Recorded</div>
-                {/if}
               </div>
             </div>
           {/if}
