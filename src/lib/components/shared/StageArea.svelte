@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentCase, gameState } from '../../stores/game-state';
+  import { currentActiveCase } from '../../stores/active-cases';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -8,22 +8,16 @@
   }
 
   let { children, showCaseHeader = false }: Props = $props();
+  
+  // Use the active case from the new system
+  const activeCase = $derived($currentActiveCase);
 </script>
 
 <div class="stage-area">
-  {#if showCaseHeader && $currentCase}
+  {#if showCaseHeader && activeCase}
     <div class="case-header">
-      <div class="header-title-row">
-        <h2>{$currentCase.title}</h2>
-        {#if $gameState.selectedSampleType}
-          <span class="sample-badge">
-            {$gameState.selectedSampleType.toUpperCase()}
-          </span>
-        {/if}
-      </div>
-      <div class="case-details">
-        <p>{$currentCase.story}</p>
-      </div>
+      <h2 class="case-title">{activeCase.case.title}</h2>
+      <p class="case-story">{activeCase.case.patientInfo}</p>
     </div>
   {/if}
   
@@ -40,43 +34,28 @@
     height: 100%;
     min-height: 0;
     flex: 1;
+    background: linear-gradient(to bottom, #1a1a1a, #2a2a2a);
   }
 
   .case-header {
-    background: #2a2a2a;
+    background: rgba(42, 42, 42, 0.95);
     border-bottom: 2px solid #4a4a4a;
-    padding: 1.5rem 2rem;
+    padding: 1rem 2rem;
+    backdrop-filter: blur(4px);
   }
 
-  .header-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .case-header h2 {
-    margin: 0;
-    color: #ffd700;
-    font-size: 1.5rem;
-  }
-
-  .sample-badge {
-    background: linear-gradient(135deg, #4a7c59 0%, #5a8c69 100%);
-    color: white;
-    padding: 0.3rem 0.7rem;
-    border-radius: 16px;
-    font-size: 0.7rem;
+  .case-title {
+    margin: 0 0 0.5rem 0;
+    color: #e0e0e0;
+    font-size: 1.3rem;
     font-weight: 600;
-    letter-spacing: 1px;
-    box-shadow: 0 2px 6px rgba(74, 124, 89, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    white-space: nowrap;
   }
 
-  .case-details {
+  .case-story {
+    margin: 0;
     color: #b0b0b0;
     font-size: 0.95rem;
+    line-height: 1.4;
   }
 
   .case-details p {

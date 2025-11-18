@@ -36,7 +36,7 @@
   }
   
   .content-area.with-tabs {
-    padding-top: 48px;
-    height: calc(100% - 48px);
+    padding-top: 50px;
+    height: calc(100% - 50px);
   }
 </style>

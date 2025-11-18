@@ -74,53 +74,57 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 48px;
-    background: #1a1a1a;
-    border-bottom: 2px solid #4a4a4a;
+    height: 50px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #222222 100%);
+    border-bottom: 3px solid #4a4a4a;
     z-index: 900;
     display: flex;
     align-items: flex-end;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   }
   
   .tabs-container {
     display: flex;
-    gap: 0;
+    gap: 4px;
     padding: 0 1rem;
     height: 100%;
     align-items: flex-end;
   }
   
   .case-tab {
-    background: #2a2a2a;
+    background: #3a3a3a;
     color: #a0a0a0;
-    border: 2px solid #4a4a4a;
+    border: 2px solid #555;
     border-bottom: none;
-    padding: 0.5rem 1.25rem;
-    font-size: 0.95rem;
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     border-radius: 8px 8px 0 0;
     position: relative;
-    margin-bottom: -2px;
+    margin-bottom: -3px;
+    font-weight: 500;
   }
   
   .case-tab:hover {
-    background: #3a3a3a;
+    background: #4a4a4a;
     color: #e0e0e0;
+    border-color: #6a6a6a;
   }
   
   .case-tab.active {
     background: #1a1a1a;
-    color: #e0e0e0;
+    color: #fff;
     border-color: #4a4a4a #4a4a4a transparent #4a4a4a;
     z-index: 1;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.3);
   }
   
   .case-number {
-    font-weight: 500;
+    font-weight: 600;
   }
   
   .status-icon {
