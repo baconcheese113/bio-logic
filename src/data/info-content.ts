@@ -412,6 +412,58 @@ export const PCR_INFO = {
   }
 };
 
+// ELISA info content (1970s enzyme-linked immunosorbent assay)
+export const ELISA_INFO = {
+  'elisa-overview': {
+    title: 'ELISA (1971)',
+    text: 'Enzyme-Linked Immunosorbent Assay developed by Engvall and Perlmann. Detects antibodies or antigens using enzyme-linked reagents that produce colored products. Revolutionary technique combining immunology and biochemistry. Requires careful sequential addition of reagents with washing steps.'
+  },
+  'coating-step': {
+    title: 'Coating Step',
+    text: 'Antigen is adsorbed to plastic wells (polystyrene plates). Wells are coated overnight at 4°C or 2 hours at 37°C. Proteins bind passively to plastic surface through hydrophobic interactions. This step captures the target for antibody binding.'
+  },
+  'blocking-step': {
+    title: 'Blocking Step',
+    text: 'Add blocking buffer (BSA or non-fat milk) to prevent non-specific binding. Blocks remaining protein-binding sites on plastic. Critical for reducing background signal. Incubate 1-2 hours at room temperature. Without blocking, false positives are common.'
+  },
+  'sample-step': {
+    title: 'Sample Addition',
+    text: 'Add patient serum or plasma to wells. If antibodies to the coated antigen are present, they bind. Include positive control (known positive serum), negative control (known negative), and blank (buffer only). Incubate 1-2 hours. Wash thoroughly 3-5 times to remove unbound antibodies.'
+  },
+  'enzyme-step': {
+    title: 'Enzyme-Conjugated Antibody',
+    text: 'Add secondary antibody linked to enzyme (HRP or alkaline phosphatase). This antibody binds to any captured patient antibodies. Common in 1970s: horseradish peroxidase (HRP) or alkaline phosphatase (AP). Incubate 1 hour. Wash thoroughly to remove unbound conjugate.'
+  },
+  'substrate-step': {
+    title: 'Substrate Development',
+    text: 'Add chromogenic substrate (TMB, ABTS, or OPD for HRP). Enzyme converts colorless substrate to colored product. Color intensity is proportional to antibody amount. Development time: 10-30 minutes. Stop reaction with acid (H2SO4) or base depending on substrate.'
+  },
+  'positive-control': {
+    title: 'Positive Control',
+    text: 'Known positive serum containing antibodies to the antigen. Should produce strong color (high OD reading). Validates that assay reagents are working correctly. If positive control fails, entire assay is invalid.'
+  },
+  'negative-control': {
+    title: 'Negative Control',
+    text: 'Known negative serum without antibodies to antigen. Should produce minimal color (low OD reading). Establishes baseline signal. Used to calculate cutoff threshold for positive/negative determination.'
+  },
+  'blank-control': {
+    title: 'Blank Control',
+    text: 'Wells with all reagents except patient sample (buffer only). Measures background signal from reagents and plate. Subtracted from all readings to correct for non-specific binding and substrate auto-conversion.'
+  },
+  'plate-reader': {
+    title: 'Plate Reader (1970s)',
+    text: 'Spectrophotometer adapted for microtiter plates. Measures optical density (absorbance) at specific wavelength (405nm or 450nm). Light passes through well, detector measures transmitted light. Higher absorbance = more color = more antibodies present.'
+  },
+  'reading-od': {
+    title: 'Optical Density Reading',
+    text: 'OD (optical density) or absorbance measured at wavelength specific to substrate. Common wavelengths: 405nm (pNPP substrate), 450nm (TMB substrate), 492nm (ABTS). Values typically 0.0-3.0. Results calculated as: Sample OD - Blank OD. Positive if > cutoff threshold.'
+  },
+  'washing-importance': {
+    title: 'Washing Steps',
+    text: 'Critical for assay specificity. Wash 3-5 times with PBS-Tween buffer between each step. Removes unbound antibodies and reagents. Inadequate washing causes high background and false positives. 1970s technique: manual washing with squeeze bottles.'
+  }
+};
+
 export const FLOW_CYTOMETRY_INFO = {
   'run-cytometer': {
     title: 'Flow Cytometry Analysis',
@@ -433,6 +485,7 @@ export function getInfoContent(key: string) {
     || ANTIBIOTIC_INFO[key as keyof typeof ANTIBIOTIC_INFO]
     || ELECTROPHORESIS_INFO[key as keyof typeof ELECTROPHORESIS_INFO]
     || PCR_INFO[key as keyof typeof PCR_INFO]
+    || ELISA_INFO[key as keyof typeof ELISA_INFO]
     || FLOW_CYTOMETRY_INFO[key as keyof typeof FLOW_CYTOMETRY_INFO]
     || null;
 }

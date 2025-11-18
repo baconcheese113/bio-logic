@@ -1,7 +1,7 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
 
-  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry' | null>(null);
+  let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | 'flow-cytometry' | null>(null);
 
   const INSTRUMENT_INFO = {
     microscope: {
@@ -32,17 +32,21 @@
       title: 'Sanger Sequencing',
       description: 'Determine the exact nucleotide sequence of DNA using chain-termination method with fluorescent dideoxynucleotides.'
     },
+    elisa: {
+      title: 'ELISA',
+      description: 'Enzyme-Linked Immunosorbent Assay detects antibodies in patient serum using enzyme-linked reagents that produce colored products readable by plate reader.'
+    },
     'flow-cytometry': {
       title: 'Flow Cytometry',
       description: 'Analyze individual cells in a fluid stream using light scatter and fluorescence to identify cell populations and characteristics.'
     }
   };
 
-  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry') {
+  function handleInstrumentSelect(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | 'flow-cytometry') {
     selectInstrument(instrument);
   }
 
-  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'flow-cytometry' | null) {
+  function setHoveredInfo(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | 'flow-cytometry' | null) {
     if (instrument !== null) {
       lastHoveredInfo = instrument;
     }
@@ -128,6 +132,17 @@
         <p>Amplify and detect genetic markers</p>
       </button>
     {/if}
+
+    <button 
+      class="instrument-card"
+      onclick={() => handleInstrumentSelect('elisa')}
+      onmouseenter={() => setHoveredInfo('elisa')}
+      onmouseleave={() => setHoveredInfo(null)}
+    >
+      <div class="instrument-icon">🧬</div>
+      <h3>ELISA</h3>
+      <p>Detect antibodies using enzyme-linked assay</p>
+    </button>
 
     <button 
       class="instrument-card"
