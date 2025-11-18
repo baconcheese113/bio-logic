@@ -2,9 +2,9 @@
   import { instrumentState } from '../../../stores/instrument-state';
   import type { ElisaWellContents } from '../../../../data/organisms';
 
-  // Calculate well color based on state
+  // Calculate well color based on state with gradual transition
   function getWellColor(well: ElisaWellContents): string {
-    // Substrate added creates color based on well type
+    // Substrate added creates color based on well type with animation
     if (well.substrateAdded) {
       // Positive controls should be yellow/gold
       if (well.wellType === 'positive-control') {
@@ -38,6 +38,11 @@
     if (well.wellType === 'blank') return 'B';
     return 'S';
   }
+
+  // Check if well should animate (just transitioned to substrate)
+  function shouldAnimate(well: ElisaWellContents): boolean {
+    return well.substrateAdded;
+  }
 </script>
 
 <div class="elisa-plate-container">
@@ -58,6 +63,7 @@
         <div class="well-container">
           <div 
             class="well" 
+            class:color-developing={shouldAnimate(well)}
             style="background-color: {getWellColor(well)}"
             title="{well.wellType}"
           >
@@ -167,7 +173,26 @@
     align-items: center;
     justify-content: center;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
+    transition: background-color 2s ease-in-out, transform 0.3s ease;
+  }
+
+  .well.color-developing {
+    animation: colorDevelop 2s ease-in-out;
+  }
+
+  @keyframes colorDevelop {
+    0% {
+      transform: scale(1);
+      filter: brightness(0.8);
+    }
+    50% {
+      transform: scale(1.05);
+      filter: brightness(1.2);
+    }
+    100% {
+      transform: scale(1);
+      filter: brightness(1);
+    }
   }
 
   .well:hover {
