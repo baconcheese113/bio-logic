@@ -19,6 +19,17 @@
   // Track if observation has been recorded for this session
   let observationRecorded = $state(false);
   
+  // Reset observationRecorded when evidence changes
+  $effect(() => {
+    // Watch for changes in evidence
+    const hasEvidence = $evidence.gramStain || $evidence.shape || $evidence.arrangement ||
+                        $evidence.acidFast !== null || $evidence.capsule !== null || $evidence.spores !== null;
+    // If evidence changes after recording, allow recording again
+    if (hasEvidence && observationRecorded) {
+      observationRecorded = false;
+    }
+  });
+  
   function handleRecordObservation() {
     // Record main microscopy observation if we have shape or gram stain
     if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
@@ -43,6 +54,11 @@
       showInventory = true;
       showDiagnosis = false;
     }, 300);
+    
+    // Reset the indicator after a few seconds
+    setTimeout(() => {
+      observationRecorded = false;
+    }, 2000);
   }
 
   const stains: { value: StainType; label: string; infoKey: string }[] = [

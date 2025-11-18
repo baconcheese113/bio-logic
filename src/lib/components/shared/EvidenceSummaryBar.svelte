@@ -1,7 +1,7 @@
 <script lang="ts">
   import { currentActiveCase } from '../../stores/active-cases';
   import { evidenceSummaries } from '../../stores/evidence-summary';
-  import { currentCase } from '../../stores/game-state';
+  import { currentCase, gameState } from '../../stores/game-state';
   
   const evidenceSummary = $derived(() => {
     if (!$currentActiveCase) return null;
@@ -24,9 +24,8 @@
   });
   
   function handleSubmitDiagnosis() {
-    // This will trigger the diagnosis validation
-    // For now, just navigate to diagnosis view
-    console.log('Submit diagnosis clicked');
+    // Navigate to diagnosis view
+    gameState.update(state => ({ ...state, gamePhase: 'diagnosis' }));
   }
 </script>
 
