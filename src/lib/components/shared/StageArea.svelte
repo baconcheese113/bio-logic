@@ -12,14 +12,14 @@
   let { children, showCaseHeader = false }: Props = $props();
   
   // Get evidence for current active case
-  const evidenceSummary = $derived(() => {
+  const evidenceSummary = $derived.by(() => {
     if (!$currentActiveCase) return null;
     return $evidenceSummaries.summaries.get($currentActiveCase.caseId);
   });
   
   // Group evidence by source and clean up text
-  const groupedEvidence = $derived(() => {
-    const summary = evidenceSummary();
+  const groupedEvidence = $derived.by(() => {
+    const summary = evidenceSummary;
     if (!summary || summary.phrases.length === 0) return null;
     
     const grouped = new Map<string, string[]>();
@@ -72,10 +72,10 @@
       </div>
       
       <!-- Evidence summary - shown inline in existing header, grouped by source -->
-      {#if groupedEvidence()}
+      {#if groupedEvidence}
         <div class="evidence-inline">
           <strong>Evidence:</strong>
-          {#each Array.from(groupedEvidence()!) as [source, phrases], index}
+          {#each Array.from(groupedEvidence) as [source, phrases], index}
             <div class="evidence-group">
               <span class="source-label">{getSourceLabel(source)}:</span>
               <span class="evidence-phrases">
