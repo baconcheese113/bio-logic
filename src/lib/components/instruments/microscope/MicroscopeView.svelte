@@ -3,15 +3,47 @@
   import MicroscopeInstrument from '../../MicroscopeInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import InventoryPanel from '../../shared/InventoryPanel.svelte';
   import { gameState, proceedToDiagnosis, setFocus, changeStain } from '../../../stores/game-state';
   import type { StainType } from '../../../stores/game-state';
-  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, filteredOrganisms } from '../../../stores/evidence';
+  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, toggleArrangement, filteredOrganisms } from '../../../stores/evidence';
+  import { recordMicroscopyObservation, recordAcidFastObservation, recordCapsuleObservation, recordSporeObservation } from '../../../stores/evidence-integration';
 
   let showDiagnosis = $state(false);
+  let showInventory = $state(false);
   let showStainSection = $state(true);
   let showObservationsSection = $state(true);
   let microscopeRef = $state<MicroscopeInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
+  
+  // Track if observation has been recorded for this session
+  let observationRecorded = $state(false);
+  
+  function handleRecordObservation() {
+    // Record main microscopy observation if we have shape or gram stain
+    if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
+      recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
+    }
+    
+    // Record special stains if observed
+    if ($evidence.acidFast !== null) {
+      recordAcidFastObservation($evidence.acidFast);
+    }
+    if ($evidence.capsule !== null) {
+      recordCapsuleObservation($evidence.capsule);
+    }
+    if ($evidence.spores !== null) {
+      recordSporeObservation($evidence.spores);
+    }
+    
+    observationRecorded = true;
+    
+    // Auto-switch to inventory tab to show what was added
+    setTimeout(() => {
+      showInventory = true;
+      showDiagnosis = false;
+    }, 300);
+  }
 
   const stains: { value: StainType; label: string; infoKey: string }[] = [
     { value: 'none', label: 'No Stain', infoKey: 'stain-none' },
@@ -44,21 +76,31 @@
     <div class="panel-tabs">
       <button 
         class="tab" 
-        class:active={!showDiagnosis}
-        onclick={() => showDiagnosis = false}
+        class:active={!showDiagnosis && !showInventory}
+        onclick={() => { showDiagnosis = false; showInventory = false; }}
       >
         Controls
       </button>
       <button 
         class="tab" 
+        class:active={showInventory}
+        onclick={() => { showInventory = true; showDiagnosis = false; }}
+      >
+        Inventory
+      </button>
+      <button 
+        class="tab" 
         class:active={showDiagnosis}
-        onclick={() => showDiagnosis = true}
+        onclick={() => { showDiagnosis = true; showInventory = false; }}
       >
         Diagnosis ({$filteredOrganisms.length})
       </button>
     </div>
 
-    {#if !showDiagnosis}
+    {#if showInventory}
+      <!-- Inventory Tab -->
+      <InventoryPanel />
+    {:else if !showDiagnosis}
       <!-- Controls Tab -->
       <div class="panel-content">
         <!-- Stain Section - Collapsible -->
@@ -230,6 +272,20 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- Record Observation Button -->
+              <div class="record-section">
+                <button 
+                  class="record-button"
+                  onclick={handleRecordObservation}
+                  disabled={!$evidence.gramStain && !$evidence.shape && !$evidence.arrangement}
+                >
+                  📝 Record Observation
+                </button>
+                {#if observationRecorded}
+                  <div class="recorded-indicator">✓ Recorded</div>
+                {/if}
+              </div>
             </div>
           {/if}
         </div>
@@ -286,18 +342,18 @@
 
   .panel-tabs {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     margin-bottom: 1rem;
   }
 
   .tab {
     flex: 1;
-    padding: 0.5rem;
+    padding: 0.5rem 0.25rem;
     background: #3a3a3a;
     color: #a0a0a0;
     border: 2px solid #4a4a4a;
     border-radius: 4px 4px 0 0;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     transition: all 0.2s;
   }
 
@@ -508,5 +564,60 @@
     padding: 1.5rem;
     font-style: italic;
     font-size: 0.85rem;
+  }
+  
+  /* Record Observation Section */
+  .record-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #4a4a4a;
+  }
+  
+  .record-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: linear-gradient(to bottom, #4a7c59, #3a6c49);
+    color: white;
+    border: 2px solid #5a8c69;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .record-button:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #5a8c69, #4a7c59);
+    border-color: #6a9c79;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(74, 124, 89, 0.4);
+  }
+  
+  .record-button:disabled {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .recorded-indicator {
+    margin-top: 0.5rem;
+    text-align: center;
+    color: #8fc98f;
+    font-size: 0.85rem;
+    font-weight: 600;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>
