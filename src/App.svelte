@@ -11,6 +11,8 @@
   import ElectrophoresisView from './lib/components/instruments/electrophoresis/ElectrophoresisView.svelte';
   import PCRView from './lib/components/instruments/pcr/PCRView.svelte';
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
+  import ElisaPlateView from './lib/components/instruments/elisa/ElisaPlateView.svelte';
+  import PlateReaderView from './lib/components/instruments/elisa/PlateReaderView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
   import PersistentTopBar from './lib/components/shared/PersistentTopBar.svelte';
@@ -69,6 +71,14 @@
 
   <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'} class:with-bars={showPersistentUI}>
     <SangerView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'elisa-testing'} class:with-bars={showPersistentUI}>
+    <ElisaPlateView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'plate-reader'} class:with-bars={showPersistentUI}>
+    <PlateReaderView />
   </div>
 
   <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'} class:with-bars={showPersistentUI}>

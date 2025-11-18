@@ -48,6 +48,11 @@ export interface Evidence {
   estimatedFragmentSize: number | null; // Player's estimate from gel (bp)
   detectedGenes: GeneTarget[];         // Genes detected via PCR (mecA, IS6110, etc)
   
+  // ELISA evidence
+  elisaPositiveControlOD: number | null;  // Positive control optical density
+  elisaNegativeControlOD: number | null;  // Negative control optical density
+  elisaSampleOD: number | null;           // Patient sample optical density
+  elisaAntibodiesDetected: boolean | null; // Calculated result: positive/negative
   // Flow cytometry evidence
   flowCytometryPopulations: FlowCytometryPopulationType[]; // Gated populations player identified
 }
@@ -96,6 +101,11 @@ const initialEvidence: Evidence = {
   estimatedFragmentSize: null,
   detectedGenes: [],
   
+  // ELISA
+  elisaPositiveControlOD: null,
+  elisaNegativeControlOD: null,
+  elisaSampleOD: null,
+  elisaAntibodiesDetected: null,
   // Flow cytometry
   flowCytometryPopulations: [],
 };
@@ -473,6 +483,35 @@ export function clearDetectedGenes() {
   evidence.update(e => ({
     ...e,
     detectedGenes: [],
+  }));
+}
+
+// ELISA evidence setters
+export function setElisaPositiveControlOD(od: number) {
+  evidence.update(e => ({
+    ...e,
+    elisaPositiveControlOD: od,
+  }));
+}
+
+export function setElisaNegativeControlOD(od: number) {
+  evidence.update(e => ({
+    ...e,
+    elisaNegativeControlOD: od,
+  }));
+}
+
+export function setElisaSampleOD(od: number) {
+  evidence.update(e => ({
+    ...e,
+    elisaSampleOD: od,
+  }));
+}
+
+export function setElisaAntibodiesDetected(detected: boolean) {
+  evidence.update(e => ({
+    ...e,
+    elisaAntibodiesDetected: detected,
   }));
 }
 
