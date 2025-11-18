@@ -2,6 +2,8 @@ import { writable, derived } from 'svelte/store';
 import { ORGANISMS } from '../../data/organisms';
 import type { GramStain, Shape, Arrangement, ColonyColor, Hemolysis, ProteinPattern, AlbuminLevel, GlobulinLevel, PrimerDesign, GeneTarget } from '../../data/organisms';
 
+export type FlowCytometryPopulationType = 'bacteria' | 'wbc' | 'debris' | 'epithelial';
+
 export interface Evidence {
   // Microscopy evidence
   gramStain: GramStain | null;
@@ -51,6 +53,8 @@ export interface Evidence {
   elisaNegativeControlOD: number | null;  // Negative control optical density
   elisaSampleOD: number | null;           // Patient sample optical density
   elisaAntibodiesDetected: boolean | null; // Calculated result: positive/negative
+  // Flow cytometry evidence
+  flowCytometryPopulations: FlowCytometryPopulationType[]; // Gated populations player identified
 }
 
 const initialEvidence: Evidence = {
@@ -102,6 +106,8 @@ const initialEvidence: Evidence = {
   elisaNegativeControlOD: null,
   elisaSampleOD: null,
   elisaAntibodiesDetected: null,
+  // Flow cytometry
+  flowCytometryPopulations: [],
 };
 
 export const evidence = writable<Evidence>(initialEvidence);
@@ -193,6 +199,39 @@ export const filteredOrganisms = derived(
           }
         } else {
           // Organism has no PCR markers defined - exclude if any genes detected
+          return false;
+        }
+      }
+      
+      // Flow cytometry evidence - population filtering
+      if ($evidence.flowCytometryPopulations.length > 0) {
+        // If organism has flow cytometry data, check if gated populations match
+        if (organism.flowCytometry) {
+          const hasMatchingPopulations = $evidence.flowCytometryPopulations.every(gatedPop => {
+            // Check if organism has a population matching the gated type
+            return organism.flowCytometry!.populations.some(pop => {
+              const cellType = pop.type;
+              if (gatedPop === 'bacteria' && (cellType === 'bacteria-cocci' || cellType === 'bacteria-bacilli')) {
+                return true;
+              }
+              if (gatedPop === 'wbc' && (cellType === 'lymphocyte' || cellType === 'monocyte' || cellType === 'neutrophil')) {
+                return true;
+              }
+              if (gatedPop === 'debris' && cellType === 'debris') {
+                return true;
+              }
+              if (gatedPop === 'epithelial' && cellType === 'epithelial') {
+                return true;
+              }
+              return false;
+            });
+          });
+          
+          if (!hasMatchingPopulations) {
+            return false;
+          }
+        } else {
+          // Organism has no flow cytometry data - exclude
           return false;
         }
       }
@@ -473,6 +512,26 @@ export function setElisaAntibodiesDetected(detected: boolean) {
   evidence.update(e => ({
     ...e,
     elisaAntibodiesDetected: detected,
+  }));
+}
+
+// Flow cytometry evidence setters
+export function addFlowCytometryPopulation(populationType: FlowCytometryPopulationType) {
+  evidence.update(e => {
+    if (e.flowCytometryPopulations.includes(populationType)) {
+      return e; // Already recorded
+    }
+    return {
+      ...e,
+      flowCytometryPopulations: [...e.flowCytometryPopulations, populationType],
+    };
+  });
+}
+
+export function clearFlowCytometryPopulations() {
+  evidence.update(e => ({
+    ...e,
+    flowCytometryPopulations: [],
   }));
 }
 

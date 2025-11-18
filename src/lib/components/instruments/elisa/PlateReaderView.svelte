@@ -4,7 +4,6 @@
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import { instrumentState, readElisaWell } from '../../../stores/instrument-state';
-  import { currentCase } from '../../../stores/game-state';
   import { setElisaPositiveControlOD, setElisaNegativeControlOD, setElisaSampleOD, setElisaAntibodiesDetected } from '../../../stores/evidence';
 
   let lastHoveredInfo = $state<string | null>(null);
@@ -469,38 +468,6 @@
     font-size: 0.75rem;
     font-family: monospace;
     margin-top: 0.2rem;
-  }
-
-  .digital-display {
-    background: #1a1a1a;
-    border: 3px solid #4a4a4a;
-    border-radius: 8px;
-    padding: 1.5rem 2rem;
-    margin-top: 2rem;
-    text-align: center;
-    min-width: 300px;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-  }
-
-  .display-label {
-    color: #666;
-    font-size: 0.8rem;
-    letter-spacing: 2px;
-    margin-bottom: 0.5rem;
-  }
-
-  .display-value {
-    color: #00ff00;
-    font-size: 3rem;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-  }
-
-  .display-unit {
-    color: #888;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
   }
 
   /* Analog Gauge Styles */

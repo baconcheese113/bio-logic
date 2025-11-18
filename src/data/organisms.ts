@@ -151,6 +151,45 @@ export interface ElisaProperties {
   cutoffThreshold: number;     // OD threshold for positive/negative determination
 }
 
+// Flow Cytometry types (1970s Cytofluorograph 4800A)
+// Standard cell types with fixed scatter properties
+export type CellTypeName = 
+  | 'debris' 
+  | 'rbc' 
+  | 'lymphocyte' 
+  | 'monocyte' 
+  | 'neutrophil' 
+  | 'epithelial'
+  | 'bacteria-cocci'
+  | 'bacteria-bacilli';
+
+export interface StandardCellType {
+  name: string;
+  forwardScatterMean: number;
+  sideScatterMean: number;
+  stdDevFSC: number;
+  stdDevSSC: number;
+  outlierPercentage: number;
+}
+
+// Standard cell types - same FSC/SSC regardless of sample
+export const CELL_TYPES: Record<CellTypeName, StandardCellType> = {
+  'debris': { name: 'Debris/Dead Cells', forwardScatterMean: 10, sideScatterMean: 12, stdDevFSC: 2.5, stdDevSSC: 3, outlierPercentage: 8 },
+  'rbc': { name: 'Red Blood Cells', forwardScatterMean: 20, sideScatterMean: 10, stdDevFSC: 3, stdDevSSC: 2, outlierPercentage: 2 },
+  'lymphocyte': { name: 'Lymphocytes', forwardScatterMean: 48, sideScatterMean: 30, stdDevFSC: 6, stdDevSSC: 8, outlierPercentage: 4 },
+  'monocyte': { name: 'Monocytes', forwardScatterMean: 63, sideScatterMean: 50, stdDevFSC: 7, stdDevSSC: 9, outlierPercentage: 5 },
+  'neutrophil': { name: 'Neutrophils', forwardScatterMean: 68, sideScatterMean: 75, stdDevFSC: 8, stdDevSSC: 10, outlierPercentage: 5 },
+  'epithelial': { name: 'Epithelial Cells', forwardScatterMean: 52, sideScatterMean: 42, stdDevFSC: 7, stdDevSSC: 8, outlierPercentage: 6 },
+  'bacteria-cocci': { name: 'Bacterial Cocci', forwardScatterMean: 18, sideScatterMean: 22, stdDevFSC: 4, stdDevSSC: 4.5, outlierPercentage: 3 },
+  'bacteria-bacilli': { name: 'Bacterial Bacilli', forwardScatterMean: 25, sideScatterMean: 20, stdDevFSC: 5, stdDevSSC: 4, outlierPercentage: 3 },
+};
+
+// What actually varies: which cells appear and their percentages
+export interface FlowCytometryProperties {
+  populations: { type: CellTypeName; percentage: number }[];
+  clinicalContext: string;
+}
+
 export interface CultureProperties {
   bloodAgar: {
     growthQuality: 'good' | 'poor' | 'none';
@@ -212,6 +251,7 @@ export interface Organism {
   pcrMarkers?: GeneTarget[]; // Genes this organism has (for PCR detection)
   expectedPCRSizes?: Partial<Record<GeneTarget, number>>; // Expected fragment sizes in bp
   elisa?: ElisaProperties; // For ELISA antibody detection
+  flowCytometry?: FlowCytometryProperties; // For cell population analysis
 }
 
 // Answer format configuration for different case types
@@ -290,6 +330,14 @@ export const ORGANISMS: Organism[] = [
       tetracycline: 24,
       chloramphenicol: 26,
       erythromycin: 27,
+    },
+    flowCytometry: {
+      populations: [
+        { type: 'bacteria-cocci', percentage: 45 },
+        { type: 'neutrophil', percentage: 35 },
+        { type: 'debris', percentage: 20 },
+      ],
+      clinicalContext: 'Bacterial throat infection showing small bacterial cocci with elevated neutrophil response',
     },
   },
   {

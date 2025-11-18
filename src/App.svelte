@@ -12,6 +12,7 @@
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
   import ElisaPlateView from './lib/components/instruments/elisa/ElisaPlateView.svelte';
   import PlateReaderView from './lib/components/instruments/elisa/PlateReaderView.svelte';
+  import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
 </script>
 
@@ -63,6 +64,10 @@
 
   <div class="view" class:visible={$gameState.gamePhase === 'plate-reader'}>
     <PlateReaderView />
+  </div>
+
+  <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'}>
+    <FlowCytometryView />
   </div>
   
   <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
