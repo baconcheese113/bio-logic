@@ -3,17 +3,21 @@
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
+  import InventoryPanel from '../../shared/InventoryPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
   import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies, type Colony } from '../../../stores/instrument-state';
-  import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
-  import type { ColonyColor } from '../../../../data/organisms';
+  import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone, filteredOrganisms } from '../../../stores/evidence';
+  import { recordCultureObservation } from '../../../stores/evidence-integration';
+  import type { ColonyColor, Hemolysis } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
   
   let showMediaSection = $state(true);
   let showObservationsSection = $state(true);
   let showAntibioticSection = $state(false);
+  let showInventory = $state(false);
   let lastHoveredInfo = $state<string | null>(null);
+  let observationRecorded = $state(false);
 
   // Antibiotic testing state
   let antibioticTestingStarted = $state(false);
@@ -22,6 +26,20 @@
   let antibioticIncubating = $state(false);
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
+  
+  function handleRecordObservation() {
+    const medium = $instrumentState.culture.selectedMedia as 'blood-agar' | 'macconkey';
+    const growth = $evidence.bloodAgarGrowth || $evidence.macConkeyGrowth || 'none';
+    const hemolysis = $evidence.hemolysis;
+    
+    recordCultureObservation(medium, growth as 'good' | 'poor' | 'none', hemolysis || undefined);
+    observationRecorded = true;
+    
+    // Auto-switch to inventory tab
+    setTimeout(() => {
+      showInventory = true;
+    }, 300);
+  }
 
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
@@ -326,6 +344,27 @@
 
   <!-- Right: Controls Panel -->
   <div class="controls-panel">
+    <div class="panel-tabs">
+      <button 
+        class="tab" 
+        class:active={!showInventory}
+        onclick={() => showInventory = false}
+      >
+        Controls
+      </button>
+      <button 
+        class="tab" 
+        class:active={showInventory}
+        onclick={() => showInventory = true}
+      >
+        Inventory
+      </button>
+    </div>
+
+    {#if showInventory}
+      <!-- Inventory Tab -->
+      <InventoryPanel />
+    {:else}
     <!-- Media Selection & Workflow Section -->
     <CollapsibleSection title="Culture Setup" bind:isOpen={showMediaSection}>
       <h3>1. Select Medium</h3>
@@ -566,6 +605,7 @@
       primaryAction={goToBiochemicalTests}
       primaryLabel="Run Biochemical Tests →"
     />
+    {/if}
   </div>
 </div>
 
@@ -917,5 +957,36 @@
   .zone-input:focus {
     outline: none;
     border-color: #5a9fd4;
+  }
+  
+  /* Panel tabs */
+  .panel-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.5rem;
+    background: #3a3a3a;
+    color: #a0a0a0;
+    border: 2px solid #4a4a4a;
+    border-radius: 4px 4px 0 0;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .tab:hover {
+    background: #4a4a4a;
+    color: #e0e0e0;
+  }
+
+  .tab.active {
+    background: #2a2a2a;
+    color: #ffd700;
+    border-bottom-color: #2a2a2a;
   }
 </style>
