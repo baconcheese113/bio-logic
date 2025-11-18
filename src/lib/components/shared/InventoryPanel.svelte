@@ -4,6 +4,7 @@
   import { currentCase } from '../../stores/game-state';
   import { CASES } from '../../../data/organisms';
   import type { InventoryItem } from '../../stores/inventory';
+  import { untrack } from 'svelte';
   
   let expandedCases = $state<Set<string>>(new Set());
   let selectedItem = $state<InventoryItem | null>(null);
@@ -11,8 +12,12 @@
   // Auto-expand current active case
   $effect(() => {
     if ($currentActiveCase) {
-      expandedCases.add($currentActiveCase.caseId);
-      expandedCases = new Set(expandedCases);
+      untrack(() => {
+        if (!expandedCases.has($currentActiveCase.caseId)) {
+          expandedCases.add($currentActiveCase.caseId);
+          expandedCases = new Set(expandedCases);
+        }
+      });
     }
   });
   

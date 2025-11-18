@@ -7,4 +7,4 @@ Ask for clarity if any requirements or specifications are ambiguous or unclear b
 
 Types should almost always live with the data they describe. This helps maintain coherence and makes it easier to manage types as the codebase evolves. Even better if we can infer types directly from the data structures themselves.
 
-After making UI changes, verify the implementation works correctly by using the Playwright MCP browser tools to navigate the application, interact with elements, and take screenshots. This ensures changes behave as expected in the actual browser environment.
+After making UI changes, verify the implementation works correctly by using the Playwright MCP browser tools to navigate the application, interact with elements, and take screenshots. This ensures changes behave as expected in the actual browser environment. The server runs on http://localhost:3000
