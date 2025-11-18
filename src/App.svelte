@@ -1,5 +1,6 @@
 <script lang="ts">
   import { gameState } from './lib/stores/game-state';
+  import { currentActiveCase } from './lib/stores/active-cases';
   import CasePresentation from './lib/components/CasePresentation.svelte';
   import SampleSelection from './lib/components/SampleSelection.svelte';
   import InstrumentSelection from './lib/components/InstrumentSelection.svelte';
@@ -12,55 +13,69 @@
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import PersistentTopBar from './lib/components/shared/PersistentTopBar.svelte';
+  import EvidenceSummaryBar from './lib/components/shared/EvidenceSummaryBar.svelte';
+  
+  // Show persistent bars when we have an active case and not on case presentation
+  const showPersistentUI = $derived(
+    $currentActiveCase !== null && 
+    $gameState.gamePhase !== 'case-presentation'
+  );
 </script>
 
 <main>
+  <!-- Persistent UI elements -->
+  {#if showPersistentUI}
+    <PersistentTopBar />
+    <EvidenceSummaryBar />
+  {/if}
+  
   <!-- Keep all components mounted to preserve state, show/hide with CSS -->
-  <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'} class:with-bars={showPersistentUI}>
     <CasePresentation />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'sample-selection'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'sample-selection'} class:with-bars={showPersistentUI}>
     <SampleSelection />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'instrument-selection'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'instrument-selection'} class:with-bars={showPersistentUI}>
     <InstrumentSelection />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'microscope-observation'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'microscope-observation'} class:with-bars={showPersistentUI}>
     <MicroscopeView />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'culture-observation'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'culture-observation'} class:with-bars={showPersistentUI}>
     <CulturePlateView />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'} class:with-bars={showPersistentUI}>
     <BiochemicalTestView />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'} class:with-bars={showPersistentUI}>
     <SerologyView />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'electrophoresis-testing'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'electrophoresis-testing'} class:with-bars={showPersistentUI}>
     <ElectrophoresisView />
   </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'pcr-testing'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'pcr-testing'} class:with-bars={showPersistentUI}>
     <PCRView />
   </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'} class:with-bars={showPersistentUI}>
     <SangerView />
   </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'} class:with-bars={showPersistentUI}>
     <FlowCytometryView />
   </div>
   
-  <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
+  <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'} class:with-bars={showPersistentUI}>
     <DiagnosisView />
   </div>
 </main>
@@ -89,6 +104,12 @@
 
   .view.visible {
     display: block;
+  }
+  
+  /* Adjust layout when persistent bars are shown */
+  .view.with-bars {
+    top: 140px; /* 60px top bar + 80px evidence bar */
+    height: calc(100% - 140px);
   }
 
   :global(body) {

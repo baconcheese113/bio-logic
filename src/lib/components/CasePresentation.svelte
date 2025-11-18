@@ -1,8 +1,25 @@
 <script lang="ts">
   import { currentCase, gameState } from '../stores/game-state';
+  import { activateCase, currentActiveCase } from '../stores/active-cases';
+  import { initializeEvidenceSummary } from '../stores/evidence-summary';
   import { CASES } from '../../data/organisms';
   
   function showSampleSelection() {
+    // Activate this case when proceeding
+    const caseInstance = $currentCase;
+    const caseIndex = $gameState.currentCaseIndex;
+    
+    activateCase(caseInstance, caseIndex);
+    
+    // Get the active case ID that was just created
+    // We need to wait a tick for the store to update
+    setTimeout(() => {
+      if ($currentActiveCase) {
+        const presentingComplaint = caseInstance.story.split('.')[0] + '.'; // First sentence as presenting complaint
+        initializeEvidenceSummary($currentActiveCase.caseId, presentingComplaint);
+      }
+    }, 0);
+    
     gameState.update(state => ({ ...state, gamePhase: 'sample-selection' }));
   }
 
