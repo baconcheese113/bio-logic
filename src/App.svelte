@@ -1,5 +1,7 @@
 <script lang="ts">
   import { gameState } from './lib/stores/game-state';
+  import GameLayout from './lib/components/GameLayout.svelte';
+  import JobBoard from './lib/components/JobBoard.svelte';
   import CasePresentation from './lib/components/CasePresentation.svelte';
   import SampleSelection from './lib/components/SampleSelection.svelte';
   import InstrumentSelection from './lib/components/InstrumentSelection.svelte';
@@ -13,65 +15,82 @@
   import SangerView from './lib/components/instruments/sanger/SangerView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import MultiQuestionDiagnosis from './lib/components/MultiQuestionDiagnosis.svelte';
   import Inventory from './lib/components/Inventory.svelte';
+  import { currentActiveCase } from './lib/stores/active-cases';
+  
+  // Use new diagnosis view if there's an active case from the new system
+  const useNewDiagnosis = $derived($currentActiveCase !== null);
 </script>
 
 <main>
-  <!-- Keep all components mounted to preserve state, show/hide with CSS -->
-  <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'}>
-    <CasePresentation />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'sample-selection'}>
-    <SampleSelection />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'instrument-selection'}>
-    <InstrumentSelection />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'microscope-observation'}>
-    <MicroscopeView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'culture-observation'}>
-    <CulturePlateView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'}>
-    <BiochemicalTestView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'}>
-    <SerologyView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'electrophoresis-testing'}>
-    <ElectrophoresisView />
-  </div>
+  <GameLayout>
+    {#snippet children()}
+      <!-- Keep all components mounted to preserve state, show/hide with CSS -->
+      <div class="view" class:visible={$gameState.gamePhase === 'job-board'}>
+        <JobBoard />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'}>
+        <CasePresentation />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'sample-selection'}>
+        <SampleSelection />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'instrument-selection'}>
+        <InstrumentSelection />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'microscope-observation'}>
+        <MicroscopeView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'culture-observation'}>
+        <CulturePlateView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'biochemical-testing'}>
+        <BiochemicalTestView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'serology-testing'}>
+        <SerologyView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'electrophoresis-testing'}>
+        <ElectrophoresisView />
+      </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'pcr-testing'}>
-    <PCRView />
-  </div>
+      <div class="view" class:visible={$gameState.gamePhase === 'pcr-testing'}>
+        <PCRView />
+      </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'}>
-    <SangerView />
-  </div>
+      <div class="view" class:visible={$gameState.gamePhase === 'sanger-sequencing'}>
+        <SangerView />
+      </div>
 
-  <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'}>
-    <FlowCytometryView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'gel-electrophoresis'}>
-    <GelElectrophoresisView />
-  </div>
-  
-  <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
-    <DiagnosisView />
-  </div>
-  
-  <!-- Inventory is always visible as an overlay -->
-  <Inventory />
+      <div class="view" class:visible={$gameState.gamePhase === 'flow-cytometry'}>
+        <FlowCytometryView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'gel-electrophoresis'}>
+        <GelElectrophoresisView />
+      </div>
+      
+      <div class="view" class:visible={$gameState.gamePhase === 'diagnosis'}>
+        {#if useNewDiagnosis}
+          <MultiQuestionDiagnosis />
+        {:else}
+          <DiagnosisView />
+        {/if}
+      </div>
+      
+      <!-- Inventory is always visible as an overlay -->
+      <Inventory />
+    {/snippet}
+  </GameLayout>
 </main>
 
 <style>

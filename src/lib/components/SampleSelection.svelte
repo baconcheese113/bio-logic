@@ -1,6 +1,6 @@
 <script lang="ts">
   import StageArea from './shared/StageArea.svelte';
-  import { selectSample, currentCase, gameState } from '../stores/game-state';
+  import { currentCase, gameState } from '../stores/game-state';
   import { addSampleToInventory } from '../stores/inventory';
   import type { SampleType } from '../../data/organisms';
 
@@ -26,14 +26,22 @@
       caseIndex
     );
     
-    // Continue with existing flow
-    selectSample(sampleType);
+    // Navigate to instrument selection
+    gameState.update(state => ({
+      ...state,
+      gamePhase: 'instrument-selection',
+    }));
   }
 </script>
 
 <StageArea showCaseHeader={true}>
   <div class="sample-selection">
     <div class="content">
+      <div class="header-section">
+        <button class="back-to-job-board" onclick={() => gameState.update(s => ({ ...s, gamePhase: 'job-board' }))}>
+          📋 Back to Job Board
+        </button>
+      </div>
       <h2>Select Sample Type</h2>
       <p class="instructions">
         Choose which type of sample you would like to examine under the microscope.
@@ -65,6 +73,29 @@
     border: 2px solid #4a4a4a;
     border-radius: 8px;
     padding: 3rem;
+  }
+  
+  .header-section {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+  }
+  
+  .back-to-job-board {
+    background: none;
+    border: 1px solid #6a9fb5;
+    color: #6a9fb5;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  .back-to-job-board:hover {
+    background: #3a3a3a;
+    border-color: #8abfd5;
+    color: #8abfd5;
   }
 
   h2 {

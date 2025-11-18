@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Phaser from 'phaser';
-  import { gameState, currentCase, correctOrganism, isCorrectSample, currentBackground } from '../stores/game-state';
+  import { gameState, currentCase, correctOrganism } from '../stores/game-state';
+  import { isCorrectSample, currentBackground } from '../stores/inventory';
   import { Slide } from '../microscope/slide';
   import type { Organism } from '../../data/organisms';
 

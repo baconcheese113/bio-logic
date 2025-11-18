@@ -1,5 +1,6 @@
-import { writable } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 import type { SampleType, PrimerDesign } from '../../data/organisms';
+import { SAMPLE_BACKGROUNDS, CASES } from '../../data/organisms';
 
 export interface InventorySample {
   id: string; // Unique identifier for this inventory item
@@ -146,3 +147,25 @@ export function getActiveSample(state: InventoryState): InventorySample | null {
   const item = state.items.find(i => i.id === state.activeSampleId);
   return item && item.type === 'sample' ? item : null;
 }
+
+// Derived store for the active sample
+export const activeSample = derived(
+  inventory,
+  ($inventory) => getActiveSample($inventory)
+);
+
+// Derived store for the current sample's background (for microscope)
+export const currentBackground = derived(
+  activeSample,
+  ($activeSample) => $activeSample ? SAMPLE_BACKGROUNDS[$activeSample.sampleType] : null
+);
+
+// Derived store to check if the active sample is correct for the current case
+export const isCorrectSample = derived(
+  activeSample,
+  ($activeSample) => {
+    if (!$activeSample) return false;
+    const currentCase = CASES[$activeSample.caseIndex];
+    return currentCase && $activeSample.sampleType === currentCase.correctSampleType;
+  }
+);

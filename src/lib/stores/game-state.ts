@@ -1,10 +1,11 @@
 import { writable, derived } from 'svelte/store';
-import { CASES, ORGANISMS, SAMPLE_BACKGROUNDS, type SampleType } from '../../data/organisms';
+import { CASES, ORGANISMS } from '../../data/organisms';
 import { CLINICAL_DIAGNOSES } from '../../data/clinical-diagnoses';
 import { clearEvidence } from './evidence';
 import { resetInstrumentState as resetInstruments } from './instrument-state';
 
 export type GamePhase = 
+  | 'job-board'
   | 'case-presentation' 
   | 'sample-selection' 
   | 'instrument-selection'
@@ -23,7 +24,6 @@ export type StainType = 'none' | 'gram' | 'acid-fast' | 'capsule' | 'spore';
 
 export interface GameState {
   currentCaseIndex: number;
-  selectedSampleType: SampleType | null;
   currentStain: StainType;
   gamePhase: GamePhase;
   lastInstrumentPhase: 'microscope-observation' | 'culture-observation' | 'biochemical-testing' | 'serology-testing' | 'electrophoresis-testing' | 'pcr-testing' | 'gel-electrophoresis' | 'sanger-sequencing' | 'flow-cytometry';
@@ -33,9 +33,8 @@ export interface GameState {
 
 const initialState: GameState = {
   currentCaseIndex: 0,
-  selectedSampleType: null,
   currentStain: 'none',
-  gamePhase: 'case-presentation',
+  gamePhase: 'job-board',
   lastInstrumentPhase: 'microscope-observation',
   focusDepth: 50,
   zoomLevel: 1000,
@@ -94,15 +93,7 @@ export const currentElectrophoresisData = derived(
   }
 );
 
-export const isCorrectSample = derived(
-  [gameState, currentCase],
-  ([$state, $case]) => $state.selectedSampleType === $case.correctSampleType
-);
 
-export const currentBackground = derived(
-  gameState,
-  ($state) => $state.selectedSampleType ? SAMPLE_BACKGROUNDS[$state.selectedSampleType] : null
-);
 
 // Helper functions
 export function nextCase() {
@@ -110,20 +101,13 @@ export function nextCase() {
   gameState.update(state => ({
     ...state,
     currentCaseIndex: (state.currentCaseIndex + 1) % CASES.length,
-    selectedSampleType: null,
     currentStain: 'none',
     gamePhase: 'case-presentation',
     focusDepth: 50,
   }));
 }
 
-export function selectSample(sampleType: SampleType) {
-  gameState.update(state => ({
-    ...state,
-    selectedSampleType: sampleType,
-    gamePhase: 'instrument-selection',
-  }));
-}
+
 
 export function selectInstrument(instrument: 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'gel' | 'pcr' | 'sanger' | 'flow-cytometry') {
   let phase: GamePhase;
@@ -182,7 +166,6 @@ export function returnToSampleSelection() {
   resetInstrumentState();
   gameState.update(state => ({
     ...state,
-    selectedSampleType: null,
     currentStain: 'none',
     gamePhase: 'sample-selection',
   }));
