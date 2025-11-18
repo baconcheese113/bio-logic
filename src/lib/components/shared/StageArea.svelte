@@ -1,5 +1,7 @@
 <script lang="ts">
   import { currentCase, gameState } from '../../stores/game-state';
+  import { currentActiveCase } from '../../stores/active-cases';
+  import { evidenceSummaries } from '../../stores/evidence-summary';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -8,6 +10,12 @@
   }
 
   let { children, showCaseHeader = false }: Props = $props();
+  
+  // Get evidence for current active case
+  const evidenceSummary = $derived(() => {
+    if (!$currentActiveCase) return null;
+    return $evidenceSummaries.summaries.get($currentActiveCase.caseId);
+  });
 </script>
 
 <div class="stage-area">
@@ -24,6 +32,17 @@
       <div class="case-details">
         <p>{$currentCase.story}</p>
       </div>
+      
+      <!-- Evidence summary - shown inline in existing header -->
+      {#if evidenceSummary() && evidenceSummary()!.phrases.length > 0}
+        <div class="evidence-inline">
+          <strong>Evidence:</strong>
+          {#each evidenceSummary()!.phrases as phrase, index}
+            {#if index > 0}•{/if}
+            <span class="evidence-phrase">{phrase.text}</span>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
   
@@ -81,6 +100,24 @@
 
   .case-details p {
     margin: 0.25rem 0;
+  }
+  
+  .evidence-inline {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #3a3a3a;
+    color: #90c9a0;
+    font-size: 0.9rem;
+  }
+  
+  .evidence-inline strong {
+    color: #a0d9b0;
+    margin-right: 0.5rem;
+  }
+  
+  .evidence-phrase {
+    margin: 0 0.4rem;
+    color: #c0e0d0;
   }
 
   .stage-content {
