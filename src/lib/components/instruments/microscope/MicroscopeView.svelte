@@ -17,43 +17,45 @@
   let lastHoveredInfo = $state<string | null>(null);
   
   // Track what has been recorded to avoid duplicate submissions
-  let lastRecordedGramStain = $state<string | null>(null);
-  let lastRecordedShape = $state<string | null>(null);
-  let lastRecordedArrangement = $state<string | null>(null);
-  let lastRecordedAcidFast = $state<boolean | null>(null);
-  let lastRecordedCapsule = $state<boolean | null>(null);
-  let lastRecordedSpores = $state<boolean | null>(null);
+  let lastRecordedState = $state<string>('');
   
-  // Auto-record observations when evidence changes - DISABLED FOR NOW
-  // The $effect was causing performance issues, will re-implement with better guards
-  /*
+  // Auto-record observations when evidence changes
   $effect(() => {
-    // Record main microscopy observation if we have shape or gram stain AND it's different from last time
-    if (($evidence.gramStain || $evidence.shape || $evidence.arrangement) &&
-        (lastRecordedGramStain !== $evidence.gramStain || 
-         lastRecordedShape !== $evidence.shape || 
-         lastRecordedArrangement !== $evidence.arrangement)) {
-      recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
-      lastRecordedGramStain = $evidence.gramStain;
-      lastRecordedShape = $evidence.shape;
-      lastRecordedArrangement = $evidence.arrangement;
-    }
+    const currentState = JSON.stringify({
+      gramStain: $evidence.gramStain,
+      shape: $evidence.shape,
+      arrangement: $evidence.arrangement,
+      acidFast: $evidence.acidFast,
+      capsule: $evidence.capsule,
+      spores: $evidence.spores
+    });
     
-    // Record special stains if observed AND different from last time
-    if ($evidence.acidFast !== null && lastRecordedAcidFast !== $evidence.acidFast) {
-      recordAcidFastObservation($evidence.acidFast);
-      lastRecordedAcidFast = $evidence.acidFast;
-    }
-    if ($evidence.capsule !== null && lastRecordedCapsule !== $evidence.capsule) {
-      recordCapsuleObservation($evidence.capsule);
-      lastRecordedCapsule = $evidence.capsule;
-    }
-    if ($evidence.spores !== null && lastRecordedSpores !== $evidence.spores) {
-      recordSporeObservation($evidence.spores);
-      lastRecordedSpores = $evidence.spores;
+    // Only record if state has changed and we have some evidence
+    if (currentState !== lastRecordedState && currentState !== '{}') {
+      const hasEvidence = $evidence.gramStain || $evidence.shape || $evidence.arrangement ||
+                          $evidence.acidFast !== null || $evidence.capsule !== null || $evidence.spores !== null;
+      
+      if (hasEvidence) {
+        // Record main microscopy observation if we have shape or gram stain
+        if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
+          recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
+        }
+        
+        // Record special stains if observed
+        if ($evidence.acidFast !== null) {
+          recordAcidFastObservation($evidence.acidFast);
+        }
+        if ($evidence.capsule !== null) {
+          recordCapsuleObservation($evidence.capsule);
+        }
+        if ($evidence.spores !== null) {
+          recordSporeObservation($evidence.spores);
+        }
+        
+        lastRecordedState = currentState;
+      }
     }
   });
-  */
 
   const stains: { value: StainType; label: string; infoKey: string }[] = [
     { value: 'none', label: 'No Stain', infoKey: 'stain-none' },
