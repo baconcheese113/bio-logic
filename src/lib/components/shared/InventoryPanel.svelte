@@ -89,74 +89,39 @@
             {#if isExpanded}
               <div class="case-items">
                 {#if caseInventory.samples.length > 0}
-                  <div class="item-category">
-                    <h4>Samples</h4>
-                    <div class="items-list">
-                      {#each caseInventory.samples as sample}
-                        <div 
-                          class="inventory-item sample" 
-                          class:selected={selectedItem?.id === sample.id}
-                          onclick={() => selectItem(sample)}
-                          role="button"
-                          tabindex="0"
-                        >
+                  <div class="items-list-vertical">
+                    {#each caseInventory.samples as sample}
+                      <div 
+                        class="inventory-card sample" 
+                        class:selected={selectedItem?.id === sample.id}
+                        onclick={() => selectItem(sample)}
+                        role="button"
+                        tabindex="0"
+                      >
+                        <div class="card-header">
                           <div class="item-icon">🧪</div>
-                          <div class="item-details">
-                            <div class="item-name">{sample.displayName}</div>
-                            <div class="item-time">{formatTimestamp(sample.timestamp)}</div>
-                            {#if selectedItem?.id === sample.id && sample.data}
-                              <div class="item-extra-details">
-                                {#each Object.entries(sample.data) as [key, value]}
-                                  <div class="detail-row">
-                                    <span class="detail-label">{key}:</span>
-                                    <span class="detail-value">{value}</span>
-                                  </div>
-                                {/each}
-                              </div>
-                            {/if}
-                          </div>
+                          <div class="item-name">{sample.displayName}</div>
                         </div>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-                
-                {#if caseInventory.results.length > 0}
-                  <div class="item-category">
-                    <h4>Test Results</h4>
-                    <div class="items-list">
-                      {#each caseInventory.results as result}
-                        <div 
-                          class="inventory-item result"
-                          class:selected={selectedItem?.id === result.id}
-                          onclick={() => selectItem(result)}
-                          role="button"
-                          tabindex="0"
-                        >
-                          <div class="item-icon">📋</div>
-                          <div class="item-details">
-                            <div class="item-name">{result.displayName}</div>
-                            <div class="item-time">{formatTimestamp(result.timestamp)}</div>
-                            {#if selectedItem?.id === result.id && result.data}
-                              <div class="item-extra-details">
-                                {#each Object.entries(result.data) as [key, value]}
-                                  <div class="detail-row">
-                                    <span class="detail-label">{key}:</span>
-                                    <span class="detail-value">{value}</span>
-                                  </div>
-                                {/each}
-                              </div>
-                            {/if}
-                          </div>
+                        <div class="card-info">
+                          <div class="item-time">Collected: {formatTimestamp(sample.timestamp)}</div>
+                          <div class="item-status">Available</div>
                         </div>
-                      {/each}
-                    </div>
+                        {#if selectedItem?.id === sample.id && sample.data}
+                          <div class="card-details">
+                            {#each Object.entries(sample.data) as [key, value]}
+                              <div class="detail-line">
+                                <span class="detail-label">{key}:</span>
+                                <span class="detail-value">{value}</span>
+                              </div>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
-                {/if}
-                
-                {#if caseInventory.samples.length === 0 && caseInventory.results.length === 0}
+                {:else}
                   <div class="no-items">
-                    <em>No items in inventory</em>
+                    <em>No samples collected</em>
                   </div>
                 {/if}
               </div>
@@ -282,108 +247,103 @@
     background: #1a1a1a;
   }
   
-  .item-category {
-    margin-bottom: 0.6rem;
-  }
+
   
-  .item-category:last-child {
-    margin-bottom: 0;
-  }
-  
-  .item-category h4 {
-    margin: 0 0 0.4rem 0;
-    color: #999;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .items-list {
+  .items-list-vertical {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.5rem;
   }
   
-  .inventory-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.5rem;
+  .inventory-card {
     background: #2a2a2a;
     border: 1px solid #3a3a3a;
-    border-radius: 3px;
+    border-radius: 4px;
     transition: all 0.2s;
     cursor: pointer;
+    padding: 0.6rem;
   }
   
-  .inventory-item:hover {
+  .inventory-card:hover {
     background: #3a3a3a;
     border-color: #4a4a4a;
-    transform: translateX(3px);
   }
   
-  .inventory-item.selected {
+  .inventory-card.selected {
     background: #3a3a4a;
     border-color: #5a5a6a;
   }
   
-  .inventory-item.sample {
-    border-left: 2px solid #4a7c59;
+  .inventory-card.sample {
+    border-left: 3px solid #4a7c59;
   }
   
-  .inventory-item.result {
-    border-left: 2px solid #6a9fb5;
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
   }
   
   .item-icon {
-    font-size: 1.2rem;
-  }
-  
-  .item-details {
-    flex: 1;
-    min-width: 0;
+    font-size: 1.4rem;
   }
   
   .item-name {
     color: #e0e0e0;
-    font-size: 0.8rem;
-    font-weight: 500;
-    margin-bottom: 0.15rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding-left: 2rem;
   }
   
   .item-time {
-    color: #888;
+    color: #999;
     font-size: 0.7rem;
+  }
+  
+  .item-status {
+    color: #4a7c59;
+    font-size: 0.7rem;
+    font-weight: 600;
   }
   
   .no-items {
     text-align: center;
-    padding: 0.8rem;
+    padding: 1.5rem 0.8rem;
     color: #666;
     font-size: 0.75rem;
   }
   
-  .item-extra-details {
-    margin-top: 0.4rem;
-    padding-top: 0.4rem;
+  .card-details {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    padding-left: 2rem;
     border-top: 1px solid #3a3a3a;
     font-size: 0.7rem;
   }
   
-  .detail-row {
+  .detail-line {
     display: flex;
-    gap: 0.4rem;
-    margin: 0.2rem 0;
+    gap: 0.5rem;
+    margin: 0.25rem 0;
   }
   
   .detail-label {
     color: #999;
     font-weight: 600;
     text-transform: capitalize;
+    min-width: 70px;
   }
   
   .detail-value {
     color: #ccc;
+    flex: 1;
   }
 </style>
