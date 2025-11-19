@@ -40,6 +40,22 @@
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
   
+  function formatStatus(status?: string, usedBy?: string): string {
+    if (!status) return 'Available';
+    if (status === 'in-use' && usedBy) {
+      return `In Use: ${usedBy.charAt(0).toUpperCase() + usedBy.slice(1)}`;
+    }
+    if (status === 'processed') return 'Processed';
+    return 'Available';
+  }
+  
+  function getStatusClass(status?: string): string {
+    if (!status || status === 'available') return 'status-available';
+    if (status === 'in-use') return 'status-in-use';
+    if (status === 'processed') return 'status-processed';
+    return 'status-available';
+  }
+  
   function isCaseActive(caseId: string): boolean {
     return $currentActiveCase?.caseId === caseId;
   }
@@ -104,7 +120,9 @@
                         </div>
                         <div class="card-info">
                           <div class="item-time">Collected: {formatTimestamp(sample.timestamp)}</div>
-                          <div class="item-status">Available</div>
+                          <div class="item-status" class:in-use={sample.status === 'in-use'} class={getStatusClass(sample.status)}>
+                            {formatStatus(sample.status, sample.usedBy)}
+                          </div>
                         </div>
                         {#if selectedItem?.id === sample.id && sample.data}
                           <div class="card-details">
@@ -309,9 +327,20 @@
   }
   
   .item-status {
-    color: #4a7c59;
     font-size: 0.7rem;
     font-weight: 600;
+  }
+  
+  .status-available {
+    color: #4a7c59;
+  }
+  
+  .status-in-use {
+    color: #d4af37;
+  }
+  
+  .status-processed {
+    color: #888;
   }
   
   .no-items {

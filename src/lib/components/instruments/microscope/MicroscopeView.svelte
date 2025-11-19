@@ -8,6 +8,8 @@
   import type { StainType } from '../../../stores/game-state';
   import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, toggleArrangement, filteredOrganisms } from '../../../stores/evidence';
   import { recordMicroscopyObservation, recordAcidFastObservation, recordCapsuleObservation, recordSporeObservation } from '../../../stores/evidence-integration';
+  import { currentActiveCase } from '../../../stores/active-cases';
+  import { getAvailableSamples, updateSampleStatus, type InventoryItem } from '../../../stores/inventory';
 
   let showDiagnosis = $state(false);
   let showInventory = $state(false);
@@ -15,6 +17,50 @@
   let showObservationsSection = $state(true);
   let microscopeRef = $state<MicroscopeInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
+  
+  // Sample selection
+  let selectedSample = $state<InventoryItem | null>(null);
+  let availableSamples = $state<InventoryItem[]>([]);
+  let showSamplePrompt = $state(true);
+  
+  // Update available samples when active case changes
+  $effect(() => {
+    if ($currentActiveCase) {
+      availableSamples = getAvailableSamples($currentActiveCase.caseId);
+      // If no sample selected and samples are available, show prompt
+      showSamplePrompt = !selectedSample && availableSamples.length > 0;
+    }
+  });
+  
+  function selectSampleForUse(sample: InventoryItem) {
+    // Release previous sample if any
+    if (selectedSample) {
+      updateSampleStatus(selectedSample.id, 'available');
+    }
+    
+    // Mark new sample as in use
+    updateSampleStatus(sample.id, 'in-use', 'microscope');
+    selectedSample = sample;
+    showSamplePrompt = false;
+    
+    // Update available samples list
+    if ($currentActiveCase) {
+      availableSamples = getAvailableSamples($currentActiveCase.caseId);
+    }
+  }
+  
+  function releaseSample() {
+    if (selectedSample) {
+      updateSampleStatus(selectedSample.id, 'processed');
+      selectedSample = null;
+      showSamplePrompt = true;
+      
+      // Update available samples list
+      if ($currentActiveCase) {
+        availableSamples = getAvailableSamples($currentActiveCase.caseId);
+      }
+    }
+  }
   
   // Track what has been recorded to avoid duplicate submissions
   let lastRecordedState = $state<string>('');
@@ -102,6 +148,44 @@
     {:else if !showDiagnosis}
       <!-- Controls Tab -->
       <div class="panel-content">
+        <!-- Sample Selection Prompt -->
+        {#if showSamplePrompt && availableSamples.length > 0}
+          <div class="sample-prompt">
+            <div class="prompt-header">
+              <div class="prompt-icon">🧪</div>
+              <div class="prompt-title">Select Sample</div>
+            </div>
+            <p class="prompt-text">Choose a sample from your inventory to examine:</p>
+            <div class="sample-list">
+              {#each availableSamples as sample}
+                <button 
+                  class="sample-option"
+                  onclick={() => selectSampleForUse(sample)}
+                >
+                  <span class="sample-icon">🧪</span>
+                  <span class="sample-name">{sample.displayName}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {:else if selectedSample}
+          <!-- Currently Using Sample -->
+          <div class="active-sample">
+            <div class="active-sample-header">
+              <span class="sample-icon">🔬</span>
+              <span>Using: <strong>{selectedSample.displayName}</strong></span>
+              <button class="release-button" onclick={releaseSample} title="Mark as processed and release">
+                ✓ Done
+              </button>
+            </div>
+          </div>
+        {:else if availableSamples.length === 0}
+          <!-- No Samples Available -->
+          <div class="no-samples-prompt">
+            <p>No samples available. Collect a sample first from the Sample Selection screen.</p>
+          </div>
+        {/if}
+        
         <!-- Stain Section - Collapsible -->
         <div class="section">
           <button class="section-header" onclick={() => showStainSection = !showStainSection}>
@@ -604,5 +688,118 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+  
+  /* Sample Selection Prompt */
+  .sample-prompt {
+    background: #2a4a5a;
+    border: 2px solid #4a6a8a;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .prompt-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prompt-icon {
+    font-size: 1.5rem;
+  }
+  
+  .prompt-title {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #e0e0e0;
+  }
+  
+  .prompt-text {
+    color: #b0b0b0;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .sample-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .sample-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #3a3a3a;
+    border: 2px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 0.75rem;
+    color: #e0e0e0;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+  }
+  
+  .sample-option:hover {
+    background: #4a7c59;
+    border-color: #5a8c69;
+    transform: translateX(2px);
+  }
+  
+  .sample-icon {
+    font-size: 1.2rem;
+  }
+  
+  .sample-name {
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .active-sample {
+    background: #3a5a3a;
+    border: 2px solid #5a8c69;
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .active-sample-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+  }
+  
+  .release-button {
+    margin-left: auto;
+    padding: 0.25rem 0.75rem;
+    background: #4a7c59;
+    border: 1px solid #5a8c69;
+    border-radius: 3px;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .release-button:hover {
+    background: #5a8c69;
+    transform: scale(1.05);
+  }
+  
+  .no-samples-prompt {
+    background: #3a3a3a;
+    border: 2px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: #a0a0a0;
+    font-size: 0.85rem;
   }
 </style>

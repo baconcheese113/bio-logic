@@ -2,6 +2,7 @@ import { writable, derived, get } from 'svelte/store';
 import type { SampleType } from '../../data/organisms';
 
 export type InventoryItemType = 'sample' | 'result';
+export type SampleStatus = 'available' | 'in-use' | 'processed';
 
 export interface InventoryItem {
   id: string;
@@ -10,6 +11,8 @@ export interface InventoryItem {
   itemType: string; // e.g., 'blood', 'gram-stain', 'pcr-result'
   displayName: string;
   timestamp: number;
+  status?: SampleStatus; // For samples: tracks if available, in use, or processed
+  usedBy?: string; // For samples: which instrument is using it (e.g., 'microscope', 'culture')
   data?: Record<string, unknown>; // Additional metadata
 }
 
@@ -77,6 +80,7 @@ export function addSample(caseId: string, sampleType: SampleType) {
     itemType: sampleType,
     displayName: formatSampleName(sampleType),
     timestamp: Date.now(),
+    status: 'available',
   };
   
   inventory.update(state => ({
@@ -85,6 +89,26 @@ export function addSample(caseId: string, sampleType: SampleType) {
   }));
   
   return true;
+}
+
+// Update sample status
+export function updateSampleStatus(sampleId: string, status: SampleStatus, usedBy?: string) {
+  inventory.update(state => ({
+    ...state,
+    items: state.items.map(item =>
+      item.id === sampleId
+        ? { ...item, status, usedBy }
+        : item
+    ),
+  }));
+}
+
+// Get available samples for a case
+export function getAvailableSamples(caseId: string) {
+  const currentInventory = get(inventory);
+  return currentInventory.items.filter(
+    item => item.caseId === caseId && item.type === 'sample' && item.status === 'available'
+  );
 }
 
 // Replace existing sample
@@ -101,6 +125,7 @@ export function replaceSample(caseId: string, sampleType: SampleType) {
       itemType: sampleType,
       displayName: formatSampleName(sampleType),
       timestamp: Date.now(),
+      status: 'available',
     };
     
     return {
