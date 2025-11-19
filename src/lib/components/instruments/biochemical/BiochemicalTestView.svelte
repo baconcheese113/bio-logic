@@ -6,7 +6,7 @@
   import InventoryPanel from '../../shared/InventoryPanel.svelte';
   import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
-  import { activeCase } from '../../../stores/active-cases';
+  import { currentActiveCase } from '../../../stores/active-cases';
   import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
   import '../../../styles/instrument-controls.css';
   
@@ -21,15 +21,12 @@
 
   // Sample selection state
   let selectedSample = $state<InventoryItem | null>(null);
-  let availableSamples = $state<InventoryItem[]>([]);
   let activeTab = $state<'controls' | 'inventory'>('controls');
 
-  // Update available samples when active case changes
-  $effect(() => {
-    if ($activeCase) {
-      availableSamples = getSamplesForCase($activeCase.id);
-    }
-  });
+  // Derive available samples from active case
+  let availableSamples = $derived(
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
+  );
 
   function selectSample(sample: InventoryItem) {
     selectedSample = sample;
@@ -296,6 +293,7 @@
 
       <!-- Navigation Section -->
       <NavigationButtons />
+      {/if}
     {:else}
       <!-- Inventory Tab -->
       <InventoryPanel />

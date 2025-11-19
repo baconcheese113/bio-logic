@@ -38,9 +38,6 @@
     };
   });
 
-  // Get current step index
-  const currentStepIndex = $derived(steps.indexOf($instrumentState.elisa.currentStep));
-
   // Check if a step can be performed (sequential - previous steps must be complete)
   function canPerformStep(step: ElisaStep): boolean {
     const stepIndex = steps.indexOf(step);
@@ -48,7 +45,8 @@
     
     // Check if previous step is completed
     const prevStep = steps[stepIndex - 1];
-    return stepCompleted()[prevStep];
+    const completed = stepCompleted();
+    return prevStep in completed ? completed[prevStep as keyof typeof completed] : false;
   }
 
   async function performStep(step: ElisaStep) {

@@ -1,13 +1,8 @@
 import { get } from 'svelte/store';
 import { currentActiveCase } from './active-cases';
-import { evidence } from './evidence';
 import { 
   addEvidencePhrase,
   removeEvidencePhrase,
-  generateMicroscopyPhrase,
-  generateAcidFastPhrase,
-  generateCapsulePhrase,
-  generateSporePhrase,
   generateCulturePhrase,
   generateBiochemicalPhrase,
   generateBloodTypePhrase,
