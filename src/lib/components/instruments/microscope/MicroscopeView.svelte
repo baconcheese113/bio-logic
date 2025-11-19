@@ -9,7 +9,7 @@
   import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, toggleArrangement, filteredOrganisms } from '../../../stores/evidence';
   import { recordMicroscopyObservation, recordAcidFastObservation, recordCapsuleObservation, recordSporeObservation } from '../../../stores/evidence-integration';
   import { currentActiveCase } from '../../../stores/active-cases';
-  import { getAvailableSamples, updateSampleStatus, type InventoryItem } from '../../../stores/inventory';
+  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
 
   let showDiagnosis = $state(false);
   let showInventory = $state(false);
@@ -18,45 +18,26 @@
   let microscopeRef = $state<MicroscopeInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
   
-  // Sample selection
+  // Sample selection - now samples are unlimited and can be used simultaneously
   let selectedSample = $state<InventoryItem | null>(null);
   
-  // Derive available samples from active case
+  // Derive available samples from active case (all samples are always available)
   let availableSamples = $derived(
-    $currentActiveCase ? getAvailableSamples($currentActiveCase.caseId) : []
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
   );
   
   // Derive whether to show sample prompt
   let showSamplePrompt = $derived(!selectedSample && availableSamples.length > 0);
   
   function selectSampleForUse(sample: InventoryItem) {
-    // Release previous sample if any
-    if (selectedSample) {
-      updateSampleStatus(selectedSample.id, 'available');
-    }
-    
-    // Mark new sample as in use
-    updateSampleStatus(sample.id, 'in-use', 'microscope');
+    // Simply load the sample - no status updates needed
+    // Samples can be used in multiple instruments simultaneously
     selectedSample = sample;
-    showSamplePrompt = false;
-    
-    // Update available samples list
-    if ($currentActiveCase) {
-      availableSamples = getAvailableSamples($currentActiveCase.caseId);
-    }
   }
   
-  function releaseSample() {
-    if (selectedSample) {
-      updateSampleStatus(selectedSample.id, 'processed');
-      selectedSample = null;
-      showSamplePrompt = true;
-      
-      // Update available samples list
-      if ($currentActiveCase) {
-        availableSamples = getAvailableSamples($currentActiveCase.caseId);
-      }
-    }
+  function changeSample() {
+    // Allow selecting a different sample
+    selectedSample = null;
   }
   
   // Track what has been recorded to avoid duplicate submissions
@@ -166,15 +147,31 @@
             </div>
           </div>
         {:else if selectedSample}
-          <!-- Currently Using Sample -->
+          <!-- Currently Using Sample - Simple indicator, no "Done" button -->
           <div class="active-sample">
             <div class="active-sample-header">
               <span class="sample-icon">🔬</span>
               <span>Using: <strong>{selectedSample.displayName}</strong></span>
-              <button class="release-button" onclick={releaseSample} title="Mark as processed and release">
-                ✓ Done
+              <button class="change-button" onclick={changeSample} title="Select a different sample">
+                Change Sample
               </button>
             </div>
+            <!-- Show active processes if any -->
+            {#if selectedSample.activeProcesses && selectedSample.activeProcesses.length > 0}
+              <div class="active-processes">
+                {#each selectedSample.activeProcesses as process}
+                  <div class="process-status">
+                    <span class="process-name">{process.processName}</span>
+                    <div class="progress-bar">
+                      <div class="progress-fill" style="width: {process.progress}%"></div>
+                    </div>
+                    {#if process.timeRemaining}
+                      <span class="time-remaining">{process.timeRemaining}</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         {:else if availableSamples.length === 0}
           <!-- No Samples Available -->
@@ -771,22 +768,65 @@
     font-size: 0.9rem;
   }
   
-  .release-button {
+  .change-button {
     margin-left: auto;
     padding: 0.25rem 0.75rem;
-    background: #4a7c59;
-    border: 1px solid #5a8c69;
+    background: #4a6a8a;
+    border: 1px solid #5a7a9a;
     border-radius: 3px;
     color: white;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
   }
   
-  .release-button:hover {
-    background: #5a8c69;
+  .change-button:hover {
+    background: #5a7a9a;
     transform: scale(1.05);
+  }
+  
+  .active-processes {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .process-status {
+    background: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 3px;
+    padding: 0.5rem;
+  }
+  
+  .process-name {
+    color: #d4af37;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  
+  .progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0.3rem 0;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a7c59, #6a9c79);
+    transition: width 0.3s ease;
+  }
+  
+  .time-remaining {
+    color: #999;
+    font-size: 0.7rem;
+    display: block;
+    margin-top: 0.25rem;
   }
   
   .no-samples-prompt {

@@ -36,19 +36,19 @@
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
   
-  function formatStatus(status?: string, usedBy?: string): string {
-    if (!status) return 'Available';
-    if (status === 'in-use' && usedBy) {
-      return `In Use: ${usedBy.charAt(0).toUpperCase() + usedBy.slice(1)}`;
+  function formatStatus(item: InventoryItem): string {
+    if (item.activeProcesses && item.activeProcesses.length > 0) {
+      // Show first process if multiple
+      const process = item.activeProcesses[0];
+      return `${process.processName} (${process.progress}%)`;
     }
-    if (status === 'processed') return 'Processed';
     return 'Available';
   }
   
-  function getStatusClass(status?: string): string {
-    if (!status || status === 'available') return 'status-available';
-    if (status === 'in-use') return 'status-in-use';
-    if (status === 'processed') return 'status-processed';
+  function getStatusClass(item: InventoryItem): string {
+    if (item.activeProcesses && item.activeProcesses.length > 0) {
+      return 'status-processing';
+    }
     return 'status-available';
   }
   
@@ -116,9 +116,25 @@
                         </div>
                         <div class="card-info">
                           <div class="item-time">Collected: {formatTimestamp(sample.timestamp)}</div>
-                          <div class="item-status {getStatusClass(sample.status)}">
-                            {formatStatus(sample.status, sample.usedBy)}
+                          <div class="item-status {getStatusClass(sample)}">
+                            {formatStatus(sample)}
                           </div>
+                          <!-- Show progress bars for active processes -->
+                          {#if sample.activeProcesses && sample.activeProcesses.length > 0}
+                            <div class="active-processes">
+                              {#each sample.activeProcesses as process}
+                                <div class="process-status">
+                                  <span class="process-name">{process.instrument}: {process.processName}</span>
+                                  <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {process.progress}%"></div>
+                                  </div>
+                                  {#if process.timeRemaining}
+                                    <span class="time-remaining">{process.timeRemaining}</span>
+                                  {/if}
+                                </div>
+                              {/each}
+                            </div>
+                          {/if}
                         </div>
                         {#if selectedItem?.id === sample.id && sample.data}
                           <div class="card-details">
@@ -331,12 +347,51 @@
     color: #4a7c59;
   }
   
-  .status-in-use {
+  .status-processing {
     color: #d4af37;
   }
   
-  .status-processed {
-    color: #888;
+  .active-processes {
+    margin-top: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  
+  .process-status {
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 3px;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.65rem;
+  }
+  
+  .process-name {
+    color: #d4af37;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  
+  .progress-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0.2rem 0;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a7c59, #6a9c79);
+    transition: width 0.3s ease;
+  }
+  
+  .time-remaining {
+    color: #999;
+    font-size: 0.6rem;
+    display: block;
+    margin-top: 0.2rem;
   }
   
   .no-items {

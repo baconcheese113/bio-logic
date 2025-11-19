@@ -10,7 +10,7 @@
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone, filteredOrganisms } from '../../../stores/evidence';
   import { recordCultureObservation } from '../../../stores/evidence-integration';
   import { currentActiveCase } from '../../../stores/active-cases';
-  import { getAvailableSamples, updateSampleStatus, type InventoryItem } from '../../../stores/inventory';
+  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
   import type { ColonyColor, Hemolysis } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
   
@@ -21,38 +21,25 @@
   let lastHoveredInfo = $state<string | null>(null);
   let observationRecorded = $state(false);
 
-  // Sample selection
+  // Sample selection - samples are unlimited and can be used simultaneously
   let selectedSample = $state<InventoryItem | null>(null);
   
-  // Derive available samples from active case
+  // Derive available samples from active case (all samples are always available)
   let availableSamples = $derived(
-    $currentActiveCase ? getAvailableSamples($currentActiveCase.caseId) : []
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
   );
   
   // Derive whether to show sample prompt
   let showSamplePrompt = $derived(!selectedSample && availableSamples.length > 0);
   
   function selectSampleForUse(sample: InventoryItem) {
-    if (selectedSample) {
-      updateSampleStatus(selectedSample.id, 'available');
-    }
-    updateSampleStatus(sample.id, 'in-use', 'culture');
+    // Simply load the sample - no status updates needed
     selectedSample = sample;
-    showSamplePrompt = false;
-    if ($currentActiveCase) {
-      availableSamples = getAvailableSamples($currentActiveCase.caseId);
-    }
   }
   
-  function releaseSample() {
-    if (selectedSample) {
-      updateSampleStatus(selectedSample.id, 'processed');
-      selectedSample = null;
-      showSamplePrompt = true;
-      if ($currentActiveCase) {
-        availableSamples = getAvailableSamples($currentActiveCase.caseId);
-      }
-    }
+  function changeSample() {
+    // Allow selecting a different sample
+    selectedSample = null;
   }
 
   // Antibiotic testing state
