@@ -2,13 +2,8 @@
   import StageArea from '../../shared/StageArea.svelte';
   import ElectrophoresisInstrument from './ElectrophoresisInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
-  import { proceedToDiagnosis, currentCase } from '../../../stores/game-state';
-  import { evidence, toggleProteinPattern, setAlbuminLevel, setGlobulinLevel, filteredOrganisms } from '../../../stores/evidence';
-  import { CLINICAL_DIAGNOSES } from '../../../../data/clinical-diagnoses';
-  import { ANSWER_FORMATS } from '../../../../data/organisms';
-
-  let showDiagnosis = $state(false);
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
+  import { evidence, toggleProteinPattern, setAlbuminLevel, setGlobulinLevel } from '../../../stores/evidence';
   let showObservationsSection = $state(true);
   let electrophoresisRef = $state<ElectrophoresisInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
@@ -48,31 +43,10 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <div class="panel-tabs">
-      <button 
-        class="tab" 
-        class:active={!showDiagnosis}
-        onclick={() => showDiagnosis = false}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab" 
-        class:active={showDiagnosis}
-        onclick={() => showDiagnosis = true}
-      >
-        {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'clinical-diagnosis'}
-          Diagnosis ({ANSWER_FORMATS[$currentCase.answerFormat].options?.length || 0})
-        {:else}
-          Diagnosis ({$filteredOrganisms.length})
-        {/if}
-      </button>
-    </div>
-
-    {#if !showDiagnosis}
-      <!-- Controls Tab -->
-      <div class="panel-content">
+  <InstrumentRightPanel 
+    tabConfig="controls-inventory" 
+    showDiagnosis={false}
+  >
         <!-- Run Control - Always visible -->
         <div class="section">
           <div class="section-header-static">
@@ -233,49 +207,7 @@
           {/if}
         </div>
 
-        <NavigationButtons />
-      </div>
-    {:else}
-      <!-- Diagnosis Tab -->
-      <div class="panel-content diagnosis-content">
-        {#if ANSWER_FORMATS[$currentCase.answerFormat].type === 'clinical-diagnosis'}
-          <!-- Show clinical diagnoses for protein cases -->
-          <p class="match-info">{ANSWER_FORMATS[$currentCase.answerFormat].options?.length || 0} possible diagnosis(es)</p>
-          
-          <div class="organism-list">
-            {#each (ANSWER_FORMATS[$currentCase.answerFormat].options || []) as diagnosisId}
-              {@const diagnosis = CLINICAL_DIAGNOSES.find(d => d.id === diagnosisId)}
-              {#if diagnosis}
-                <button class="organism-option" onclick={() => proceedToDiagnosis()}>
-                  <div class="org-name">{diagnosis.displayName}</div>
-                  <div class="org-common">{diagnosis.description}</div>
-                </button>
-              {/if}
-            {/each}
-          </div>
-        {:else}
-          <!-- Show organisms for bacterial cases -->
-          <p class="match-info">{$filteredOrganisms.length} matching condition(s)</p>
-          
-          <div class="organism-list">
-            {#each $filteredOrganisms as organism}
-              <button class="organism-option" onclick={() => proceedToDiagnosis()}>
-                <div class="org-name">{organism.scientificName}</div>
-                <div class="org-common">{organism.commonName}</div>
-              </button>
-            {/each}
-            
-            {#if $filteredOrganisms.length === 0}
-              <div class="no-matches">
-                No conditions match your observations.
-                Try adjusting your findings.
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -290,51 +222,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-  }
-
-  .panel-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.5rem;
-    background: #3a3a3a;
-    color: #a0a0a0;
-    border: 2px solid #4a4a4a;
-    border-radius: 4px 4px 0 0;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
-
-  .tab:hover {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .tab.active {
-    background: #2a2a2a;
-    color: #ffd700;
-    border-bottom-color: #2a2a2a;
-  }
-
-  .panel-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    overflow-y: auto;
-    flex: 1;
   }
 
   .section {
@@ -465,57 +352,5 @@
     background: #5a7c9a;
     border-color: #6a8caa;
     color: #ffffff;
-  }
-
-  .diagnosis-content {
-    overflow-y: auto;
-  }
-
-  .match-info {
-    font-size: 0.9rem;
-    color: #ffd700;
-    margin-bottom: 0.75rem;
-    text-align: center;
-  }
-
-  .organism-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .organism-option {
-    background: #3a3a3a;
-    border: 2px solid #5a5a5a;
-    border-radius: 4px;
-    padding: 0.75rem;
-    text-align: left;
-    transition: all 0.2s;
-  }
-
-  .organism-option:hover {
-    background: #4a7c59;
-    border-color: #5a8c69;
-  }
-
-  .org-name {
-    font-weight: bold;
-    font-style: italic;
-    color: #e0e0e0;
-    margin-bottom: 0.25rem;
-    font-size: 0.9rem;
-  }
-
-  .org-common {
-    color: #a0a0a0;
-    font-size: 0.8rem;
-  }
-
-  .no-matches {
-    text-align: center;
-    color: #a0a0a0;
-    padding: 1.5rem;
-    font-style: italic;
-    font-size: 0.85rem;
   }
 </style>

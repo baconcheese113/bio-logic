@@ -2,14 +2,32 @@
   import StageArea from '../../shared/StageArea.svelte';
   import AgglutinationSlide from './AgglutinationSlide.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import { evidence, setBloodType, setRhFactor, setSyphilisAntibodies, setDiphtheriaAntitoxin } from '../../../stores/evidence';
   import { currentCase } from '../../../stores/game-state';
+  import { currentActiveCase } from '../../../stores/active-cases';
+  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
 
   let currentTest = $state<'anti-a' | 'anti-b' | 'anti-d' | 'syphilis' | 'diphtheria' | null>(null);
   let testResult = $state<'positive' | 'negative'>('negative');
   let lastHoveredInfo = $state<string | null>(null);
+
+  // Sample selection state
+  let selectedSample = $state<InventoryItem | null>(null);
+
+  // Derive available samples from active case
+  let availableSamples = $derived(
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
+  );
+
+  function selectSample(sample: InventoryItem) {
+    selectedSample = sample;
+  }
+
+  function changeSample() {
+    selectedSample = null;
+  }
 
   const tests = [
     { value: 'anti-a' as const, label: 'Anti-A Serum', infoKey: 'test-anti-a' },
@@ -103,8 +121,37 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <CollapsibleSection title="Test Selection" isOpen={true}>
+  <InstrumentRightPanel>
+    <!-- Sample Selection or Active Sample -->
+      {#if !selectedSample}
+        <div class="sample-selection-prompt">
+          <h3>Select Sample</h3>
+          <p>Choose a blood sample to test:</p>
+          {#if availableSamples.length > 0}
+            <div class="sample-list">
+              {#each availableSamples as sample}
+                <button 
+                  class="sample-item"
+                  onclick={() => selectSample(sample)}
+                >
+                  <span class="sample-icon">🩸</span>
+                  <span class="sample-name">{sample.type}</span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <p class="no-samples">No samples available. Collect a blood sample first.</p>
+          {/if}
+        </div>
+      {:else}
+        <!-- Active Sample Indicator -->
+        <div class="active-sample-badge">
+          <span>Using: {selectedSample.type}</span>
+          <button class="change-sample-btn" onclick={changeSample}>Change Sample</button>
+        </div>
+
+        <!-- Test Selection Section -->
+        <CollapsibleSection title="Test Selection" isOpen={true}>
       <div class="test-buttons">
         {#each tests as { value, label, infoKey }}
           <button 
@@ -239,9 +286,8 @@
         <div class="info-hint">Select a test above to record results</div>
       {/if}
     </CollapsibleSection>
-
-    <NavigationButtons />
-  </div>
+      {/if}
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -256,17 +302,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.75rem;
-    overflow-y: auto;
   }
 
   .test-buttons {
@@ -313,5 +348,88 @@
     font-style: italic;
     padding: 1rem;
     font-size: 0.85rem;
+  }
+
+  /* Sample Selection Prompt */
+  .sample-selection-prompt {
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .sample-selection-prompt h3 {
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  .sample-selection-prompt p {
+    color: #999;
+    margin-bottom: 1rem;
+  }
+
+  .sample-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sample-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+  }
+
+  .sample-item:hover {
+    background: #333;
+    border-color: #c83a3a;
+    transform: translateX(4px);
+  }
+
+  .sample-icon {
+    font-size: 1.5rem;
+  }
+
+  .sample-name {
+    font-size: 0.95rem;
+  }
+
+  .no-samples {
+    color: #666;
+    font-style: italic;
+  }
+
+  /* Active Sample Badge */
+  .active-sample-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: #2a4a2a;
+    border: 1px solid #4a7a4a;
+    border-radius: 6px;
+    margin: 0.5rem;
+    color: #fff;
+    font-size: 0.9rem;
+  }
+
+  .change-sample-btn {
+    padding: 0.4rem 0.8rem;
+    background: #3a7bc8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+  }
+
+  .change-sample-btn:hover {
+    background: #4a8bd8;
   }
 </style>

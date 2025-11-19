@@ -8,6 +8,7 @@
   }
 
   let { children, showCaseHeader = false }: Props = $props();
+
 </script>
 
 <div class="stage-area">

@@ -1,10 +1,12 @@
 <script lang="ts">
   import StageArea from '../../shared/StageArea.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
+  import { currentActiveCase } from '../../../stores/active-cases';
+  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
   import '../../../styles/instrument-controls.css';
   
   let showTestsSection = $state(true);
@@ -15,6 +17,22 @@
   let catalaseAnimating = $state(false);
   let coagulasePerformed = $state(false);
   let coagulaseAnimating = $state(false);
+
+  // Sample selection state
+  let selectedSample = $state<InventoryItem | null>(null);
+
+  // Derive available samples from active case
+  let availableSamples = $derived(
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
+  );
+
+  function selectSample(sample: InventoryItem) {
+    selectedSample = sample;
+  }
+
+  function changeSample() {
+    selectedSample = null;
+  }
 
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
@@ -131,102 +149,128 @@
   </div>
 
   <!-- Right: Controls Panel -->
-  <div class="controls-panel">
-    <!-- Tests Section -->
-    <CollapsibleSection title="Biochemical Tests" bind:isOpen={showTestsSection}>
-      <h3>Perform Tests</h3>
-      
-      <div class="test-buttons">
-        <div class="test-button-group">
-          <button 
-            class="primary-button"
-            onclick={performCatalaseTest}
-            onmouseenter={() => setHoveredInfo('catalase')}
-            disabled={catalasePerformed || catalaseAnimating}
-          >
-            {catalasePerformed ? 'Catalase Done ✓' : 'Run Catalase Test'}
-          </button>
-          {#if catalaseAnimating}
-            <p class="status-text">Testing...</p>
-          {/if}
-        </div>
-
-        <div class="test-button-group">
-          <button 
-            class="primary-button"
-            onclick={performCoagulaseTest}
-            onmouseenter={() => setHoveredInfo('coagulase')}
-            disabled={coagulasePerformed || coagulaseAnimating}
-          >
-            {coagulasePerformed ? 'Coagulase Done ✓' : 'Run Coagulase Test'}
-          </button>
-          {#if coagulaseAnimating}
-            <p class="status-text">Incubating...</p>
-          {/if}
-        </div>
+  <InstrumentRightPanel>
+    <!-- Sample Selection or Active Sample -->
+    {#if !selectedSample}
+      <div class="sample-selection-prompt">
+        <h3>Select Sample</h3>
+        <p>Choose a sample to analyze:</p>
+        {#if availableSamples.length > 0}
+          <div class="sample-list">
+            {#each availableSamples as sample}
+              <button 
+                class="sample-item"
+                onclick={() => selectSample(sample)}
+              >
+                <span class="sample-icon">🧪</span>
+                <span class="sample-name">{sample.type}</span>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <p class="no-samples">No samples available. Collect a sample first.</p>
+        {/if}
+      </div>
+    {:else}
+      <!-- Active Sample Indicator -->
+      <div class="active-sample-badge">
+        <span>Using: {selectedSample.type}</span>
+        <button class="change-sample-btn" onclick={changeSample}>Change Sample</button>
       </div>
 
-      {#if catalasePerformed || coagulasePerformed}
-        <button class="secondary-button" onclick={resetTests}>
-          Reset Tests
+      <!-- Tests Section -->
+      <CollapsibleSection title="Biochemical Tests" bind:isOpen={showTestsSection}>
+    <h3>Perform Tests</h3>
+    
+    <div class="test-buttons">
+      <div class="test-button-group">
+        <button 
+          class="primary-button"
+          onclick={performCatalaseTest}
+          onmouseenter={() => setHoveredInfo('catalase')}
+          disabled={catalasePerformed || catalaseAnimating}
+        >
+          {catalasePerformed ? 'Catalase Done ✓' : 'Run Catalase Test'}
         </button>
-      {/if}
-    </CollapsibleSection>
+        {#if catalaseAnimating}
+          <p class="status-text">Testing...</p>
+        {/if}
+      </div>
 
-    <!-- Observations Section -->
+      <div class="test-button-group">
+        <button 
+          class="primary-button"
+          onclick={performCoagulaseTest}
+          onmouseenter={() => setHoveredInfo('coagulase')}
+          disabled={coagulasePerformed || coagulaseAnimating}
+        >
+          {coagulasePerformed ? 'Coagulase Done ✓' : 'Run Coagulase Test'}
+        </button>
+        {#if coagulaseAnimating}
+          <p class="status-text">Incubating...</p>
+        {/if}
+      </div>
+    </div>
+
     {#if catalasePerformed || coagulasePerformed}
-      <CollapsibleSection title="Record Observations" bind:isOpen={showObservationsSection}>
-        {#if catalasePerformed}
-          <h4>Catalase Result:</h4>
-          <div class="obs-buttons-grid">
-            <button 
-              class="obs-button" 
-              class:active={$evidence.catalase === true}
-              onclick={() => setCatalase(true)}
-              onmouseenter={() => setHoveredInfo('catalase-positive')}
-            >
-              Positive (+)
-            </button>
-            <button 
-              class="obs-button" 
-              class:active={$evidence.catalase === false}
-              onclick={() => setCatalase(false)}
-              onmouseenter={() => setHoveredInfo('catalase-negative')}
-            >
-              Negative (−)
-            </button>
-          </div>
-          <p class="info-hint">Bubbles = positive</p>
-        {/if}
+      <button class="secondary-button" onclick={resetTests}>
+        Reset Tests
+      </button>
+    {/if}
+  </CollapsibleSection>
 
-        {#if coagulasePerformed}
-          <h4>Coagulase Result:</h4>
-          <div class="obs-buttons-grid">
-            <button 
-              class="obs-button" 
-              class:active={$evidence.coagulase === true}
-              onclick={() => setCoagulase(true)}
-              onmouseenter={() => setHoveredInfo('coagulase-positive')}
-            >
-              Positive (+)
-            </button>
-            <button 
-              class="obs-button" 
-              class:active={$evidence.coagulase === false}
-              onclick={() => setCoagulase(false)}
-              onmouseenter={() => setHoveredInfo('coagulase-negative')}
-            >
-              Negative (−)
-            </button>
-          </div>
-          <p class="info-hint">Clotting = positive</p>
-        {/if}
+  <!-- Observations Section -->
+  {#if catalasePerformed || coagulasePerformed}
+    <CollapsibleSection title="Record Observations" bind:isOpen={showObservationsSection}>
+      {#if catalasePerformed}
+        <h4>Catalase Result:</h4>
+        <div class="obs-buttons-grid">
+          <button 
+            class="obs-button" 
+            class:active={$evidence.catalase === true}
+            onclick={() => setCatalase(true)}
+            onmouseenter={() => setHoveredInfo('catalase-positive')}
+          >
+            Positive (+)
+          </button>
+          <button 
+            class="obs-button" 
+            class:active={$evidence.catalase === false}
+            onclick={() => setCatalase(false)}
+            onmouseenter={() => setHoveredInfo('catalase-negative')}
+          >
+            Negative (−)
+          </button>
+        </div>
+        <p class="info-hint">Bubbles = positive</p>
+      {/if}
+
+      {#if coagulasePerformed}
+        <h4>Coagulase Result:</h4>
+        <div class="obs-buttons-grid">
+          <button 
+            class="obs-button" 
+            class:active={$evidence.coagulase === true}
+            onclick={() => setCoagulase(true)}
+            onmouseenter={() => setHoveredInfo('coagulase-positive')}
+          >
+            Positive (+)
+          </button>
+          <button 
+            class="obs-button" 
+            class:active={$evidence.coagulase === false}
+            onclick={() => setCoagulase(false)}
+            onmouseenter={() => setHoveredInfo('coagulase-negative')}
+          >
+            Negative (−)
+          </button>
+        </div>
+        <p class="info-hint">Clotting = positive</p>
+      {/if}
       </CollapsibleSection>
     {/if}
-
-    <!-- Navigation Section -->
-    <NavigationButtons />
-  </div>
+    {/if}
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -520,5 +564,88 @@
   @keyframes swirl {
     0% { filter: hue-rotate(0deg); }
     100% { filter: hue-rotate(360deg); }
+  }
+
+  /* Sample Selection Prompt */
+  .sample-selection-prompt {
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .sample-selection-prompt h3 {
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  .sample-selection-prompt p {
+    color: #999;
+    margin-bottom: 1rem;
+  }
+
+  .sample-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sample-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+  }
+
+  .sample-item:hover {
+    background: #333;
+    border-color: #3a7bc8;
+    transform: translateX(4px);
+  }
+
+  .sample-icon {
+    font-size: 1.5rem;
+  }
+
+  .sample-name {
+    font-size: 0.95rem;
+  }
+
+  .no-samples {
+    color: #666;
+    font-style: italic;
+  }
+
+  /* Active Sample Badge */
+  .active-sample-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: #2a4a2a;
+    border: 1px solid #4a7a4a;
+    border-radius: 6px;
+    margin: 0.5rem;
+    color: #fff;
+    font-size: 0.9rem;
+  }
+
+  .change-sample-btn {
+    padding: 0.4rem 0.8rem;
+    background: #3a7bc8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+  }
+
+  .change-sample-btn:hover {
+    background: #4a8bd8;
   }
 </style>

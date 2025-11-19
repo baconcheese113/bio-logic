@@ -2,16 +2,67 @@
   import StageArea from '../../shared/StageArea.svelte';
   import MicroscopeInstrument from '../../MicroscopeInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
-  import { gameState, proceedToDiagnosis, setFocus, changeStain } from '../../../stores/game-state';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
+  import { gameState, setFocus, changeStain } from '../../../stores/game-state';
   import type { StainType } from '../../../stores/game-state';
-  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores, filteredOrganisms } from '../../../stores/evidence';
-
-  let showDiagnosis = $state(false);
+  import { evidence, toggleGramStain, toggleShape, toggleAcidFast, toggleCapsule, toggleSpores } from '../../../stores/evidence';
+  import { recordMicroscopyObservation, recordAcidFastObservation, recordCapsuleObservation, recordSporeObservation } from '../../../stores/evidence-integration';
+  import { currentActiveCase } from '../../../stores/active-cases';
+  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
   let showStainSection = $state(true);
   let showObservationsSection = $state(true);
   let microscopeRef = $state<MicroscopeInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
+  
+  // Sample selection - now samples are unlimited and can be used simultaneously
+  let selectedSample = $state<InventoryItem | null>(null);
+  
+  // Derive available samples from active case (all samples are always available)
+  let availableSamples = $derived(
+    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
+  );
+  
+  // Derive whether to show sample prompt
+  let showSamplePrompt = $derived(!selectedSample && availableSamples.length > 0);
+  
+  function selectSampleForUse(sample: InventoryItem) {
+    // Simply load the sample - no status updates needed
+    // Samples can be used in multiple instruments simultaneously
+    selectedSample = sample;
+  }
+  
+  function changeSample() {
+    // Allow selecting a different sample
+    selectedSample = null;
+  }
+  
+  // Track what has been recorded to avoid duplicate submissions
+  let lastRecordedState = $state<string>('');
+  
+  // Auto-record observations when evidence changes
+  $effect(() => {
+    const currentState = JSON.stringify({
+      gramStain: $evidence.gramStain,
+      shape: $evidence.shape,
+      arrangement: $evidence.arrangement,
+      acidFast: $evidence.acidFast,
+      capsule: $evidence.capsule,
+      spores: $evidence.spores
+    });
+    
+    // Record whenever state changes (including removal)
+    if (currentState !== lastRecordedState) {
+      // Always record main microscopy observation (handles null values for removal)
+      recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
+      
+      // Record special stains (handles null values for removal)
+      recordAcidFastObservation($evidence.acidFast);
+      recordCapsuleObservation($evidence.capsule);
+      recordSporeObservation($evidence.spores);
+      
+      lastRecordedState = currentState;
+    }
+  });
 
   const stains: { value: StainType; label: string; infoKey: string }[] = [
     { value: 'none', label: 'No Stain', infoKey: 'stain-none' },
@@ -40,27 +91,64 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <div class="panel-tabs">
-      <button 
-        class="tab" 
-        class:active={!showDiagnosis}
-        onclick={() => showDiagnosis = false}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab" 
-        class:active={showDiagnosis}
-        onclick={() => showDiagnosis = true}
-      >
-        Diagnosis ({$filteredOrganisms.length})
-      </button>
-    </div>
-
-    {#if !showDiagnosis}
-      <!-- Controls Tab -->
-      <div class="panel-content">
+  <InstrumentRightPanel 
+    tabConfig="controls-inventory" 
+    showDiagnosis={false}
+  >
+        <!-- Sample Selection Prompt -->
+        {#if showSamplePrompt && availableSamples.length > 0}
+          <div class="sample-prompt">
+            <div class="prompt-header">
+              <div class="prompt-icon">🧪</div>
+              <div class="prompt-title">Select Sample</div>
+            </div>
+            <p class="prompt-text">Choose a sample from your inventory to examine:</p>
+            <div class="sample-list">
+              {#each availableSamples as sample}
+                <button 
+                  class="sample-option"
+                  onclick={() => selectSampleForUse(sample)}
+                >
+                  <span class="sample-icon">🧪</span>
+                  <span class="sample-name">{sample.displayName}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {:else if selectedSample}
+          <!-- Currently Using Sample - Simple indicator, no "Done" button -->
+          <div class="active-sample">
+            <div class="active-sample-header">
+              <span class="sample-icon">🔬</span>
+              <span>Using: <strong>{selectedSample.displayName}</strong></span>
+              <button class="change-button" onclick={changeSample} title="Select a different sample">
+                Change Sample
+              </button>
+            </div>
+            <!-- Show active processes if any -->
+            {#if selectedSample.activeProcesses && selectedSample.activeProcesses.length > 0}
+              <div class="active-processes">
+                {#each selectedSample.activeProcesses as process}
+                  <div class="process-status">
+                    <span class="process-name">{process.processName}</span>
+                    <div class="progress-bar">
+                      <div class="progress-fill" style="width: {process.progress}%"></div>
+                    </div>
+                    {#if process.timeRemaining}
+                      <span class="time-remaining">{process.timeRemaining}</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else if availableSamples.length === 0}
+          <!-- No Samples Available -->
+          <div class="no-samples-prompt">
+            <p>No samples available. Collect a sample first from the Sample Selection screen.</p>
+          </div>
+        {/if}
+        
         <!-- Stain Section - Collapsible -->
         <div class="section">
           <button class="section-header" onclick={() => showStainSection = !showStainSection}>
@@ -234,31 +322,7 @@
           {/if}
         </div>
 
-        <NavigationButtons />
-      </div>
-    {:else}
-      <!-- Diagnosis Tab -->
-      <div class="panel-content diagnosis-content">
-        <p class="match-info">{$filteredOrganisms.length} matching organism(s)</p>
-        
-        <div class="organism-list">
-          {#each $filteredOrganisms as organism}
-            <button class="organism-option" onclick={() => proceedToDiagnosis()}>
-              <div class="org-name">{organism.scientificName}</div>
-              <div class="org-common">{organism.commonName}</div>
-            </button>
-          {/each}
-          
-          {#if $filteredOrganisms.length === 0}
-            <div class="no-matches">
-              No organisms match your observations.
-              Try adjusting your findings.
-            </div>
-          {/if}
-        </div>
-      </div>
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -273,51 +337,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-  }
-
-  .panel-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.5rem;
-    background: #3a3a3a;
-    color: #a0a0a0;
-    border: 2px solid #4a4a4a;
-    border-radius: 4px 4px 0 0;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
-
-  .tab:hover {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .tab.active {
-    background: #2a2a2a;
-    color: #ffd700;
-    border-bottom-color: #2a2a2a;
-  }
-
-  .panel-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    overflow-y: auto;
-    flex: 1;
   }
 
   /* Collapsible Sections */
@@ -457,56 +476,159 @@
     color: #ffffff;
   }
 
-  /* Diagnosis Tab */
-  .diagnosis-content {
-    overflow-y: auto;
+  /* Sample Selection Prompt */
+  .sample-prompt {
+    background: #2a4a5a;
+    border: 2px solid #4a6a8a;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
   }
-
-  .match-info {
-    font-size: 0.9rem;
-    color: #ffd700;
+  
+  .prompt-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prompt-icon {
+    font-size: 1.5rem;
+  }
+  
+  .prompt-title {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #e0e0e0;
+  }
+  
+  .prompt-text {
+    color: #b0b0b0;
+    font-size: 0.85rem;
     margin-bottom: 0.75rem;
-    text-align: center;
   }
-
-  .organism-list {
+  
+  .sample-list {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
-
-  .organism-option {
+  
+  .sample-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     background: #3a3a3a;
     border: 2px solid #5a5a5a;
     border-radius: 4px;
     padding: 0.75rem;
-    text-align: left;
+    color: #e0e0e0;
+    cursor: pointer;
     transition: all 0.2s;
+    text-align: left;
+    width: 100%;
   }
-
-  .organism-option:hover {
+  
+  .sample-option:hover {
     background: #4a7c59;
     border-color: #5a8c69;
+    transform: translateX(2px);
   }
-
-  .org-name {
-    font-weight: bold;
-    font-style: italic;
+  
+  .sample-icon {
+    font-size: 1.2rem;
+  }
+  
+  .sample-name {
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .active-sample {
+    background: #3a5a3a;
+    border: 2px solid #5a8c69;
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .active-sample-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     color: #e0e0e0;
-    margin-bottom: 0.25rem;
     font-size: 0.9rem;
   }
-
-  .org-common {
-    color: #a0a0a0;
-    font-size: 0.8rem;
+  
+  .change-button {
+    margin-left: auto;
+    padding: 0.25rem 0.75rem;
+    background: #4a6a8a;
+    border: 1px solid #5a7a9a;
+    border-radius: 3px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
   }
-
-  .no-matches {
+  
+  .change-button:hover {
+    background: #5a7a9a;
+    transform: scale(1.05);
+  }
+  
+  .active-processes {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .process-status {
+    background: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 3px;
+    padding: 0.5rem;
+  }
+  
+  .process-name {
+    color: #d4af37;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  
+  .progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0.3rem 0;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a7c59, #6a9c79);
+    transition: width 0.3s ease;
+  }
+  
+  .time-remaining {
+    color: #999;
+    font-size: 0.7rem;
+    display: block;
+    margin-top: 0.25rem;
+  }
+  
+  .no-samples-prompt {
+    background: #3a3a3a;
+    border: 2px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
     text-align: center;
     color: #a0a0a0;
-    padding: 1.5rem;
-    font-style: italic;
     font-size: 0.85rem;
   }
 </style>

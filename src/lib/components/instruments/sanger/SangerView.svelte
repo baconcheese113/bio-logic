@@ -2,12 +2,8 @@
   import StageArea from '../../shared/StageArea.svelte';
   import SangerInstrument from './SangerInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
-  import { proceedToDiagnosis } from '../../../stores/game-state';
-  import { filteredOrganisms } from '../../../stores/evidence';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import type { DdNTPType } from '../../../../data/organisms';
-
-  let showDiagnosis = $state(false);
   let sangerRef = $state<SangerInstrument>();
   let lastHoveredInfo = $state<string | null>(null);
   
@@ -155,26 +151,10 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <div class="panel-tabs">
-      <button 
-        class="tab" 
-        class:active={!showDiagnosis}
-        onclick={() => showDiagnosis = false}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab" 
-        class:active={showDiagnosis}
-        onclick={() => showDiagnosis = true}
-      >
-        Diagnosis ({$filteredOrganisms.length})
-      </button>
-    </div>
-
-    {#if !showDiagnosis}
-      <div class="panel-content">
+  <InstrumentRightPanel 
+    tabConfig="controls-inventory" 
+    showDiagnosis={false}
+  >
         <!-- Preparation Stage -->
         {#if currentStage === 'preparation'}
           <div class="control-group">
@@ -410,31 +390,7 @@
           </button>
         </div>
 
-        <NavigationButtons />
-      </div>
-    {:else}
-      <!-- Diagnosis Tab -->
-      <div class="panel-content">
-        <p class="match-info">{$filteredOrganisms.length} matching organism(s)</p>
-        
-        <div class="organism-list">
-          {#each $filteredOrganisms as organism}
-            <button class="organism-option" onclick={() => proceedToDiagnosis()}>
-              <div class="org-name">{organism.scientificName}</div>
-              <div class="org-common">{organism.commonName}</div>
-            </button>
-          {/each}
-          
-          {#if $filteredOrganisms.length === 0}
-            <div class="no-matches">
-              No organisms match your observations.
-              Try adjusting your findings.
-            </div>
-          {/if}
-        </div>
-      </div>
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -450,51 +406,6 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .controls-panel {
-    width: 360px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .panel-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid #4a4a4a;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.75rem;
-    background: #3a3a3a;
-    color: #a0a0a0;
-    border: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    cursor: pointer;
-  }
-
-  .tab:hover {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .tab.active {
-    background: #2a2a2a;
-    color: #ffd700;
-  }
-
-  .panel-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1.5rem;
-    overflow-y: auto;
-    flex: 1;
   }
 
   .control-group {
@@ -682,56 +593,5 @@
   /* Navigation */
   .control-group.navigation {
     margin-top: auto;
-  }
-
-  /* Diagnosis Tab */
-  .match-info {
-    color: #ffd700;
-    font-weight: bold;
-    margin: 0 0 0.75rem 0;
-    font-size: 0.95rem;
-  }
-
-  .organism-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .organism-option {
-    background: #3a3a3a;
-    border: 2px solid #4a4a4a;
-    border-radius: 6px;
-    padding: 0.875rem;
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .organism-option:hover {
-    background: #4a4a4a;
-    border-color: #ffd700;
-    transform: translateX(2px);
-  }
-
-  .org-name {
-    color: #e0e0e0;
-    font-weight: bold;
-    font-size: 0.95rem;
-    font-style: italic;
-    margin-bottom: 0.25rem;
-  }
-
-  .org-common {
-    color: #a0a0a0;
-    font-size: 0.85rem;
-  }
-
-  .no-matches {
-    color: #888;
-    font-style: italic;
-    padding: 1.5rem;
-    text-align: center;
-    line-height: 1.5;
   }
 </style>

@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StageArea from '../../shared/StageArea.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import ElisaPlate from './ElisaPlate.svelte';
   import { instrumentState, initializeElisaPlate, setElisaStep, updateElisaWell } from '../../../stores/instrument-state';
@@ -13,7 +14,7 @@
   let washingStep = $state(false);
 
   // Initialize plate on mount if not already prepared
-  $effect(() => {
+  onMount(() => {
     if (!$instrumentState.elisa.platePrepared) {
       initializeElisaPlate();
       setElisaStep('coating');
@@ -37,9 +38,6 @@
     };
   });
 
-  // Get current step index
-  const currentStepIndex = $derived(steps.indexOf($instrumentState.elisa.currentStep));
-
   // Check if a step can be performed (sequential - previous steps must be complete)
   function canPerformStep(step: ElisaStep): boolean {
     const stepIndex = steps.indexOf(step);
@@ -47,7 +45,8 @@
     
     // Check if previous step is completed
     const prevStep = steps[stepIndex - 1];
-    return stepCompleted()[prevStep];
+    const completed = stepCompleted();
+    return prevStep in completed ? completed[prevStep as keyof typeof completed] : false;
   }
 
   async function performStep(step: ElisaStep) {
@@ -145,7 +144,7 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
+  <InstrumentRightPanel tabConfig="controls-inventory" showDiagnosis={false}>
     <CollapsibleSection title="ELISA Protocol (1971)" isOpen={true}>
       <div class="protocol-info">
         <p class="vintage-text">Engvall & Perlmann Method</p>
@@ -259,9 +258,7 @@
         </button>
       </div>
     </CollapsibleSection>
-
-    <NavigationButtons />
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -336,17 +333,6 @@
     font-weight: bold;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
     z-index: 11;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.75rem;
-    overflow-y: auto;
   }
 
   .protocol-info {

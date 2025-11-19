@@ -1,11 +1,11 @@
 <script lang="ts">
   import StageArea from '../../shared/StageArea.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
   import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
-  import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies, type Colony } from '../../../stores/instrument-state';
+  import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies as showColoniesInState, type Colony } from '../../../stores/instrument-state';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
   import type { ColonyColor } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
@@ -22,8 +22,8 @@
   let antibioticIncubating = $state(false);
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
-
-  function setHoveredInfo(key: string) {
+  
+  function setHoveredInfo(key: string | null) {
     lastHoveredInfo = key;
   }
 
@@ -91,7 +91,7 @@
       if (newProgress >= 100) {
         clearInterval(interval);
         const newColonies = generateColonies();
-        showColonies(newColonies);
+        showColoniesInState(newColonies);
       }
     }, 50); // 2 seconds total (100ms * 20 steps)
   }
@@ -304,7 +304,6 @@
               {/each}
             </div>
           {:else if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length === 0}
-            {console.log('culture', $instrumentState.culture, 'isCorrectSample', $isCorrectSample)}
             <div class="no-growth">
               <p>No growth</p>
               <p class="hint">(Organism doesn't grow on {MEDIA_INFO[$instrumentState.culture.selectedMedia].name})</p>
@@ -325,7 +324,10 @@
   </div>
 
   <!-- Right: Controls Panel -->
-  <div class="controls-panel">
+  <InstrumentRightPanel
+    primaryAction={goToBiochemicalTests}
+    primaryLabel="Run Biochemical Tests →"
+  >
     <!-- Media Selection & Workflow Section -->
     <CollapsibleSection title="Culture Setup" bind:isOpen={showMediaSection}>
       <h3>1. Select Medium</h3>
@@ -560,13 +562,7 @@
         </CollapsibleSection>
       {/if}
     {/if}
-
-    <!-- Navigation Section -->
-    <NavigationButtons 
-      primaryAction={goToBiochemicalTests}
-      primaryLabel="Run Biochemical Tests →"
-    />
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -591,15 +587,6 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
   }
 
   h3 {

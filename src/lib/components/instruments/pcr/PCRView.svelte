@@ -4,14 +4,12 @@
   import GelElectrophoresis from './GelElectrophoresis.svelte';
   import PrimerDesigner from './PrimerDesigner.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
-  import { proceedToDiagnosis, currentCase } from '../../../stores/game-state';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
+  import { currentCase } from '../../../stores/game-state';
   import { setPrimerDesign, setPCRComplete, setEstimatedFragmentSize, addDetectedGene, filteredOrganisms } from '../../../stores/evidence';
   import { GENE_SEQUENCES, type PrimerDesign, type PrimerQuality, type GeneSequenceData } from '../../../../data/organisms';
   import { evaluatePrimerQuality } from '../../../utils/primer-calculations';
   import { get } from 'svelte/store';
-
-  let showDiagnosis = $state(false);
   let pcrStageRef = $state<PCRStageView>();
   let lastHoveredInfo = $state<string | null>(null);
   let isRunning = $state(false);
@@ -37,29 +35,25 @@
     geneId ? GENE_SEQUENCES.find(g => g.id === geneId) || null : null
   );
 
-  // Initialize primer design with optimal region
+  // Initialize primer design with optimal region (user can adjust after)
   let primerDesign = $state<PrimerDesign | null>(null);
+  
+  // Initialize default positions when gene data loads (one-time initialization)
+  $effect(() => {
+    if (geneData && !primerDesign) {
+      primerDesign = {
+        forwardStart: geneData.optimalAmplificationRegion.start,
+        forwardLength: 20,
+        reverseStart: Math.floor((geneData.optimalAmplificationRegion.start + geneData.optimalAmplificationRegion.end) / 2),
+        reverseLength: 20
+      };
+    }
+  });
 
   // Real-time quality evaluation
   const primerQuality = $derived<PrimerQuality | null>(
     geneData && primerDesign ? evaluatePrimerQuality(geneData.fullSequence, primerDesign) : null
   );
-
-  // Initialize default primer positions when gene data loads
-  $effect(() => {
-    if (geneData && !primerDesign) {
-      const optimalStart = geneData.optimalAmplificationRegion.start;
-      const optimalEnd = geneData.optimalAmplificationRegion.end;
-      const midpoint = Math.floor((optimalStart + optimalEnd) / 2);
-      
-      primerDesign = {
-        forwardStart: optimalStart,
-        forwardLength: 20,
-        reverseStart: midpoint,
-        reverseLength: 20
-      };
-    }
-  });
 
   async function runPCR() {
     if (!primerDesign || !primerQuality) return;
@@ -230,26 +224,10 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <div class="panel-tabs">
-      <button 
-        class="tab" 
-        class:active={!showDiagnosis}
-        onclick={() => showDiagnosis = false}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab" 
-        class:active={showDiagnosis}
-        onclick={() => showDiagnosis = true}
-      >
-        Diagnosis ({$filteredOrganisms.length})
-      </button>
-    </div>
-
-    {#if !showDiagnosis}
-      <div class="panel-content">
+  <InstrumentRightPanel 
+    tabConfig="controls-inventory" 
+    showDiagnosis={false}
+  >
         <!-- Design Stage: Primer Design Controls -->
         {#if currentWorkflowStage === 'design' && geneData && primerDesign}
           <div class="control-group">
@@ -369,30 +347,7 @@
           </div>
         {/if}
 
-        <NavigationButtons />
-      </div>
-    {:else}
-      <div class="panel-content">
-        <p class="match-info">{$filteredOrganisms.length} matching organism(s)</p>
-        
-        <div class="organism-list">
-          {#each $filteredOrganisms as organism}
-            <button class="organism-option" onclick={() => proceedToDiagnosis()}>
-              <div class="org-name">{organism.scientificName}</div>
-              <div class="org-common">{organism.commonName}</div>
-            </button>
-          {/each}
-          
-          {#if $filteredOrganisms.length === 0}
-            <div class="no-matches">
-              No organisms match your observations.
-              Try adjusting your findings.
-            </div>
-          {/if}
-        </div>
-      </div>
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -408,51 +363,6 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .controls-panel {
-    width: 320px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .panel-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid #4a4a4a;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.75rem;
-    background: #3a3a3a;
-    color: #a0a0a0;
-    border: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    cursor: pointer;
-  }
-
-  .tab:hover {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .tab.active {
-    background: #2a2a2a;
-    color: #ffd700;
-  }
-
-  .panel-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1.5rem;
-    overflow-y: auto;
-    flex: 1;
   }
 
   /* Control Groups */
@@ -583,57 +493,6 @@
     background: #3a3a3a;
     border-color: #4a4a4a;
     color: #e0e0e0;
-  }
-
-  /* Diagnosis Tab */
-  .match-info {
-    color: #ffd700;
-    font-weight: bold;
-    margin: 0 0 0.75rem 0;
-    font-size: 0.95rem;
-  }
-
-  .organism-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .organism-option {
-    background: #3a3a3a;
-    border: 2px solid #4a4a4a;
-    border-radius: 6px;
-    padding: 0.875rem;
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .organism-option:hover {
-    background: #4a4a4a;
-    border-color: #ffd700;
-    transform: translateX(2px);
-  }
-
-  .org-name {
-    color: #e0e0e0;
-    font-weight: bold;
-    font-size: 0.95rem;
-    font-style: italic;
-    margin-bottom: 0.25rem;
-  }
-
-  .org-common {
-    color: #a0a0a0;
-    font-size: 0.85rem;
-  }
-
-  .no-matches {
-    color: #888;
-    font-style: italic;
-    padding: 1.5rem;
-    text-align: center;
-    line-height: 1.5;
   }
 
   .pcr-result-notification {
