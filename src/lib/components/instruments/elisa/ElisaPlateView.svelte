@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import StageArea from '../../shared/StageArea.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import ElisaPlate from './ElisaPlate.svelte';
   import { instrumentState, initializeElisaPlate, setElisaStep, updateElisaWell } from '../../../stores/instrument-state';
@@ -144,7 +144,7 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
+  <InstrumentRightPanel tabConfig="controls-inventory" showDiagnosis={false}>
     <CollapsibleSection title="ELISA Protocol (1971)" isOpen={true}>
       <div class="protocol-info">
         <p class="vintage-text">Engvall & Perlmann Method</p>
@@ -258,9 +258,7 @@
         </button>
       </div>
     </CollapsibleSection>
-
-    <NavigationButtons />
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -335,17 +333,6 @@
     font-weight: bold;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
     z-index: 11;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.75rem;
-    overflow-y: auto;
   }
 
   .protocol-info {

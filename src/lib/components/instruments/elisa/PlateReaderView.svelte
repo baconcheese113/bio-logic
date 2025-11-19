@@ -1,7 +1,7 @@
 <script lang="ts">
   import StageArea from '../../shared/StageArea.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import { instrumentState, readElisaWell } from '../../../stores/instrument-state';
   import { setElisaPositiveControlOD, setElisaNegativeControlOD, setElisaSampleOD, setElisaAntibodiesDetected } from '../../../stores/evidence';
@@ -255,7 +255,7 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
+  <InstrumentRightPanel tabConfig="controls-inventory" showDiagnosis={false}>
     <CollapsibleSection title="Plate Reader Controls" isOpen={true}>
       <div class="control-buttons">
         <button 
@@ -318,9 +318,7 @@
         </p>
       </div>
     </CollapsibleSection>
-
-    <NavigationButtons />
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -516,17 +514,6 @@
     background: #1a1a1a;
     padding: 0.5rem;
     border-radius: 4px;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.75rem;
-    overflow-y: auto;
   }
 
   .control-buttons {

@@ -1,46 +1,19 @@
 <script lang="ts">
   import StageArea from '../../shared/StageArea.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
-  import InventoryPanel from '../../shared/InventoryPanel.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
   import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies as showColoniesInState, type Colony } from '../../../stores/instrument-state';
-  import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone, filteredOrganisms } from '../../../stores/evidence';
-  import { recordCultureObservation } from '../../../stores/evidence-integration';
-  import { currentActiveCase } from '../../../stores/active-cases';
-  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
-  import type { ColonyColor, Hemolysis } from '../../../../data/organisms';
+  import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
+  import type { ColonyColor } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
   
   let showMediaSection = $state(true);
   let showObservationsSection = $state(true);
   let showAntibioticSection = $state(false);
-  let showInventory = $state(false);
   let lastHoveredInfo = $state<string | null>(null);
-  let observationRecorded = $state(false);
-
-  // Sample selection - samples are unlimited and can be used simultaneously
-  let selectedSample = $state<InventoryItem | null>(null);
-  
-  // Derive available samples from active case (all samples are always available)
-  let availableSamples = $derived(
-    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
-  );
-  
-  // Derive whether to show sample prompt
-  let showSamplePrompt = $derived(!selectedSample && availableSamples.length > 0);
-  
-  function selectSampleForUse(sample: InventoryItem) {
-    // Simply load the sample - no status updates needed
-    selectedSample = sample;
-  }
-  
-  function changeSample() {
-    // Allow selecting a different sample
-    selectedSample = null;
-  }
 
   // Antibiotic testing state
   let antibioticTestingStarted = $state(false);
@@ -50,21 +23,7 @@
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
   
-  function handleRecordObservation() {
-    const medium = $instrumentState.culture.selectedMedia as 'blood-agar' | 'macconkey';
-    const growth = $evidence.bloodAgarGrowth || $evidence.macConkeyGrowth || 'none';
-    const hemolysis = $evidence.hemolysis;
-    
-    recordCultureObservation(medium, growth as 'good' | 'poor' | 'none', hemolysis || undefined);
-    observationRecorded = true;
-    
-    // Auto-switch to inventory tab
-    setTimeout(() => {
-      showInventory = true;
-    }, 300);
-  }
-
-  function setHoveredInfo(key: string) {
+  function setHoveredInfo(key: string | null) {
     lastHoveredInfo = key;
   }
 
@@ -132,7 +91,7 @@
       if (newProgress >= 100) {
         clearInterval(interval);
         const newColonies = generateColonies();
-        showColonies(newColonies);
+        showColoniesInState(newColonies);
       }
     }, 50); // 2 seconds total (100ms * 20 steps)
   }
@@ -345,7 +304,6 @@
               {/each}
             </div>
           {:else if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length === 0}
-            {console.log('culture', $instrumentState.culture, 'isCorrectSample', $isCorrectSample)}
             <div class="no-growth">
               <p>No growth</p>
               <p class="hint">(Organism doesn't grow on {MEDIA_INFO[$instrumentState.culture.selectedMedia].name})</p>
@@ -366,28 +324,10 @@
   </div>
 
   <!-- Right: Controls Panel -->
-  <div class="controls-panel">
-    <div class="panel-tabs">
-      <button 
-        class="tab" 
-        class:active={!showInventory}
-        onclick={() => showInventory = false}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab" 
-        class:active={showInventory}
-        onclick={() => showInventory = true}
-      >
-        Inventory
-      </button>
-    </div>
-
-    {#if showInventory}
-      <!-- Inventory Tab -->
-      <InventoryPanel />
-    {:else}
+  <InstrumentRightPanel
+    primaryAction={goToBiochemicalTests}
+    primaryLabel="Run Biochemical Tests →"
+  >
     <!-- Media Selection & Workflow Section -->
     <CollapsibleSection title="Culture Setup" bind:isOpen={showMediaSection}>
       <h3>1. Select Medium</h3>
@@ -622,14 +562,7 @@
         </CollapsibleSection>
       {/if}
     {/if}
-
-    <!-- Navigation Section -->
-    <NavigationButtons 
-      primaryAction={goToBiochemicalTests}
-      primaryLabel="Run Biochemical Tests →"
-    />
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -654,15 +587,6 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
   }
 
   h3 {
@@ -980,36 +904,5 @@
   .zone-input:focus {
     outline: none;
     border-color: #5a9fd4;
-  }
-  
-  /* Panel tabs */
-  .panel-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 0 0.5rem;
-  }
-
-  .tab {
-    flex: 1;
-    padding: 0.5rem;
-    background: #3a3a3a;
-    color: #a0a0a0;
-    border: 2px solid #4a4a4a;
-    border-radius: 4px 4px 0 0;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-    cursor: pointer;
-  }
-
-  .tab:hover {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .tab.active {
-    background: #2a2a2a;
-    color: #ffd700;
-    border-bottom-color: #2a2a2a;
   }
 </style>

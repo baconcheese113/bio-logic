@@ -1,7 +1,6 @@
 <script lang="ts">
   import { currentActiveCase, activeCases } from '../../stores/active-cases';
   import { inventoryByCase } from '../../stores/inventory';
-  import { currentCase } from '../../stores/game-state';
   import { CASES } from '../../../data/organisms';
   import type { InventoryItem } from '../../stores/inventory';
   
@@ -107,6 +106,7 @@
                         class="inventory-card sample" 
                         class:selected={selectedItem?.id === sample.id}
                         onclick={() => selectItem(sample)}
+                        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectItem(sample); }}
                         role="button"
                         tabindex="0"
                       >

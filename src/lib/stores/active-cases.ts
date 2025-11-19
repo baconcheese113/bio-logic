@@ -31,19 +31,15 @@ export const currentActiveCase = derived(
 
 // Add or activate a case
 export function activateCase(caseInstance: Case, caseIndex: number) {
-  console.log('[activateCase] START - Called with:', caseInstance.id, caseIndex);
   console.trace('[activateCase] Call stack');
   
   activeCases.update(state => {
     const caseId = `${caseInstance.id}-${Date.now()}`;
-    console.log('[activateCase] Generated caseId:', caseId);
-    console.log('[activateCase] Current activeCases:', state.activeCases);
     
     const existing = state.activeCases.find(c => c.caseIndex === caseIndex && !c.isComplete);
     
     if (existing) {
       // Case already active, just switch to it
-      console.log('[activateCase] Found existing case, switching to:', existing.caseId);
       return {
         ...state,
         currentActiveCaseId: existing.caseId,
@@ -58,14 +54,12 @@ export function activateCase(caseInstance: Case, caseIndex: number) {
       isComplete: false,
     };
     
-    console.log('[activateCase] Creating NEW case:', newCase);
     return {
       activeCases: [...state.activeCases, newCase],
       currentActiveCaseId: caseId,
     };
   });
   
-  console.log('[activateCase] END');
 }
 
 // Switch to a different active case

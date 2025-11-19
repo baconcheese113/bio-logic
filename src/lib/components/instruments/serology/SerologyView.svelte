@@ -2,9 +2,8 @@
   import StageArea from '../../shared/StageArea.svelte';
   import AgglutinationSlide from './AgglutinationSlide.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import NavigationButtons from '../../shared/NavigationButtons.svelte';
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
-  import InventoryPanel from '../../shared/InventoryPanel.svelte';
+  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import { evidence, setBloodType, setRhFactor, setSyphilisAntibodies, setDiphtheriaAntitoxin } from '../../../stores/evidence';
   import { currentCase } from '../../../stores/game-state';
   import { currentActiveCase } from '../../../stores/active-cases';
@@ -16,7 +15,6 @@
 
   // Sample selection state
   let selectedSample = $state<InventoryItem | null>(null);
-  let activeTab = $state<'controls' | 'inventory'>('controls');
 
   // Derive available samples from active case
   let availableSamples = $derived(
@@ -123,27 +121,8 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <div class="controls-panel">
-    <!-- Tab Navigation -->
-    <div class="tab-nav">
-      <button 
-        class="tab-button"
-        class:active={activeTab === 'controls'}
-        onclick={() => activeTab = 'controls'}
-      >
-        Controls
-      </button>
-      <button 
-        class="tab-button"
-        class:active={activeTab === 'inventory'}
-        onclick={() => activeTab = 'inventory'}
-      >
-        Inventory
-      </button>
-    </div>
-
-    {#if activeTab === 'controls'}
-      <!-- Sample Selection or Active Sample -->
+  <InstrumentRightPanel>
+    <!-- Sample Selection or Active Sample -->
       {#if !selectedSample}
         <div class="sample-selection-prompt">
           <h3>Select Sample</h3>
@@ -308,14 +287,7 @@
       {/if}
     </CollapsibleSection>
       {/if}
-
-      <!-- Navigation Section -->
-      <NavigationButtons />
-    {:else}
-      <!-- Inventory Tab -->
-      <InventoryPanel />
-    {/if}
-  </div>
+  </InstrumentRightPanel>
 </div>
 
 <style>
@@ -330,17 +302,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .controls-panel {
-    width: 280px;
-    background: #2a2a2a;
-    border-left: 2px solid #4a4a4a;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.75rem;
-    overflow-y: auto;
   }
 
   .test-buttons {
@@ -387,37 +348,6 @@
     font-style: italic;
     padding: 1rem;
     font-size: 0.85rem;
-  }
-
-  /* Tab Navigation */
-  .tab-nav {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background: #2a2a2a;
-    border-bottom: 1px solid #444;
-  }
-
-  .tab-button {
-    flex: 1;
-    padding: 0.6rem;
-    background: transparent;
-    color: #999;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-
-  .tab-button:hover {
-    background: #333;
-    color: #fff;
-  }
-
-  .tab-button.active {
-    background: #3a7bc8;
-    color: #fff;
   }
 
   /* Sample Selection Prompt */
