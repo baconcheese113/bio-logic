@@ -120,7 +120,7 @@
                         </div>
                         <div class="card-info">
                           <div class="item-time">Collected: {formatTimestamp(sample.timestamp)}</div>
-                          <div class="item-status" class:in-use={sample.status === 'in-use'} class={getStatusClass(sample.status)}>
+                          <div class="item-status {getStatusClass(sample.status)}">
                             {formatStatus(sample.status, sample.usedBy)}
                           </div>
                         </div>

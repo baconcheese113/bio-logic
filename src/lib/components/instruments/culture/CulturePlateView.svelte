@@ -6,9 +6,11 @@
   import InventoryPanel from '../../shared/InventoryPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
   import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
-  import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies, type Colony } from '../../../stores/instrument-state';
+  import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies as showColoniesInState, type Colony } from '../../../stores/instrument-state';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone, filteredOrganisms } from '../../../stores/evidence';
   import { recordCultureObservation } from '../../../stores/evidence-integration';
+  import { currentActiveCase } from '../../../stores/active-cases';
+  import { getAvailableSamples, updateSampleStatus, type InventoryItem } from '../../../stores/inventory';
   import type { ColonyColor, Hemolysis } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
   
@@ -18,6 +20,42 @@
   let showInventory = $state(false);
   let lastHoveredInfo = $state<string | null>(null);
   let observationRecorded = $state(false);
+
+  // Sample selection
+  let selectedSample = $state<InventoryItem | null>(null);
+  let availableSamples = $state<InventoryItem[]>([]);
+  let showSamplePrompt = $state(true);
+  
+  // Update available samples when active case changes
+  $effect(() => {
+    if ($currentActiveCase) {
+      availableSamples = getAvailableSamples($currentActiveCase.caseId);
+      showSamplePrompt = !selectedSample && availableSamples.length > 0;
+    }
+  });
+  
+  function selectSampleForUse(sample: InventoryItem) {
+    if (selectedSample) {
+      updateSampleStatus(selectedSample.id, 'available');
+    }
+    updateSampleStatus(sample.id, 'in-use', 'culture');
+    selectedSample = sample;
+    showSamplePrompt = false;
+    if ($currentActiveCase) {
+      availableSamples = getAvailableSamples($currentActiveCase.caseId);
+    }
+  }
+  
+  function releaseSample() {
+    if (selectedSample) {
+      updateSampleStatus(selectedSample.id, 'processed');
+      selectedSample = null;
+      showSamplePrompt = true;
+      if ($currentActiveCase) {
+        availableSamples = getAvailableSamples($currentActiveCase.caseId);
+      }
+    }
+  }
 
   // Antibiotic testing state
   let antibioticTestingStarted = $state(false);
