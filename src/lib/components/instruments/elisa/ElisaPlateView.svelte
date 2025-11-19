@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StageArea from '../../shared/StageArea.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import NavigationButtons from '../../shared/NavigationButtons.svelte';
@@ -13,7 +14,7 @@
   let washingStep = $state(false);
 
   // Initialize plate on mount if not already prepared
-  $effect(() => {
+  onMount(() => {
     if (!$instrumentState.elisa.platePrepared) {
       initializeElisaPlate();
       setElisaStep('coating');

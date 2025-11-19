@@ -12,7 +12,10 @@
   let microscopeContainer: Phaser.GameObjects.Container | null = null;
   let floatingDust: Phaser.GameObjects.Graphics[] = [];
   let apertureVignette: Phaser.GameObjects.Graphics | null = null;
-  let focusOffset = 0;
+  
+  // Derive focus offset from focus depth
+  let focusOffset = $derived(15 - ($gameState.focusDepth / 100) * 30);
+  
   let renderCount = 0; // Increment on each render to randomize artifacts
 
   const centerX = 500;
@@ -38,19 +41,12 @@
     };
   });
 
+  // Re-render when focus offset or sample background changes
   $effect(() => {
-    const newFocusOffset = 15 - ($gameState.focusDepth / 100) * 30;
-    
-    if (newFocusOffset !== focusOffset) {
-      focusOffset = newFocusOffset;
-      renderMicroscopeContent();
-    }
-  });
-
-  // Refresh when sample background changes
-  $effect(() => {
-    // Access the reactive value to track it
+    // Track reactive dependencies
+    focusOffset;
     $currentBackground;
+    
     // Only refresh if scene is ready
     if (currentScene && microscopeContainer) {
       renderMicroscopeContent();

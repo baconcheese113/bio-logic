@@ -22,7 +22,12 @@
   let currentScene: Phaser.Scene | null = null;
   let instrumentContainer: Phaser.GameObjects.Container | null = null;
   
-  let displayMode = $state<'empty' | 'primers-loaded' | 'cycling'>('empty');
+  // Derive display mode from primer quality and cycling state
+  let displayMode = $derived(() => {
+    if (currentStage !== 'idle') return 'cycling';
+    if (primerQuality) return 'primers-loaded';
+    return 'empty';
+  });
   
   const centerX = 400;
   const centerY = 350;
@@ -46,20 +51,12 @@
     };
   });
 
-  // Watch for primer design
+  // Render appropriate view when display mode changes
   $effect(() => {
-    if (primerQuality && displayMode === 'empty') {
-      displayMode = 'primers-loaded';
+    const mode = displayMode();
+    if (mode === 'primers-loaded') {
       renderPrimerView();
-    }
-  });
-
-  // Watch for cycling state
-  $effect(() => {
-    if (currentStage !== 'idle' && displayMode === 'primers-loaded') {
-      displayMode = 'cycling';
-    }
-    if (displayMode === 'cycling') {
+    } else if (mode === 'cycling') {
       currentTemp; currentCycle; currentStage; // Track dependencies
       renderCyclingView();
     }
@@ -153,7 +150,7 @@
   }
 
   export function loadSample() {
-    displayMode = 'primers-loaded';
+    // Mode will auto-update via $derived when primerQuality is set
     renderPrimerView();
   }
 
@@ -256,12 +253,12 @@
   }
 
   export function startCycling() {
-    displayMode = 'cycling';
+    // Mode will auto-update via $derived when currentStage changes
     renderCyclingView();
   }
 
   function renderCyclingView() {
-    if (!currentScene || !instrumentContainer || displayMode !== 'cycling') return;
+    if (!currentScene || !instrumentContainer || displayMode() !== 'cycling') return;
     instrumentContainer.removeAll(true);
 
     // Machine body

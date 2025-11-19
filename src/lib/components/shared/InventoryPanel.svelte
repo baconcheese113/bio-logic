@@ -4,31 +4,27 @@
   import { currentCase } from '../../stores/game-state';
   import { CASES } from '../../../data/organisms';
   import type { InventoryItem } from '../../stores/inventory';
-  import { untrack } from 'svelte';
   
-  let expandedCases = $state<Set<string>>(new Set());
+  let manuallyExpandedCases = $state<Set<string>>(new Set());
   let selectedItem = $state<InventoryItem | null>(null);
   
-  // Auto-expand current active case
-  $effect(() => {
+  // Derive which cases should be expanded (manual + auto-expanded active case)
+  let expandedCases = $derived(() => {
+    const expanded = new Set(manuallyExpandedCases);
     if ($currentActiveCase) {
-      untrack(() => {
-        if (!expandedCases.has($currentActiveCase.caseId)) {
-          expandedCases.add($currentActiveCase.caseId);
-          expandedCases = new Set(expandedCases);
-        }
-      });
+      expanded.add($currentActiveCase.caseId);
     }
+    return expanded;
   });
   
   function toggleCaseExpansion(caseId: string) {
-    if (expandedCases.has(caseId)) {
-      expandedCases.delete(caseId);
+    if (manuallyExpandedCases.has(caseId)) {
+      manuallyExpandedCases.delete(caseId);
     } else {
-      expandedCases.add(caseId);
+      manuallyExpandedCases.add(caseId);
     }
     // Trigger reactivity
-    expandedCases = new Set(expandedCases);
+    manuallyExpandedCases = new Set(manuallyExpandedCases);
   }
   
   function selectItem(item: InventoryItem) {
@@ -84,7 +80,7 @@
     {:else}
       <div class="case-sections">
         {#each Array.from($inventoryByCase.entries()) as [caseId, caseInventory]}
-          {@const isExpanded = expandedCases.has(caseId)}
+          {@const isExpanded = expandedCases().has(caseId)}
           {@const isActive = isCaseActive(caseId)}
           
           <div class="case-section" class:active={isActive}>

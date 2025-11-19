@@ -3,25 +3,19 @@
   import { evidenceSummaries } from '../../stores/evidence-summary';
   import { currentCase, gameState } from '../../stores/game-state';
   
-  const evidenceSummary = $derived(() => {
+  // Use $derived.by to compute both values without $effect
+  const canSubmit = $derived.by(() => {
+    if (!$currentActiveCase) return false;
+    const summary = $evidenceSummaries[$currentActiveCase.caseId];
+    return summary && summary.phrases.length >= 3;
+  });
+  
+  const evidenceSummary = $derived.by(() => {
     if (!$currentActiveCase) return null;
-    return $evidenceSummaries.summaries.get($currentActiveCase.caseId);
+    return $evidenceSummaries[$currentActiveCase.caseId];
   });
   
   let isComplete = $state(false);
-  let canSubmit = $state(false);
-  
-  // Check if evidence is complete (placeholder logic - will be enhanced)
-  $effect(() => {
-    const summary = evidenceSummary();
-    if (summary && summary.phrases.length >= 3) {
-      // Basic check: need at least 3 pieces of evidence
-      // This will be enhanced with proper completion detection
-      canSubmit = true;
-    } else {
-      canSubmit = false;
-    }
-  });
   
   function handleSubmitDiagnosis() {
     // Navigate to diagnosis view
@@ -29,16 +23,16 @@
   }
 </script>
 
-{#if evidenceSummary()}
+{#if evidenceSummary}
   <div class="evidence-summary-bar" class:complete={isComplete}>
     <div class="summary-content">
       <div class="presenting-complaint">
-        <strong>Patient presents with:</strong> {evidenceSummary()?.presentingComplaint || ''}
+        <strong>Patient presents with:</strong> {evidenceSummary?.presentingComplaint || ''}
       </div>
       
-      {#if evidenceSummary()?.phrases && evidenceSummary()!.phrases.length > 0}
+      {#if evidenceSummary?.phrases && evidenceSummary.phrases.length > 0}
         <div class="evidence-phrases">
-          {#each evidenceSummary()!.phrases as phrase, index}
+          {#each evidenceSummary.phrases as phrase, index}
             <span class="phrase">
               {#if index > 0}…{/if}
               {phrase.text}

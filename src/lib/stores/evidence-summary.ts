@@ -16,25 +16,29 @@ interface EvidenceSummaryState {
 }
 
 interface AllEvidenceState {
-  summaries: Map<string, EvidenceSummaryState>;
+  [caseId: string]: EvidenceSummaryState;
 }
 
-const initialState: AllEvidenceState = {
-  summaries: new Map(),
-};
+const initialState: AllEvidenceState = {};
 
 export const evidenceSummaries = writable<AllEvidenceState>(initialState);
 
 // Initialize evidence summary for a case
 export function initializeEvidenceSummary(caseId: string, presentingComplaint: string) {
   evidenceSummaries.update(state => {
-    const newSummaries = new Map(state.summaries);
-    newSummaries.set(caseId, {
-      caseId,
-      presentingComplaint,
-      phrases: [],
-    });
-    return { summaries: newSummaries };
+    // Don't re-initialize if already exists - this prevents infinite loops
+    if (state[caseId]) {
+      return state;
+    }
+    
+    return {
+      ...state,
+      [caseId]: {
+        caseId,
+        presentingComplaint,
+        phrases: [],
+      }
+    };
   });
 }
 
@@ -42,8 +46,7 @@ export function initializeEvidenceSummary(caseId: string, presentingComplaint: s
 // If a phrase with the same source and field already exists, it will be replaced
 export function addEvidencePhrase(caseId: string, text: string, source: string, field?: string) {
   evidenceSummaries.update(state => {
-    const newSummaries = new Map(state.summaries);
-    const summary = newSummaries.get(caseId);
+    const summary = state[caseId];
     
     if (!summary) return state;
     
@@ -68,20 +71,20 @@ export function addEvidencePhrase(caseId: string, text: string, source: string, 
       timestamp: Date.now(),
     };
     
-    newSummaries.set(caseId, {
-      ...summary,
-      phrases: [...filteredPhrases, newPhrase],
-    });
-    
-    return { summaries: newSummaries };
+    return {
+      ...state,
+      [caseId]: {
+        ...summary,
+        phrases: [...filteredPhrases, newPhrase],
+      }
+    };
   });
 }
 
 // Remove phrases from evidence summary by source and optional field
 export function removeEvidencePhrase(caseId: string, source: string, field?: string) {
   evidenceSummaries.update(state => {
-    const newSummaries = new Map(state.summaries);
-    const summary = newSummaries.get(caseId);
+    const summary = state[caseId];
     
     if (!summary) return state;
     
@@ -92,28 +95,28 @@ export function removeEvidencePhrase(caseId: string, source: string, field?: str
       return p.source !== source;
     });
     
-    newSummaries.set(caseId, {
-      ...summary,
-      phrases: filteredPhrases,
-    });
-    
-    return { summaries: newSummaries };
+    return {
+      ...state,
+      [caseId]: {
+        ...summary,
+        phrases: filteredPhrases,
+      }
+    };
   });
 }
 
 // Clear evidence summary for a case
 export function clearCaseEvidenceSummary(caseId: string) {
   evidenceSummaries.update(state => {
-    const newSummaries = new Map(state.summaries);
-    newSummaries.delete(caseId);
-    return { summaries: newSummaries };
+    const { [caseId]: _, ...rest } = state;
+    return rest;
   });
 }
 
 // Get evidence summary for a specific case
 export const getCaseEvidenceSummary = (caseId: string) => derived(
   evidenceSummaries,
-  ($state) => $state.summaries.get(caseId) || null
+  ($state) => $state[caseId] || null
 );
 
 // Helper functions to generate evidence phrases based on test results

@@ -37,29 +37,25 @@
     geneId ? GENE_SEQUENCES.find(g => g.id === geneId) || null : null
   );
 
-  // Initialize primer design with optimal region
+  // Initialize primer design with optimal region (user can adjust after)
   let primerDesign = $state<PrimerDesign | null>(null);
+  
+  // Initialize default positions when gene data loads (one-time initialization)
+  $effect(() => {
+    if (geneData && !primerDesign) {
+      primerDesign = {
+        forwardStart: geneData.optimalAmplificationRegion.start,
+        forwardLength: 20,
+        reverseStart: Math.floor((geneData.optimalAmplificationRegion.start + geneData.optimalAmplificationRegion.end) / 2),
+        reverseLength: 20
+      };
+    }
+  });
 
   // Real-time quality evaluation
   const primerQuality = $derived<PrimerQuality | null>(
     geneData && primerDesign ? evaluatePrimerQuality(geneData.fullSequence, primerDesign) : null
   );
-
-  // Initialize default primer positions when gene data loads
-  $effect(() => {
-    if (geneData && !primerDesign) {
-      const optimalStart = geneData.optimalAmplificationRegion.start;
-      const optimalEnd = geneData.optimalAmplificationRegion.end;
-      const midpoint = Math.floor((optimalStart + optimalEnd) / 2);
-      
-      primerDesign = {
-        forwardStart: optimalStart,
-        forwardLength: 20,
-        reverseStart: midpoint,
-        reverseLength: 20
-      };
-    }
-  });
 
   async function runPCR() {
     if (!primerDesign || !primerQuality) return;

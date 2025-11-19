@@ -13,12 +13,10 @@
     
     // Get the active case ID that was just created
     // We need to wait a tick for the store to update
-    setTimeout(() => {
-      if ($currentActiveCase) {
-        const presentingComplaint = caseInstance.story.split('.')[0] + '.'; // First sentence as presenting complaint
-        initializeEvidenceSummary($currentActiveCase.caseId, presentingComplaint);
-      }
-    }, 0);
+    if ($currentActiveCase) {
+      const presentingComplaint = caseInstance.story.split('.')[0] + '.'; // First sentence as presenting complaint
+      initializeEvidenceSummary($currentActiveCase.caseId, presentingComplaint);
+    }
     
     gameState.update(state => ({ ...state, gamePhase: 'sample-selection' }));
   }

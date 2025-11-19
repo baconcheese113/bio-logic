@@ -23,16 +23,14 @@
 
   // Sample selection
   let selectedSample = $state<InventoryItem | null>(null);
-  let availableSamples = $state<InventoryItem[]>([]);
-  let showSamplePrompt = $state(true);
   
-  // Update available samples when active case changes
-  $effect(() => {
-    if ($currentActiveCase) {
-      availableSamples = getAvailableSamples($currentActiveCase.caseId);
-      showSamplePrompt = !selectedSample && availableSamples.length > 0;
-    }
-  });
+  // Derive available samples from active case
+  let availableSamples = $derived(
+    $currentActiveCase ? getAvailableSamples($currentActiveCase.caseId) : []
+  );
+  
+  // Derive whether to show sample prompt
+  let showSamplePrompt = $derived(!selectedSample && availableSamples.length > 0);
   
   function selectSampleForUse(sample: InventoryItem) {
     if (selectedSample) {
