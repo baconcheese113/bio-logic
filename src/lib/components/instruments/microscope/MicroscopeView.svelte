@@ -30,30 +30,17 @@
       spores: $evidence.spores
     });
     
-    // Only record if state has changed and we have some evidence
-    if (currentState !== lastRecordedState && currentState !== '{}') {
-      const hasEvidence = $evidence.gramStain || $evidence.shape || $evidence.arrangement ||
-                          $evidence.acidFast !== null || $evidence.capsule !== null || $evidence.spores !== null;
+    // Record whenever state changes (including removal)
+    if (currentState !== lastRecordedState) {
+      // Always record main microscopy observation (handles null values for removal)
+      recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
       
-      if (hasEvidence) {
-        // Record main microscopy observation if we have shape or gram stain
-        if ($evidence.gramStain || $evidence.shape || $evidence.arrangement) {
-          recordMicroscopyObservation($evidence.gramStain, $evidence.shape, $evidence.arrangement);
-        }
-        
-        // Record special stains if observed
-        if ($evidence.acidFast !== null) {
-          recordAcidFastObservation($evidence.acidFast);
-        }
-        if ($evidence.capsule !== null) {
-          recordCapsuleObservation($evidence.capsule);
-        }
-        if ($evidence.spores !== null) {
-          recordSporeObservation($evidence.spores);
-        }
-        
-        lastRecordedState = currentState;
-      }
+      // Record special stains (handles null values for removal)
+      recordAcidFastObservation($evidence.acidFast);
+      recordCapsuleObservation($evidence.capsule);
+      recordSporeObservation($evidence.spores);
+      
+      lastRecordedState = currentState;
     }
   });
 
