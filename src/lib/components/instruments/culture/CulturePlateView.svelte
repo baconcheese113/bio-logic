@@ -5,15 +5,23 @@
   import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
   import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
-  import { instrumentState, selectMedia, streakPlate, startIncubation, setIncubationProgress, showColonies as showColoniesInState, type Colony } from '../../../stores/instrument-state';
+  import { instrumentState, selectMedia, streakPlate, showColonies as showColoniesInState, clearSampleFromInstrument, type Colony } from '../../../stores/instrument-state';
+  import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
+  import { addResult, addSample, type InventoryItem } from '../../../stores/inventory';
+  import { startBackgroundProcess, completeProcess } from '../../../stores/timer-service';
+  import { currentActiveCase } from '../../../stores/active-cases';
   import type { ColonyColor } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
+  
+  const { hasSampleLoaded, loadedSampleId, tryLoadPendingSample } = createInstrumentHelpers('culture');
   
   let showMediaSection = $state(true);
   let showObservationsSection = $state(true);
   let showAntibioticSection = $state(false);
   let lastHoveredInfo = $state<string | null>(null);
+  let rightPanelRef = $state<InstrumentRightPanel>();
+  let pendingSample = $state<InventoryItem | null>(null);
 
   // Antibiotic testing state
   let antibioticTestingStarted = $state(false);
@@ -23,8 +31,42 @@
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
   
+  // Local incubation state (not in store - component-local)
+  let isIncubating = $state(false);
+  let localIncubationProgress = $state(0);
+  let showColonies = $state(false);
+  let colonies = $state<Colony[]>([]);
+  let activeProcessId = $state<string | null>(null);
+  
   function setHoveredInfo(key: string | null) {
     lastHoveredInfo = key;
+  }
+  
+  function handleSampleSelected(sample: InventoryItem | null) {
+    pendingSample = sample;
+  }
+  
+  function handleDishClick() {
+    if (!pendingSample) {
+      rightPanelRef?.openInventoryForSample('culture');
+      return;
+    }
+    
+    if (tryLoadPendingSample(pendingSample)) {
+      rightPanelRef?.clearPendingSample();
+      pendingSample = null;
+    }
+  }
+  
+  function clearCurrentSample() {
+    clearSampleFromInstrument('culture');
+    // Reset culture state
+    selectMedia('blood-agar');
+    isIncubating = false;
+    localIncubationProgress = 0;
+    showColonies = false;
+    colonies = [];
+    resetAntibioticTest();
   }
 
   const MEDIA_INFO = {
@@ -82,22 +124,78 @@
   }
 
   function handleIncubate() {
-    startIncubation();
+    if (!$loadedSampleId || !$currentActiveCase) return;
+    
+    isIncubating = true;
+    localIncubationProgress = 0;
+    
+    // Start the incubation process in timer-service
+    activeProcessId = startBackgroundProcess(
+      $currentActiveCase.caseId,
+      'culture',
+      $loadedSampleId,
+      'Incubating',
+      2000
+    );
     
     // Simulate incubation with progress bar
     const interval = setInterval(() => {
-      const newProgress = $instrumentState.culture.incubationProgress + 5;
-      setIncubationProgress(newProgress);
-      if (newProgress >= 100) {
+      localIncubationProgress = localIncubationProgress + 5;
+      
+      if (localIncubationProgress >= 100) {
         clearInterval(interval);
+        isIncubating = false;
+        showColonies = true;
+        
         const newColonies = generateColonies();
+        colonies = newColonies;
         showColoniesInState(newColonies);
+        
+        // Complete the process in timer-service
+        if (activeProcessId) {
+          completeProcess(activeProcessId);
+          activeProcessId = null;
+        }
+        
+        // Create culture-plate sample in inventory (not a result - can be used as input for other instruments)
+        const organism = $correctOrganism;
+        const mediaType = $instrumentState.culture.selectedMedia;
+        const cultureProps = mediaType === 'blood-agar' 
+          ? organism?.culture?.bloodAgar 
+          : organism?.culture?.macConkey;
+        
+        // Only add as a sample if colonies grew
+        if (newColonies.length > 0) {
+          addSample($currentActiveCase.caseId, 'culture-plate');
+        }
+        
+        // Also add result for observation log
+        addResult(
+          $currentActiveCase.caseId,
+          'culture-result',
+          `${mediaType === 'blood-agar' ? 'Blood Agar' : 'MacConkey'} Culture`,
+          {
+            media: mediaType,
+            colonyCount: newColonies.length,
+            colonyColor: cultureProps?.colonyColor || 'none',
+            hemolysis: mediaType === 'blood-agar' ? organism?.culture?.bloodAgar.hemolysis : undefined,
+            lactoseFermenter: mediaType === 'macconkey' ? cultureProps?.colonyColor === 'pink' : undefined,
+          }
+        );
       }
     }, 50); // 2 seconds total (100ms * 20 steps)
   }
 
   function resetCulture() {
     selectMedia($instrumentState.culture.selectedMedia); // This resets all culture state
+    isIncubating = false;
+    localIncubationProgress = 0;
+    showColonies = false;
+    colonies = [];
+  }
+  
+  function handleChangeClick() {
+    clearCurrentSample();
   }
 
   function getColonyColor(): string {
@@ -248,9 +346,9 @@
           <!-- Original Culture Plate (smaller, left side) -->
           <div class="plate-preview">
             <div class="petri-dish-small" class:blood-agar={$instrumentState.culture.selectedMedia === 'blood-agar'} class:macconkey={$instrumentState.culture.selectedMedia === 'macconkey'}>
-              {#if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length > 0}
+              {#if showColonies && $isCorrectSample && colonies.length > 0}
                 <div class="colonies">
-                  {#each $instrumentState.culture.colonies as colony}
+                  {#each colonies as colony}
                     <div 
                       class="colony" 
                       style="
@@ -284,10 +382,19 @@
       {:else}
         <!-- Culture Plate Only -->
         <div class="petri-container">
-          <div class="petri-dish" class:blood-agar={$instrumentState.culture.selectedMedia === 'blood-agar'} class:macconkey={$instrumentState.culture.selectedMedia === 'macconkey'}>
-          {#if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length > 0}
+          <div 
+            class="petri-dish" 
+            class:blood-agar={$instrumentState.culture.selectedMedia === 'blood-agar'} 
+            class:macconkey={$instrumentState.culture.selectedMedia === 'macconkey'}
+            class:clickable={true}
+            onclick={handleDishClick}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDishClick(); }}
+          >
+          {#if showColonies && $isCorrectSample && colonies.length > 0}
             <div class="colonies">
-              {#each $instrumentState.culture.colonies as colony}
+              {#each colonies as colony}
                 <div 
                   class="colony" 
                   style="
@@ -303,19 +410,19 @@
                 ></div>
               {/each}
             </div>
-          {:else if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length === 0}
+          {:else if showColonies && $isCorrectSample && colonies.length === 0}
             <div class="no-growth">
               <p>No growth</p>
-              <p class="hint">(Organism doesn't grow on {MEDIA_INFO[$instrumentState.culture.selectedMedia].name})</p>
+              <p class="hint">(Organism doesn't grow on {$instrumentState.culture.selectedMedia ? MEDIA_INFO[$instrumentState.culture.selectedMedia].name : 'this media'})</p>
             </div>
-          {:else if $instrumentState.culture.showColonies && !$isCorrectSample}
+          {:else if showColonies && !$isCorrectSample}
             <div class="no-growth">
               <p>No significant growth</p>
               <p class="hint">(Wrong sample type)</p>
             </div>
           {/if}
         </div>
-        <p class="plate-label">{MEDIA_INFO[$instrumentState.culture.selectedMedia].name}</p>
+        <p class="plate-label">{$instrumentState.culture.selectedMedia ? MEDIA_INFO[$instrumentState.culture.selectedMedia].name : 'Select Media'}</p>
       </div>
       {/if}
     </StageArea>
@@ -325,11 +432,29 @@
 
   <!-- Right: Controls Panel -->
   <InstrumentRightPanel
+    bind:this={rightPanelRef}
+    instrument="culture"
     primaryAction={goToBiochemicalTests}
     primaryLabel="Run Biochemical Tests →"
+    onSampleSelected={handleSampleSelected}
   >
     <!-- Media Selection & Workflow Section -->
     <CollapsibleSection title="Culture Setup" bind:isOpen={showMediaSection}>
+      <!-- Sample loading status -->
+      {#if $hasSampleLoaded}
+        <div class="sample-status">
+          <span class="sample-indicator">📋 Sample loaded</span>
+          <button class="text-button" onclick={handleChangeClick}>
+            Change Sample
+          </button>
+        </div>
+      {:else}
+        <div class="sample-status empty">
+          <span class="sample-indicator">⚠️ No sample loaded</span>
+          <p class="hint">Click the petri dish to load a sample from inventory</p>
+        </div>
+      {/if}
+      
       <h3>1. Select Medium</h3>
       <div class="media-selection">
             <label class="radio-option"
@@ -361,7 +486,7 @@
               <span>MacConkey Agar</span>
             </label>
           </div>
-          <p class="media-description">{MEDIA_INFO[$instrumentState.culture.selectedMedia].description}</p>
+          <p class="media-description">{$instrumentState.culture.selectedMedia ? MEDIA_INFO[$instrumentState.culture.selectedMedia].description : 'Select a growth medium to begin.'}</p>
 
           <h3>2. Streak & Incubate</h3>
           <div class="workflow-buttons">
@@ -376,20 +501,20 @@
             <button 
               class="primary-button"
               onclick={handleIncubate}
-              disabled={!$instrumentState.culture.isStreaked || $instrumentState.culture.isIncubating || $instrumentState.culture.showColonies}
+              disabled={!$instrumentState.culture.isStreaked || isIncubating || showColonies}
             >
-              {$instrumentState.culture.showColonies ? 'Incubated ✓' : 'Incubate Overnight'}
+              {showColonies ? 'Incubated ✓' : 'Incubate Overnight'}
             </button>
           </div>
 
-          {#if $instrumentState.culture.isIncubating}
+          {#if isIncubating}
             <div class="progress-container">
-              <div class="progress-bar" style="width: {$instrumentState.culture.incubationProgress}%"></div>
+              <div class="progress-bar" style="width: {localIncubationProgress}%"></div>
             </div>
-            <p class="progress-text">Incubating... {$instrumentState.culture.incubationProgress}%</p>
+            <p class="progress-text">Incubating... {localIncubationProgress}%</p>
           {/if}
 
-          {#if $instrumentState.culture.showColonies}
+          {#if showColonies}
             <button class="secondary-button" onclick={resetCulture}>
               Prepare New Plate
             </button>
@@ -397,7 +522,7 @@
     </CollapsibleSection>
 
     <!-- Observations Section -->
-    {#if $instrumentState.culture.showColonies}
+    {#if showColonies}
       <CollapsibleSection title="Record Observations" bind:isOpen={showObservationsSection}>
         {#if $instrumentState.culture.selectedMedia === 'blood-agar'}
               <h4>Colony Color:</h4>
@@ -477,7 +602,7 @@
     {/if}
 
     <!-- Antibiotic Sensitivity Testing Section -->
-    {#if $instrumentState.culture.showColonies && $isCorrectSample && $instrumentState.culture.colonies.length > 0}
+    {#if showColonies && $isCorrectSample && colonies.length > 0}
       {#if !antibioticTestingStarted}
         <div class="antibiotic-start-section">
           <button class="primary-button" onclick={startAntibioticTesting}>
@@ -717,7 +842,18 @@
     box-shadow: 
       inset 0 0 30px rgba(0,0,0,0.5),
       0 4px 20px rgba(0,0,0,0.3);
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .petri-dish.clickable {
+    cursor: pointer;
+  }
+  
+  .petri-dish.clickable:hover {
+    transform: scale(1.02);
+    box-shadow: 
+      inset 0 0 30px rgba(0,0,0,0.5),
+      0 6px 24px rgba(74, 124, 140, 0.4);
   }
 
   .petri-dish.blood-agar {
@@ -726,6 +862,48 @@
 
   .petri-dish.macconkey {
     background: radial-gradient(circle, #d4a5a5, #b48585);
+  }
+  
+  .sample-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: rgba(74, 124, 140, 0.15);
+    border: 1px solid rgba(74, 124, 140, 0.3);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  
+  .sample-status.empty {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .sample-indicator {
+    color: #8ab4d8;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .text-button {
+    background: none;
+    border: none;
+    color: #6a9fb5;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.85rem;
+  }
+  
+  .text-button:hover {
+    color: #8ab4d8;
+  }
+  
+  .sample-status .hint {
+    color: #888;
+    font-size: 0.8rem;
+    margin: 0;
   }
 
   .colonies {

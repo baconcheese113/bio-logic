@@ -8,23 +8,29 @@
     currentTemp?: number;
     currentStage?: 'denaturation' | 'annealing' | 'extension' | 'idle';
     primerQuality?: PrimerQuality | null;
+    hasSample?: boolean;
+    onSamplePortClick?: () => void;
   }
 
   let { 
     currentCycle = 0, 
     currentTemp = 25, 
     currentStage = 'idle',
-    primerQuality = null
+    primerQuality = null,
+    hasSample = false,
+    onSamplePortClick
   }: Props = $props();
 
   let phaserContainer = $state<HTMLDivElement>();
   let phaserGame: Phaser.Game | null = null;
   let currentScene: Phaser.Scene | null = null;
   let instrumentContainer: Phaser.GameObjects.Container | null = null;
+  let samplePortHovered = $state(false);
   
-  // Derive display mode from primer quality and cycling state
+  // Derive display mode from primer quality, sample, and cycling state
   let displayMode = $derived(() => {
     if (currentStage !== 'idle') return 'cycling';
+    if (primerQuality && hasSample) return 'ready';
     if (primerQuality) return 'primers-loaded';
     return 'empty';
   });
@@ -404,9 +410,83 @@
   }
 </script>
 
-<div class="pcr-instrument" bind:this={phaserContainer}></div>
+<div class="pcr-instrument-container">
+  <!-- Sample insertion site overlay (only shown when no sample) -->
+  {#if !hasSample}
+    <button 
+      class="sample-insertion-site" 
+      class:hovered={samplePortHovered}
+      onclick={onSamplePortClick}
+      onmouseenter={() => samplePortHovered = true}
+      onmouseleave={() => samplePortHovered = false}
+      title="Click to load sample"
+    >
+      <div class="insertion-icon">🧪</div>
+      <div class="insertion-label">Load Sample</div>
+    </button>
+  {/if}
+  
+  <div class="pcr-instrument" bind:this={phaserContainer}></div>
+</div>
 
 <style>
+  .pcr-instrument-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .sample-insertion-site {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    background: rgba(26, 42, 26, 0.95);
+    border: 3px dashed #4a7a4a;
+    border-radius: 12px;
+    padding: 3rem 4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    animation: pulse 2s ease-in-out infinite;
+    color: inherit;
+    font-family: inherit;
+  }
+
+  .sample-insertion-site.hovered {
+    background: rgba(42, 62, 42, 0.98);
+    border-color: #6a9fb5;
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow: 0 0 30px rgba(106, 159, 181, 0.4);
+  }
+
+  .insertion-icon {
+    font-size: 4rem;
+    filter: drop-shadow(0 0 10px rgba(74, 122, 74, 0.6));
+  }
+
+  .insertion-label {
+    color: #8ab98a;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.85;
+      border-color: #4a7a4a;
+    }
+    50% {
+      opacity: 1;
+      border-color: #6a9fb5;
+    }
+  }
   .pcr-instrument {
     width: 100%;
     height: 100%;

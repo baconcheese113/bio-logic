@@ -3,6 +3,13 @@
   import Phaser from 'phaser';
   import { currentElectrophoresisData } from '../../../stores/game-state';
 
+  interface Props {
+    hasSample?: boolean;
+    onSamplePortClick?: () => void;
+  }
+
+  let { hasSample = false, onSamplePortClick }: Props = $props();
+
   let canvasContainer = $state<HTMLDivElement>();
   let game = $state<Phaser.Game>();
   let scene = $state<Phaser.Scene>();
@@ -330,7 +337,28 @@
     });
     
     // Sample application line (where serum was applied)
-    this.add.rectangle(centerX, 165, 460, 2, 0x8a7a6a, 0.5);
+    const sampleLine = this.add.rectangle(centerX, 165, 460, 10, 0x8a7a6a, 0.5);
+    
+    // Make sample line interactive
+    sampleLine.setInteractive({ useHandCursor: true });
+    
+    sampleLine.on('pointerover', () => {
+      if (!hasSample) {
+        sampleLine.setFillStyle(0x6a9fb5, 0.8);
+        this.input.setDefaultCursor('pointer');
+      }
+    });
+    
+    sampleLine.on('pointerout', () => {
+      sampleLine.setFillStyle(0x8a7a6a, 0.5);
+      this.input.setDefaultCursor('default');
+    });
+    
+    sampleLine.on('pointerdown', () => {
+      if (!hasSample && onSamplePortClick) {
+        onSamplePortClick();
+      }
+    });
     
     const sampleLabel = this.add.text(centerX, 130, 'Sample Application Line', {
       fontSize: '13px',
@@ -491,11 +519,29 @@
   }
 </script>
 
-<div class="electrophoresis-instrument">
-  <div bind:this={canvasContainer} class="canvas-container"></div>
+<div class="electrophoresis-container">
+  <div class="electrophoresis-instrument">
+    <div bind:this={canvasContainer} class="canvas-container"></div>
+  </div>
 </div>
 
 <style>
+  .electrophoresis-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.85;
+      border-color: #4a7a4a;
+    }
+    50% {
+      opacity: 1;
+      border-color: #6a9fb5;
+    }
+  }
   .electrophoresis-instrument {
     width: 100%;
     height: 100%;

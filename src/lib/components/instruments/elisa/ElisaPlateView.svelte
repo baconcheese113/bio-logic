@@ -6,12 +6,15 @@
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import ElisaPlate from './ElisaPlate.svelte';
   import { instrumentState, initializeElisaPlate, setElisaStep, updateElisaWell } from '../../../stores/instrument-state';
-  import { gameState } from '../../../stores/game-state';
+  import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
   import type { ElisaStep } from '../../../../data/organisms';
+
+  const { hasSampleLoaded } = createInstrumentHelpers('elisa');
 
   let lastHoveredInfo = $state<string | null>(null);
   let isAnimating = $state(false);
   let washingStep = $state(false);
+  let rightPanelRef = $state<InstrumentRightPanel>();
 
   // Initialize plate on mount if not already prepared
   onMount(() => {
@@ -52,6 +55,12 @@
   async function performStep(step: ElisaStep) {
     if (isAnimating || !canPerformStep(step)) return;
     
+    // Require sample for 'sample' step
+    if (step === 'sample' && !$hasSampleLoaded) {
+      rightPanelRef?.openInventoryForSample('elisa');
+      return;
+    }
+
     setElisaStep(step);
     isAnimating = true;
     
@@ -104,14 +113,6 @@
     }
   }
 
-  function goToPlateReader() {
-    gameState.update(state => ({
-      ...state,
-      gamePhase: 'plate-reader',
-      lastInstrumentPhase: 'plate-reader',
-    }));
-  }
-
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
   }
@@ -126,7 +127,16 @@
   <div class="stage-container">
     <StageArea showCaseHeader={true}>
       <div class="plate-area">
-        <ElisaPlate />
+        <div 
+          class="plate-wrapper"
+          class:clickable={!$hasSampleLoaded}
+          onclick={() => !$hasSampleLoaded && rightPanelRef?.openInventoryForSample('elisa')}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => !$hasSampleLoaded && e.key === 'Enter' && rightPanelRef?.openInventoryForSample('elisa')}
+        >
+          <ElisaPlate />
+        </div>
         {#if washingStep}
           <div class="washing-overlay">
             <div class="washing-effect">
@@ -144,7 +154,12 @@
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <InstrumentRightPanel tabConfig="controls-inventory" showDiagnosis={false}>
+  <InstrumentRightPanel 
+    bind:this={rightPanelRef}
+    tabConfig="controls-inventory" 
+    showDiagnosis={false}
+    instrument="elisa"
+  >
     <CollapsibleSection title="ELISA Protocol (1971)" isOpen={true}>
       <div class="protocol-info">
         <p class="vintage-text">Engvall & Perlmann Method</p>
@@ -251,7 +266,6 @@
         <button 
           class="reader-button"
           disabled={!canReadPlate}
-          onclick={() => goToPlateReader()}
           onmouseenter={() => setHoveredInfo('plate-reader')}
         >
           → Use Plate Reader
@@ -477,4 +491,23 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  .plate-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .plate-wrapper.clickable {
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .plate-wrapper.clickable:hover {
+    transform: scale(1.02);
+  }
+
+
 </style>

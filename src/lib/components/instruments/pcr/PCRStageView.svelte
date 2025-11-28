@@ -9,7 +9,9 @@
     currentCycle: number;
     currentTemp: number;
     currentStage: 'denaturation' | 'annealing' | 'extension' | 'idle';
+    hasSample: boolean;
     workflowStage: 'design' | 'run' | 'gel';
+    onSamplePortClick?: () => void;
     onHover?: (key: string) => void;
   }
 
@@ -20,7 +22,9 @@
     currentCycle,
     currentTemp,
     currentStage,
+    hasSample,
     workflowStage,
+    onSamplePortClick,
     onHover = () => {}
   }: Props = $props();
 
@@ -94,8 +98,58 @@
 <div class="pcr-stage-view">
   <!-- Design Stage: Gene Sequence + Quality Metrics -->
   {#if workflowStage === 'design'}
-    <!-- Gene Sequence Section -->
-    {#if geneData}
+    <!-- Empty state when no gene is selected -->
+    {#if !geneData}
+      <div class="empty-state-container">
+        <div class="pcr-machine-preview">
+          <div class="machine-body">
+            <div class="machine-header">
+              <span class="machine-title">THERMAL CYCLER</span>
+              <div class="indicator-lights">
+                <span class="indicator idle"></span>
+                <span class="indicator"></span>
+                <span class="indicator"></span>
+              </div>
+            </div>
+            <div class="machine-display">
+              <div class="display-row">
+                <span class="display-label">Temperature:</span>
+                <span class="display-value">25°C</span>
+              </div>
+              <div class="display-row">
+                <span class="display-label">Status:</span>
+                <span class="display-value idle">Awaiting Sample</span>
+              </div>
+            </div>
+            <div class="sample-wells">
+              <div class="well-row">
+                {#each Array(8) as _}
+                  <div class="well empty"></div>
+                {/each}
+              </div>
+              <div class="well-row">
+                {#each Array(8) as _}
+                  <div class="well empty"></div>
+                {/each}
+              </div>
+            </div>
+            <div class="machine-controls">
+              <button class="control-btn disabled">START</button>
+              <button class="control-btn disabled">PAUSE</button>
+            </div>
+          </div>
+        </div>
+        <div class="empty-state-message">
+          <h3>PCR Thermocycler Ready</h3>
+          <p>Select a target gene from the control panel to begin primer design.</p>
+          <div class="workflow-hint">
+            <span class="hint-icon">💡</span>
+            <span>Gene sequences are obtained from Sanger Sequencing results.</span>
+          </div>
+        </div>
+      </div>
+    {:else}
+      <!-- Gene Sequence Section -->
       <div class="gene-section">
       <div class="section-header">
         <h3 
@@ -150,10 +204,9 @@
         </div>
       {/if}
     </div>
-  {/if}
 
-  <!-- Quality Evaluation Section -->
-  {#if primerQuality}
+    <!-- Quality Evaluation Section -->
+    {#if primerQuality}
     <div class="quality-section">
       <div class="quality-header">
         <span 
@@ -270,6 +323,7 @@
         </div>
       </div>
     </div>
+    {/if}
   {/if}
   {/if}
 
@@ -310,6 +364,8 @@
             {currentTemp}
             {currentStage}
             {primerQuality}
+            {hasSample}
+            onSamplePortClick={onSamplePortClick}
           />
         </div>
       </div>
@@ -327,6 +383,176 @@
     padding: 1rem;
     background: #0a0a0a;
     overflow-y: auto;
+  }
+
+  /* Empty State */
+  .empty-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem;
+    min-height: 400px;
+  }
+
+  .pcr-machine-preview {
+    opacity: 0.7;
+  }
+
+  .machine-body {
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    border: 2px solid #3a3a3a;
+    border-radius: 12px;
+    padding: 1rem;
+    width: 280px;
+  }
+
+  .machine-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #3a3a3a;
+  }
+
+  .machine-title {
+    color: #6a9fb5;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+  }
+
+  .indicator-lights {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #333;
+  }
+
+  .indicator.idle {
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .machine-display {
+    background: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .display-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+
+  .display-label {
+    color: #666;
+    font-size: 0.8rem;
+  }
+
+  .display-value {
+    color: #4ade80;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+  }
+
+  .display-value.idle {
+    color: #f59e0b;
+  }
+
+  .sample-wells {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .well-row {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+  }
+
+  .well {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    border: 2px solid #333;
+  }
+
+  .well.empty {
+    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+  }
+
+  .machine-controls {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .control-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    background: #2a2a2a;
+    color: #666;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: not-allowed;
+  }
+
+  .control-btn.disabled {
+    opacity: 0.5;
+  }
+
+  .empty-state-message {
+    text-align: center;
+  }
+
+  .empty-state-message h3 {
+    color: #6a9fb5;
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2rem;
+  }
+
+  .empty-state-message p {
+    color: #888;
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  .workflow-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: rgba(106, 159, 181, 0.1);
+    border: 1px solid rgba(106, 159, 181, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: #6a9fb5;
+    font-size: 0.85rem;
+  }
+
+  .hint-icon {
+    font-size: 1rem;
   }
 
   /* Gene Sequence Section */

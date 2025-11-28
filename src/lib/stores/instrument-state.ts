@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { ElisaWellContents, ElisaStep } from '../../data/organisms';
 
 export interface Colony {
@@ -7,42 +7,39 @@ export interface Colony {
   size: number;
 }
 
-export type MediaType = 'blood-agar' | 'macconkey';
+export type MediaType = 'blood-agar' | 'macconkey' | null;
+
+export type InstrumentType = 'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | 'flow-cytometry' | 'plate-reader';
 
 export interface InstrumentState {
-  // Culture plate state
+  // Which sample is loaded in each instrument (maps instrument -> sampleId)
+  activeSamples: Partial<Record<InstrumentType, string>>;
+
+  // Culture plate state (the only instrument with persistent visual state)
   culture: {
     selectedMedia: MediaType;
     isStreaked: boolean;
-    isIncubating: boolean;
-    incubationProgress: number;
-    showColonies: boolean;
     colonies: Colony[];
   };
-  // ELISA state
+  
+  // ELISA state (multi-step workflow)
   elisa: {
     currentStep: ElisaStep;
     wells: ElisaWellContents[];
-    incubationTime: number;
     platePrepared: boolean;
   };
-  // Microscope state is handled in game-state.ts (currentStain, focusDepth)
-  // Future: biochemical test state
 }
 
 const initialState: InstrumentState = {
+  activeSamples: {},
   culture: {
-    selectedMedia: 'blood-agar',
+    selectedMedia: null,
     isStreaked: false,
-    isIncubating: false,
-    incubationProgress: 0,
-    showColonies: false,
     colonies: [],
   },
   elisa: {
     currentStep: 'coating',
     wells: [],
-    incubationTime: 0,
     platePrepared: false,
   },
 };
@@ -53,17 +50,38 @@ export function resetInstrumentState() {
   instrumentState.set(initialState);
 }
 
+// Sample loading/unloading
+export function loadSampleIntoInstrument(instrument: InstrumentType, sampleId: string) {
+  instrumentState.update(state => ({
+    ...state,
+    activeSamples: {
+      ...state.activeSamples,
+      [instrument]: sampleId,
+    },
+  }));
+}
+
+export function clearSampleFromInstrument(instrument: InstrumentType) {
+  instrumentState.update(state => {
+    const { [instrument]: _, ...rest } = state.activeSamples;
+    return {
+      ...state,
+      activeSamples: rest,
+    };
+  });
+}
+
+export function getActiveSampleId(instrument: InstrumentType): string | undefined {
+  return get(instrumentState).activeSamples[instrument];
+}
+
 // Culture plate helpers
 export function selectMedia(media: MediaType) {
   instrumentState.update(state => ({
     ...state,
     culture: {
-      ...state.culture,
       selectedMedia: media,
       isStreaked: false,
-      isIncubating: false,
-      incubationProgress: 0,
-      showColonies: false,
       colonies: [],
     }
   }));
@@ -79,45 +97,32 @@ export function streakPlate() {
   }));
 }
 
-export function startIncubation() {
-  instrumentState.update(state => ({
-    ...state,
-    culture: {
-      ...state.culture,
-      isIncubating: true,
-    }
-  }));
-}
-
-export function setIncubationProgress(progress: number) {
-  instrumentState.update(state => ({
-    ...state,
-    culture: {
-      ...state.culture,
-      incubationProgress: progress,
-    }
-  }));
-}
-
 export function showColonies(colonies: Colony[]) {
   instrumentState.update(state => ({
     ...state,
     culture: {
       ...state.culture,
-      showColonies: true,
       colonies,
+    }
+  }));
+}
+
+export function resetCulturePlate() {
+  instrumentState.update(state => ({
+    ...state,
+    culture: {
+      selectedMedia: null,
+      isStreaked: false,
+      colonies: [],
     }
   }));
 }
 
 // ELISA helpers
 export function initializeElisaPlate() {
-  // Initialize 96-well plate with standard layout:
-  // Row A: 4 positive controls, 4 negative controls
-  // Rows B-H: Patient samples
   const wells: ElisaWellContents[] = [];
-  
-  // Row A: Controls (8 wells - 4 positive, 4 negative)
+
+  // Row A: Controls (4 positive, 4 negative)
   for (let i = 0; i < 4; i++) {
     wells.push({
       wellType: 'positive-control',
@@ -140,8 +145,8 @@ export function initializeElisaPlate() {
       absorbance: null,
     });
   }
-  
-  // Rows B-H: Patient samples (56 wells, but we'll use first 8 for simplicity)
+
+  // Patient samples (8 wells)
   for (let i = 0; i < 8; i++) {
     wells.push({
       wellType: 'sample',
@@ -153,11 +158,11 @@ export function initializeElisaPlate() {
       absorbance: null,
     });
   }
-  
+
   instrumentState.update(state => ({
     ...state,
     elisa: {
-      ...state.elisa,
+      currentStep: 'coating',
       wells,
       platePrepared: true,
     }
@@ -179,31 +184,24 @@ export function updateElisaWell(wellIndex: number, updates: Partial<ElisaWellCon
     ...state,
     elisa: {
       ...state.elisa,
-      wells: state.elisa.wells.map((well, idx) => 
+      wells: state.elisa.wells.map((well, idx) =>
         idx === wellIndex ? { ...well, ...updates } : well
       ),
     }
   }));
 }
 
-export function setElisaIncubationTime(time: number) {
-  instrumentState.update(state => ({
-    ...state,
-    elisa: {
-      ...state.elisa,
-      incubationTime: time,
-    }
-  }));
+export function readElisaWell(wellIndex: number, absorbance: number) {
+  updateElisaWell(wellIndex, { absorbance });
 }
 
-export function readElisaWell(wellIndex: number, absorbance: number) {
+export function resetElisa() {
   instrumentState.update(state => ({
     ...state,
     elisa: {
-      ...state.elisa,
-      wells: state.elisa.wells.map((well, idx) => 
-        idx === wellIndex ? { ...well, absorbance } : well
-      ),
+      currentStep: 'coating',
+      wells: [],
+      platePrepared: false,
     }
   }));
 }

@@ -4,9 +4,12 @@
   interface Props {
     currentStage: 'preparation' | 'reaction-setup' | 'thermal-cycling' | 'gel-loading' | 'gel-running' | 'sequence-reading';
     selectedDdNTPs: DdNTPType[];
+    hasSample?: boolean;
+    onSamplePortClick?: () => void;
   }
 
-  let { currentStage, selectedDdNTPs }: Props = $props();
+  let { currentStage, selectedDdNTPs, hasSample = false, onSamplePortClick }: Props = $props();
+  let samplePortHovered = $state(false);
 
   // Internal state
   let templatePrepared = $state(false);
@@ -83,7 +86,23 @@
   }
 </script>
 
-<div class="sanger-instrument">
+<div class="sanger-container">
+  <!-- Sample insertion site overlay (only shown when no sample) -->
+  {#if !hasSample}
+    <button 
+      class="sample-insertion-site" 
+      class:hovered={samplePortHovered}
+      onclick={onSamplePortClick}
+      onmouseenter={() => samplePortHovered = true}
+      onmouseleave={() => samplePortHovered = false}
+      title="Click to load sample"
+    >
+      <div class="insertion-icon">🧬</div>
+      <div class="insertion-label">Load Sample</div>
+    </button>
+  {/if}
+
+  <div class="sanger-instrument">
   {#if currentStage === 'preparation' || currentStage === 'reaction-setup' || currentStage === 'thermal-cycling'}
     <!-- Reaction tube visualization -->
     <div class="reaction-area">
@@ -227,8 +246,55 @@
     </div>
   {/if}
 </div>
+</div>
 
 <style>
+  .sanger-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .sample-insertion-site {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    background: rgba(26, 42, 26, 0.95);
+    border: 3px dashed #4a7a4a;
+    border-radius: 12px;
+    padding: 3rem 4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    animation: pulse 2s ease-in-out infinite;
+    color: inherit;
+    font-family: inherit;
+  }
+
+  .sample-insertion-site.hovered {
+    background: rgba(42, 62, 42, 0.98);
+    border-color: #6a9fb5;
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow: 0 0 30px rgba(106, 159, 181, 0.4);
+  }
+
+  .insertion-icon {
+    font-size: 4rem;
+    filter: drop-shadow(0 0 10px rgba(74, 122, 74, 0.6));
+  }
+
+  .insertion-label {
+    color: #8ab98a;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
   .sanger-instrument {
     width: 100%;
     height: 100%;

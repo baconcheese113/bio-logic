@@ -6,39 +6,29 @@
   import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
   import { currentActiveCase } from '../../../stores/active-cases';
-  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
+  import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
+  import { addResult } from '../../../stores/inventory';
   import '../../../styles/instrument-controls.css';
+  
+  const { hasSampleLoaded } = createInstrumentHelpers('biochemical');
   
   let showTestsSection = $state(true);
   let showObservationsSection = $state(true);
   let lastHoveredInfo = $state<string | null>(null);
+  let rightPanelRef = $state<InstrumentRightPanel>();
   
   let catalasePerformed = $state(false);
   let catalaseAnimating = $state(false);
   let coagulasePerformed = $state(false);
   let coagulaseAnimating = $state(false);
 
-  // Sample selection state
-  let selectedSample = $state<InventoryItem | null>(null);
-
-  // Derive available samples from active case
-  let availableSamples = $derived(
-    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
-  );
-
-  function selectSample(sample: InventoryItem) {
-    selectedSample = sample;
-  }
-
-  function changeSample() {
-    selectedSample = null;
-  }
-
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
   }
 
   function performCatalaseTest() {
+    if (!$hasSampleLoaded) return;
+    
     catalaseAnimating = true;
     
     setTimeout(() => {
@@ -48,6 +38,8 @@
   }
 
   function performCoagulaseTest() {
+    if (!$hasSampleLoaded) return;
+    
     coagulaseAnimating = true;
     
     setTimeout(() => {
@@ -55,6 +47,31 @@
       coagulaseAnimating = false;
     }, 2000);
   }
+  
+  // Auto-record evidence and output to inventory when both tests complete
+  $effect(() => {
+    if (!$hasSampleLoaded || !$currentActiveCase) return;
+    
+    if (catalasePerformed && coagulasePerformed) {
+      const catalaseResult = getCatalaseResult();
+      const coagulaseResult = getCoagulaseResult();
+      
+      // Record evidence
+      if (catalaseResult !== null) {
+        setCatalase(catalaseResult);
+      }
+      if (coagulaseResult !== null) {
+        setCoagulase(coagulaseResult);
+      }
+      
+      // Add test results to inventory
+      addResult($currentActiveCase.caseId, 'biochemical-tests', 'Biochemical Test Results', {
+        catalase: catalaseResult,
+        coagulase: coagulaseResult,
+        timestamp: Date.now()
+      });
+    }
+  });
 
   function resetTests() {
     catalasePerformed = false;
@@ -83,7 +100,14 @@
         <div class="test-display">
           <h3>Catalase Test</h3>
           <div class="test-tube-container">
-            <div class="test-slide">
+            <div 
+              class="test-slide"
+              class:clickable={!$hasSampleLoaded}
+              onclick={() => !$hasSampleLoaded && rightPanelRef?.openInventoryForSample('biochemical')}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => !$hasSampleLoaded && e.key === 'Enter' && rightPanelRef?.openInventoryForSample('biochemical')}
+            >
               {#if catalasePerformed && getCatalaseResult() === true}
                 <div class="bacteria-sample"></div>
                 <div class="bubbles">
@@ -117,7 +141,14 @@
         <div class="test-display">
           <h3>Coagulase Test</h3>
           <div class="test-tube-container">
-            <div class="test-tube">
+            <div 
+              class="test-tube"
+              class:clickable={!$hasSampleLoaded}
+              onclick={() => !$hasSampleLoaded && rightPanelRef?.openInventoryForSample('biochemical')}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => !$hasSampleLoaded && e.key === 'Enter' && rightPanelRef?.openInventoryForSample('biochemical')}
+            >
               {#if coagulasePerformed && getCoagulaseResult() === true}
                 <div class="plasma-base"></div>
                 <div class="clot">
@@ -149,35 +180,11 @@
   </div>
 
   <!-- Right: Controls Panel -->
-  <InstrumentRightPanel>
-    <!-- Sample Selection or Active Sample -->
-    {#if !selectedSample}
-      <div class="sample-selection-prompt">
-        <h3>Select Sample</h3>
-        <p>Choose a sample to analyze:</p>
-        {#if availableSamples.length > 0}
-          <div class="sample-list">
-            {#each availableSamples as sample}
-              <button 
-                class="sample-item"
-                onclick={() => selectSample(sample)}
-              >
-                <span class="sample-icon">🧪</span>
-                <span class="sample-name">{sample.type}</span>
-              </button>
-            {/each}
-          </div>
-        {:else}
-          <p class="no-samples">No samples available. Collect a sample first.</p>
-        {/if}
-      </div>
-    {:else}
-      <!-- Active Sample Indicator -->
-      <div class="active-sample-badge">
-        <span>Using: {selectedSample.type}</span>
-        <button class="change-sample-btn" onclick={changeSample}>Change Sample</button>
-      </div>
-
+  <InstrumentRightPanel 
+    bind:this={rightPanelRef}
+    instrument="biochemical"
+  >
+    {#if $hasSampleLoaded}
       <!-- Tests Section -->
       <CollapsibleSection title="Biochemical Tests" bind:isOpen={showTestsSection}>
     <h3>Perform Tests</h3>
@@ -566,86 +573,15 @@
     100% { filter: hue-rotate(360deg); }
   }
 
-  /* Sample Selection Prompt */
-  .sample-selection-prompt {
-    padding: 1.5rem;
-    text-align: center;
-  }
-
-  .sample-selection-prompt h3 {
-    margin-bottom: 0.5rem;
-    color: #fff;
-  }
-
-  .sample-selection-prompt p {
-    color: #999;
-    margin-bottom: 1rem;
-  }
-
-  .sample-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .sample-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 6px;
+  .test-slide.clickable, .test-tube.clickable {
     cursor: pointer;
-    transition: all 0.2s;
-    color: #fff;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
 
-  .sample-item:hover {
-    background: #333;
-    border-color: #3a7bc8;
-    transform: translateX(4px);
+  .test-slide.clickable:hover, .test-tube.clickable:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(122, 184, 216, 0.5);
+    border-color: #7ab8d8;
   }
 
-  .sample-icon {
-    font-size: 1.5rem;
-  }
-
-  .sample-name {
-    font-size: 0.95rem;
-  }
-
-  .no-samples {
-    color: #666;
-    font-style: italic;
-  }
-
-  /* Active Sample Badge */
-  .active-sample-badge {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem;
-    background: #2a4a2a;
-    border: 1px solid #4a7a4a;
-    border-radius: 6px;
-    margin: 0.5rem;
-    color: #fff;
-    font-size: 0.9rem;
-  }
-
-  .change-sample-btn {
-    padding: 0.4rem 0.8rem;
-    background: #3a7bc8;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: background 0.2s;
-  }
-
-  .change-sample-btn:hover {
-    background: #4a8bd8;
-  }
 </style>

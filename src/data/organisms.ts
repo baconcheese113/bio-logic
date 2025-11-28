@@ -7,7 +7,15 @@ export type SampleType =
   | 'wound' 
   | 'csf' 
   | 'urine'
-  | 'tissue';
+  | 'tissue'
+  // Processed samples (outputs from instruments)
+  | 'culture-plate'
+  | 'bacterial-isolate'
+  | 'pcr-amplicon'
+  | 'dna-extract'
+  | 'rna-extract'
+  | 'protein-sample'
+  | 'gene-sequence';
 
 export type GramStain = 'positive' | 'negative' | 'variable';
 export type Shape = 'cocci' | 'bacilli' | 'spirochete' | 'diplococci' | 'coccobacilli';
@@ -188,6 +196,13 @@ export const CELL_TYPES: Record<CellTypeName, StandardCellType> = {
 export interface FlowCytometryProperties {
   populations: { type: CellTypeName; percentage: number }[];
   clinicalContext: string;
+}
+
+export interface BiologicalProperties {
+  bloodType?: string; // e.g. "A+", "O-", "AB+"
+  hasSyphilisAntibodies?: boolean;
+  hasDiphtheriaAntitoxin?: boolean;
+  flowCytometry?: FlowCytometryProperties;
 }
 
 export interface CultureProperties {
@@ -1175,4 +1190,12 @@ export const SAMPLE_BACKGROUNDS: Record<SampleType, SampleBackground> = {
   'csf': 'clear-fluid',
   'urine': 'clear-fluid',
   'tissue': 'epithelial-cells',
+  // Processed samples (lab-prepared, minimal background)
+  'culture-plate': 'clear-fluid',
+  'bacterial-isolate': 'clear-fluid',
+  'pcr-amplicon': 'clear-fluid',
+  'dna-extract': 'clear-fluid',
+  'rna-extract': 'clear-fluid',
+  'protein-sample': 'clear-fluid',
+  'gene-sequence': 'clear-fluid',
 };

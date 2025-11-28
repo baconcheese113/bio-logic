@@ -2,6 +2,9 @@
   import InventoryPanel from './InventoryPanel.svelte';
   import NavigationButtons from './NavigationButtons.svelte';
   import DiagnosisView from '../DiagnosisView.svelte';
+  import SampleBadge from './SampleBadge.svelte';
+  import { instrumentState, type InstrumentType } from '../../stores/instrument-state';
+  import type { InventoryItem } from '../../stores/inventory';
   import type { Snippet } from 'svelte';
   
   type TabConfig = 'controls-inventory' | 'controls-diagnosis' | 'controls-inventory-diagnosis';
@@ -13,12 +16,53 @@
     showDiagnosis?: boolean;
     tabConfig?: TabConfig;
     diagnosisCount?: number;
+    instrument?: InstrumentType;
+    onSampleLoaded?: (sample: InventoryItem) => void;
+    onSampleSelected?: (sample: InventoryItem | null) => void;
   };
   
-  let { children, primaryAction, primaryLabel, showDiagnosis, tabConfig = 'controls-inventory', diagnosisCount = 0 }: Props = $props();
+  let { 
+    children, 
+    primaryAction, 
+    primaryLabel, 
+    showDiagnosis, 
+    tabConfig = 'controls-inventory', 
+    diagnosisCount = 0,
+    instrument,
+    onSampleLoaded,
+    onSampleSelected
+  }: Props = $props();
   
   type ActiveTab = 'controls' | 'inventory' | 'diagnosis';
   let activeTab = $state<ActiveTab>('controls');
+  let pendingSample = $state<InventoryItem | null>(null);
+  
+  // Export function to switch to inventory tab
+  export function openInventoryForSample(_instrumentType?: InstrumentType) {
+    activeTab = 'inventory';
+  }
+  
+  // Export function to get pending sample (for instruments to check)
+  export function getPendingSample(): InventoryItem | null {
+    return pendingSample;
+  }
+  
+  // Export function to clear pending sample after loading
+  export function clearPendingSample() {
+    pendingSample = null;
+  }
+  
+  function handleSampleSelected(sample: InventoryItem | null) {
+    pendingSample = sample;
+    onSampleSelected?.(sample);
+  }
+  
+  function handleSampleLoaded(sample: InventoryItem) {
+    // Switch back to controls after loading
+    activeTab = 'controls';
+    pendingSample = null;
+    onSampleLoaded?.(sample);
+  }
 </script>
 
 <div class="controls-panel">
@@ -52,6 +96,19 @@
 
   {#if activeTab === 'controls'}
     <div class="controls-content">
+      {#if instrument}
+        <div class="sample-management-section">
+          <SampleBadge {instrument} />
+          {#if !$instrumentState.activeSamples[instrument]}
+            <button 
+              class="select-sample-btn" 
+              onclick={() => openInventoryForSample(instrument)}
+            >
+              Select Sample
+            </button>
+          {/if}
+        </div>
+      {/if}
       {@render children()}
     </div>
     
@@ -64,7 +121,11 @@
       />
     </div>
   {:else if activeTab === 'inventory'}
-    <InventoryPanel />
+    <InventoryPanel 
+      highlightInstrument={instrument}
+      onSampleLoaded={handleSampleLoaded}
+      onSampleSelected={handleSampleSelected}
+    />
   {:else}
     <DiagnosisView />
   {/if}
@@ -125,5 +186,30 @@
     padding: 0.5rem;
     background: #2a2a2a;
     border-top: 1px solid #444;
+  }
+
+  .sample-management-section {
+    margin-bottom: 1rem;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+
+  .select-sample-btn {
+    width: 100%;
+    padding: 0.6rem;
+    margin-top: 0.75rem;
+    background: #3a7bc8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+
+  .select-sample-btn:hover {
+    background: #4a8bd8;
   }
 </style>

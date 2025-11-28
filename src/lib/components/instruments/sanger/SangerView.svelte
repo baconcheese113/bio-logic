@@ -3,8 +3,15 @@
   import SangerInstrument from './SangerInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
+  import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
+  import { addSample } from '../../../stores/inventory';
+  import { currentActiveCase } from '../../../stores/active-cases';
   import type { DdNTPType } from '../../../../data/organisms';
+  
+  const { hasSampleLoaded } = createInstrumentHelpers('sanger');
+  
   let sangerRef = $state<SangerInstrument>();
+  let rightPanelRef = $state<InstrumentRightPanel>();
   let lastHoveredInfo = $state<string | null>(null);
   
   // Workflow stages
@@ -32,6 +39,8 @@
   let sequenceRevealed = $state(false);
 
   function prepareTemplate() {
+    if (!$hasSampleLoaded) return;
+    
     templatePrepared = true;
     sangerRef?.showTemplatePrepared();
   }
@@ -110,8 +119,14 @@
   }
 
   function revealSequence() {
+    if (!gelComplete) return;
     sequenceRevealed = true;
     sangerRef?.revealSequence();
+
+    // Add gene sequence to inventory
+    if ($currentActiveCase?.caseId) {
+      addSample($currentActiveCase.caseId, 'gene-sequence');
+    }
   }
 
   function resetWorkflow() {
@@ -136,6 +151,10 @@
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
   }
+  
+  function handleSamplePortClick() {
+    rightPanelRef?.openInventoryForSample('sanger');
+  }
 </script>
 
 <div class="sanger-view">
@@ -145,6 +164,8 @@
         bind:this={sangerRef}
         {currentStage}
         {selectedDdNTPs}
+        hasSample={$hasSampleLoaded}
+        onSamplePortClick={handleSamplePortClick}
       />
     </StageArea>
 
@@ -152,8 +173,10 @@
   </div>
 
   <InstrumentRightPanel 
+    bind:this={rightPanelRef}
     tabConfig="controls-inventory" 
     showDiagnosis={false}
+    instrument="sanger"
   >
         <!-- Preparation Stage -->
         {#if currentStage === 'preparation'}
@@ -162,11 +185,11 @@
             <button 
               class="action-button primary" 
               class:completed={templatePrepared}
-              disabled={templatePrepared}
+              disabled={templatePrepared || !$hasSampleLoaded}
               onclick={prepareTemplate}
               onmouseenter={() => setHoveredInfo('prepare-template')}
             >
-              {templatePrepared ? '✓ Template Prepared' : 'Prepare DNA Template'}
+              {templatePrepared ? '✓ Template Prepared' : $hasSampleLoaded ? 'Prepare DNA Template' : 'Load Sample First'}
             </button>
             <div class="help-text">
               Denature and purify the DNA template for sequencing

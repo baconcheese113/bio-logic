@@ -1,97 +1,145 @@
 <script lang="ts">
-  import StageArea from '../../shared/StageArea.svelte';
-  import AgglutinationSlide from './AgglutinationSlide.svelte';
-  import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
-  import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
-  import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
-  import { evidence, setBloodType, setRhFactor, setSyphilisAntibodies, setDiphtheriaAntitoxin } from '../../../stores/evidence';
-  import { currentCase } from '../../../stores/game-state';
-  import { currentActiveCase } from '../../../stores/active-cases';
-  import { getSamplesForCase, type InventoryItem } from '../../../stores/inventory';
+  import StageArea from "../../shared/StageArea.svelte";
+  import AgglutinationSlide from "./AgglutinationSlide.svelte";
+  import HoverInfoPanel from "../../shared/HoverInfoPanel.svelte";
+  import CollapsibleSection from "../../shared/CollapsibleSection.svelte";
+  import InstrumentRightPanel from "../../shared/InstrumentRightPanel.svelte";
+  import {
+    evidence,
+    setBloodType,
+    setRhFactor,
+    setSyphilisAntibodies,
+    setDiphtheriaAntitoxin,
+  } from "../../../stores/evidence";
+  import { currentCase } from "../../../stores/game-state";
+  import { instrumentState } from "../../../stores/instrument-state";
+  import { createInstrumentHelpers } from "../../../stores/instrument-helpers";
+  import {
+    startBackgroundProcess,
+    getInstrumentProcess,
+    isProcessComplete,
+    completeProcess,
+  } from "../../../stores/timer-service";
+  import { currentActiveCase } from "../../../stores/active-cases";
 
-  let currentTest = $state<'anti-a' | 'anti-b' | 'anti-d' | 'syphilis' | 'diphtheria' | null>(null);
-  let testResult = $state<'positive' | 'negative'>('negative');
+  const { hasSampleLoaded } = createInstrumentHelpers("serology");
+
+  let currentTest = $state<
+    "anti-a" | "anti-b" | "anti-d" | "syphilis" | "diphtheria" | null
+  >(null);
+  let testResult = $state<"positive" | "negative">("negative");
   let lastHoveredInfo = $state<string | null>(null);
+  let rightPanelRef = $state<InstrumentRightPanel>();
+  let activeProcessId = $state<string | null>(null);
 
-  // Sample selection state
-  let selectedSample = $state<InventoryItem | null>(null);
-
-  // Derive available samples from active case
-  let availableSamples = $derived(
-    $currentActiveCase ? getSamplesForCase($currentActiveCase.caseId) : []
-  );
-
-  function selectSample(sample: InventoryItem) {
-    selectedSample = sample;
-  }
-
-  function changeSample() {
-    selectedSample = null;
-  }
+  // Get current case ID for timer-service
+  const caseId = $derived($currentActiveCase?.caseId ?? "");
+  
+  // Processing state - check if there's an active process for serology
+  const serologyProcess = $derived(getInstrumentProcess("serology"));
+  const isRunning = $derived(!!serologyProcess && !isProcessComplete(serologyProcess));
 
   const tests = [
-    { value: 'anti-a' as const, label: 'Anti-A Serum', infoKey: 'test-anti-a' },
-    { value: 'anti-b' as const, label: 'Anti-B Serum', infoKey: 'test-anti-b' },
-    { value: 'anti-d' as const, label: 'Anti-D Serum (Rh)', infoKey: 'test-rh' },
-    { value: 'syphilis' as const, label: 'Syphilis (RPR)', infoKey: 'test-syphilis' },
-    { value: 'diphtheria' as const, label: 'Diphtheria Antitoxin', infoKey: 'test-diphtheria' },
+    { value: "anti-a" as const, label: "Anti-A Serum", infoKey: "test-anti-a" },
+    { value: "anti-b" as const, label: "Anti-B Serum", infoKey: "test-anti-b" },
+    {
+      value: "anti-d" as const,
+      label: "Anti-D Serum (Rh)",
+      infoKey: "test-rh",
+    },
+    {
+      value: "syphilis" as const,
+      label: "Syphilis (RPR)",
+      infoKey: "test-syphilis",
+    },
+    {
+      value: "diphtheria" as const,
+      label: "Diphtheria Antitoxin",
+      infoKey: "test-diphtheria",
+    },
   ];
 
   // Track which tests have been run
-  let antiAResult = $state<'positive' | 'negative' | null>(null);
-  let antiBResult = $state<'positive' | 'negative' | null>(null);
+  let antiAResult = $state<"positive" | "negative" | null>(null);
+  let antiBResult = $state<"positive" | "negative" | null>(null);
 
   function selectTest(test: typeof currentTest) {
-    currentTest = currentTest === test ? null : test;
+    if (currentTest === test || !caseId) {
+      currentTest = null;
+      return;
+    }
+
+    currentTest = test;
+    testResult = "negative"; // Default to negative
+
+    const sampleId = $instrumentState.activeSamples["serology"] ?? "";
     
+    // Start incubation process using timer-service (3 seconds)
+    activeProcessId = startBackgroundProcess(caseId, "serology", sampleId, "Incubating", 3000);
+    
+    // Set timeout to complete and calculate result
+    setTimeout(() => {
+      if (activeProcessId) {
+        completeProcess(activeProcessId);
+        activeProcessId = null;
+      }
+      calculateResult();
+    }, 3000);
+  }
+
+  function calculateResult() {
+    if (!currentTest) return;
+
     // For blood typing cases, simulate correct agglutination based on case answer
-    if ($currentCase.answerFormat === 'blood-typing') {
+    if ($currentCase.answerFormat === "blood-typing") {
       const correctBloodType = $currentCase.correctAnswer; // e.g., "A+", "O-", "AB+"
-      const baseType = correctBloodType.replace('+', '').replace('-', ''); // Strip Rh
-      
-      if (test === 'anti-a') {
+      const baseType = correctBloodType.replace("+", "").replace("-", ""); // Strip Rh
+
+      if (currentTest === "anti-a") {
         // Agglutinates if blood has A antigen (A or AB)
-        testResult = (baseType === 'A' || baseType === 'AB') ? 'positive' : 'negative';
-      } else if (test === 'anti-b') {
+        testResult =
+          baseType === "A" || baseType === "AB" ? "positive" : "negative";
+      } else if (currentTest === "anti-b") {
         // Agglutinates if blood has B antigen (B or AB)
-        testResult = (baseType === 'B' || baseType === 'AB') ? 'positive' : 'negative';
-      } else if (test === 'anti-d') {
+        testResult =
+          baseType === "B" || baseType === "AB" ? "positive" : "negative";
+      } else if (currentTest === "anti-d") {
         // Agglutinates if Rh positive
-        testResult = correctBloodType.includes('+') ? 'positive' : 'negative';
+        testResult = correctBloodType.includes("+") ? "positive" : "negative";
       }
-    } else if ($currentCase.answerFormat === 'immunity-screening') {
-      if (test === 'diphtheria') {
-        testResult = $currentCase.correctAnswer === 'immune' ? 'positive' : 'negative';
+    } else if ($currentCase.answerFormat === "immunity-screening") {
+      if (currentTest === "diphtheria") {
+        testResult =
+          $currentCase.correctAnswer === "immune" ? "positive" : "negative";
       }
-    } else if ($currentCase.answerFormat === 'syphilis-detection') {
-      if (test === 'syphilis') {
-        testResult = $currentCase.correctAnswer === 'positive' ? 'positive' : 'negative';
+    } else if ($currentCase.answerFormat === "syphilis-detection") {
+      if (currentTest === "syphilis") {
+        testResult =
+          $currentCase.correctAnswer === "positive" ? "positive" : "negative";
       }
     }
   }
 
-  function recordAntiAResult(result: 'positive' | 'negative') {
+  function recordAntiAResult(result: "positive" | "negative") {
     antiAResult = result;
     updateBloodTypeFromTests();
   }
 
-  function recordAntiBResult(result: 'positive' | 'negative') {
+  function recordAntiBResult(result: "positive" | "negative") {
     antiBResult = result;
     updateBloodTypeFromTests();
   }
 
   function updateBloodTypeFromTests() {
-    if (antiAResult === null || antiBResult === null) return;
-    
     // Determine ABO type from test results
-    if (antiAResult === 'positive' && antiBResult === 'positive') {
-      setBloodType('AB');
-    } else if (antiAResult === 'positive' && antiBResult === 'negative') {
-      setBloodType('A');
-    } else if (antiAResult === 'negative' && antiBResult === 'positive') {
-      setBloodType('B');
+    if (antiAResult === "positive" && antiBResult === "positive") {
+      setBloodType("AB");
+    } else if (antiAResult === "positive" && antiBResult === "negative") {
+      setBloodType("A");
+    } else if (antiAResult === "negative" && antiBResult === "positive") {
+      setBloodType("B");
     } else {
-      setBloodType('O');
+      setBloodType("O");
     }
   }
 
@@ -107,6 +155,9 @@
     setDiphtheriaAntitoxin(hasAntitoxin);
   }
 
+  let showTestsSection = $state(true);
+  let showObservationsSection = $state(true);
+
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
   }
@@ -115,178 +166,171 @@
 <div class="serology-view">
   <div class="stage-container">
     <StageArea showCaseHeader={true}>
-      <AgglutinationSlide testType={currentTest} result={testResult} />
+      <div
+        class="slide-container"
+        class:clickable={!$hasSampleLoaded}
+        onclick={() =>
+          !$hasSampleLoaded && rightPanelRef?.openInventoryForSample("serology")}
+        role="button"
+        tabindex="0"
+        onkeydown={(e) =>
+          !$hasSampleLoaded &&
+          e.key === "Enter" &&
+          rightPanelRef?.openInventoryForSample("serology")}
+      >
+        {#if isRunning}
+          <div class="processing-overlay">
+            <div class="spinner"></div>
+            <div class="processing-text">Incubating...</div>
+          </div>
+        {/if}
+        <AgglutinationSlide testType={currentTest} result={testResult} />
+      </div>
     </StageArea>
 
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
-  <InstrumentRightPanel>
-    <!-- Sample Selection or Active Sample -->
-      {#if !selectedSample}
-        <div class="sample-selection-prompt">
-          <h3>Select Sample</h3>
-          <p>Choose a blood sample to test:</p>
-          {#if availableSamples.length > 0}
-            <div class="sample-list">
-              {#each availableSamples as sample}
-                <button 
-                  class="sample-item"
-                  onclick={() => selectSample(sample)}
-                >
-                  <span class="sample-icon">🩸</span>
-                  <span class="sample-name">{sample.type}</span>
-                </button>
-              {/each}
+  <InstrumentRightPanel
+    bind:this={rightPanelRef}
+    instrument="serology"
+  >
+    {#if $hasSampleLoaded}
+      <CollapsibleSection title="Serology Tests" bind:isOpen={showTestsSection}>
+        <div class="test-grid">
+          {#each tests as test}
+            <button
+              class="test-button"
+              class:active={currentTest === test.value}
+              disabled={isRunning}
+              onclick={() => selectTest(test.value)}
+              onmouseenter={() => setHoveredInfo(test.infoKey)}
+            >
+              {test.label}
+            </button>
+          {/each}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Record Results"
+        bind:isOpen={showObservationsSection}
+      >
+        {#if currentTest === "anti-a"}
+          <div class="obs-label">Anti-A Serum Result:</div>
+          <div class="obs-buttons-grid">
+            <button
+              class="obs-button"
+              class:active={antiAResult === "positive"}
+              onclick={() => recordAntiAResult("positive")}
+              onmouseenter={() => setHoveredInfo("agglutination")}
+            >
+              Agglutination (+)
+            </button>
+            <button
+              class="obs-button"
+              class:active={antiAResult === "negative"}
+              onclick={() => recordAntiAResult("negative")}
+              onmouseenter={() => setHoveredInfo("agglutination")}
+            >
+              No Agglutination (-)
+            </button>
+          </div>
+          {#if antiAResult !== null}
+            <div class="info-hint">
+              Now test with Anti-B serum to determine blood type
             </div>
-          {:else}
-            <p class="no-samples">No samples available. Collect a blood sample first.</p>
           {/if}
-        </div>
-      {:else}
-        <!-- Active Sample Indicator -->
-        <div class="active-sample-badge">
-          <span>Using: {selectedSample.type}</span>
-          <button class="change-sample-btn" onclick={changeSample}>Change Sample</button>
-        </div>
-
-        <!-- Test Selection Section -->
-        <CollapsibleSection title="Test Selection" isOpen={true}>
-      <div class="test-buttons">
-        {#each tests as { value, label, infoKey }}
-          <button 
-            class="test-button" 
-            class:active={currentTest === value}
-            onclick={() => selectTest(value)}
-            onmouseenter={() => setHoveredInfo(infoKey)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
-    </CollapsibleSection>
-
-    <CollapsibleSection title="Record Results" isOpen={true}>
-      {#if currentTest === 'anti-a'}
-        <div class="obs-label">Anti-A Serum Result:</div>
-        <div class="obs-buttons-grid">
-          <button 
-            class="obs-button"
-            class:active={antiAResult === 'positive'}
-            onclick={() => recordAntiAResult('positive')}
-            onmouseenter={() => setHoveredInfo('agglutination')}
-          >
-            Agglutination (+)
-          </button>
-          <button 
-            class="obs-button"
-            class:active={antiAResult === 'negative'}
-            onclick={() => recordAntiAResult('negative')}
-            onmouseenter={() => setHoveredInfo('agglutination')}
-          >
-            No Agglutination (-)
-          </button>
-        </div>
-        {#if antiAResult !== null}
-          <div class="info-hint">
-            Now test with Anti-B serum to determine blood type
+        {:else if currentTest === "anti-b"}
+          <div class="obs-label">Anti-B Serum Result:</div>
+          <div class="obs-buttons-grid">
+            <button
+              class="obs-button"
+              class:active={antiBResult === "positive"}
+              onclick={() => recordAntiBResult("positive")}
+              onmouseenter={() => setHoveredInfo("agglutination")}
+            >
+              Agglutination (+)
+            </button>
+            <button
+              class="obs-button"
+              class:active={antiBResult === "negative"}
+              onclick={() => recordAntiBResult("negative")}
+              onmouseenter={() => setHoveredInfo("agglutination")}
+            >
+              No Agglutination (-)
+            </button>
           </div>
-        {/if}
-
-      {:else if currentTest === 'anti-b'}
-        <div class="obs-label">Anti-B Serum Result:</div>
-        <div class="obs-buttons-grid">
-          <button 
-            class="obs-button"
-            class:active={antiBResult === 'positive'}
-            onclick={() => recordAntiBResult('positive')}
-            onmouseenter={() => setHoveredInfo('agglutination')}
-          >
-            Agglutination (+)
-          </button>
-          <button 
-            class="obs-button"
-            class:active={antiBResult === 'negative'}
-            onclick={() => recordAntiBResult('negative')}
-            onmouseenter={() => setHoveredInfo('agglutination')}
-          >
-            No Agglutination (-)
-          </button>
-        </div>
-        {#if antiBResult !== null && antiAResult === null}
-          <div class="info-hint">
-            Now test with Anti-A serum to determine blood type
+          {#if antiBResult !== null && antiAResult === null}
+            <div class="info-hint">
+              Now test with Anti-A serum to determine blood type
+            </div>
+          {/if}
+        {:else if currentTest === "anti-d"}
+          <div class="obs-label">Anti-D (Rh) Result:</div>
+          <div class="obs-buttons-grid">
+            <button
+              class="obs-button"
+              class:active={$evidence.rhFactor === true}
+              onclick={() => recordRhFactor(true)}
+              onmouseenter={() => setHoveredInfo("rh-positive")}
+            >
+              Positive (+)
+            </button>
+            <button
+              class="obs-button"
+              class:active={$evidence.rhFactor === false}
+              onclick={() => recordRhFactor(false)}
+              onmouseenter={() => setHoveredInfo("rh-negative")}
+            >
+              Negative (-)
+            </button>
           </div>
+        {:else if currentTest === "syphilis"}
+          <div class="obs-label">Antibodies Detected:</div>
+          <div class="obs-buttons-grid">
+            <button
+              class="obs-button"
+              class:active={$evidence.syphilisAntibodies === true}
+              onclick={() => recordSyphilis(true)}
+              onmouseenter={() => setHoveredInfo("syphilis-positive")}
+            >
+              Positive
+            </button>
+            <button
+              class="obs-button"
+              class:active={$evidence.syphilisAntibodies === false}
+              onclick={() => recordSyphilis(false)}
+              onmouseenter={() => setHoveredInfo("syphilis-negative")}
+            >
+              Negative
+            </button>
+          </div>
+        {:else if currentTest === "diphtheria"}
+          <div class="obs-label">Antitoxin Present:</div>
+          <div class="obs-buttons-grid">
+            <button
+              class="obs-button"
+              class:active={$evidence.diphtheriaAntitoxin === true}
+              onclick={() => recordDiphtheria(true)}
+              onmouseenter={() => setHoveredInfo("diphtheria-immune")}
+            >
+              Immune
+            </button>
+            <button
+              class="obs-button"
+              class:active={$evidence.diphtheriaAntitoxin === false}
+              onclick={() => recordDiphtheria(false)}
+              onmouseenter={() => setHoveredInfo("diphtheria-not-immune")}
+            >
+              Not Immune
+            </button>
+          </div>
+        {:else}
+          <div class="info-hint">Select a test above to record results</div>
         {/if}
-
-      {:else if currentTest === 'anti-d'}
-        <div class="obs-label">Anti-D (Rh) Result:</div>
-        <div class="obs-buttons-grid">
-          <button 
-            class="obs-button"
-            class:active={$evidence.rhFactor === true}
-            onclick={() => recordRhFactor(true)}
-            onmouseenter={() => setHoveredInfo('rh-positive')}
-          >
-            Positive (+)
-          </button>
-          <button 
-            class="obs-button"
-            class:active={$evidence.rhFactor === false}
-            onclick={() => recordRhFactor(false)}
-            onmouseenter={() => setHoveredInfo('rh-negative')}
-          >
-            Negative (-)
-          </button>
-        </div>
-
-      {:else if currentTest === 'syphilis'}
-        <div class="obs-label">Antibodies Detected:</div>
-        <div class="obs-buttons-grid">
-          <button 
-            class="obs-button"
-            class:active={$evidence.syphilisAntibodies === true}
-            onclick={() => recordSyphilis(true)}
-            onmouseenter={() => setHoveredInfo('syphilis-positive')}
-          >
-            Positive
-          </button>
-          <button 
-            class="obs-button"
-            class:active={$evidence.syphilisAntibodies === false}
-            onclick={() => recordSyphilis(false)}
-            onmouseenter={() => setHoveredInfo('syphilis-negative')}
-          >
-            Negative
-          </button>
-        </div>
-
-      {:else if currentTest === 'diphtheria'}
-        <div class="obs-label">Antitoxin Present:</div>
-        <div class="obs-buttons-grid">
-          <button 
-            class="obs-button"
-            class:active={$evidence.diphtheriaAntitoxin === true}
-            onclick={() => recordDiphtheria(true)}
-            onmouseenter={() => setHoveredInfo('diphtheria-immune')}
-          >
-            Immune
-          </button>
-          <button 
-            class="obs-button"
-            class:active={$evidence.diphtheriaAntitoxin === false}
-            onclick={() => recordDiphtheria(false)}
-            onmouseenter={() => setHoveredInfo('diphtheria-not-immune')}
-          >
-            Not Immune
-          </button>
-        </div>
-
-      {:else}
-        <div class="info-hint">Select a test above to record results</div>
-      {/if}
-    </CollapsibleSection>
-      {/if}
+      </CollapsibleSection>
+    {/if}
   </InstrumentRightPanel>
 </div>
 
@@ -304,7 +348,24 @@
     flex-direction: column;
   }
 
-  .test-buttons {
+  .slide-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .slide-container.clickable {
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .slide-container.clickable:hover {
+    transform: scale(1.02);
+  }
+
+  .test-grid {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
@@ -350,86 +411,39 @@
     font-size: 0.85rem;
   }
 
-  /* Sample Selection Prompt */
-  .sample-selection-prompt {
-    padding: 1.5rem;
-    text-align: center;
-  }
-
-  .sample-selection-prompt h3 {
-    margin-bottom: 0.5rem;
-    color: #fff;
-  }
-
-  .sample-selection-prompt p {
-    color: #999;
-    margin-bottom: 1rem;
-  }
-
-  .sample-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .sample-item {
+  .processing-overlay {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(74, 124, 89, 0.95);
+    padding: 0.75rem 1.5rem;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: #fff;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
-  .sample-item:hover {
-    background: #333;
-    border-color: #c83a3a;
-    transform: translateX(4px);
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
   }
 
-  .sample-icon {
-    font-size: 1.5rem;
-  }
-
-  .sample-name {
-    font-size: 0.95rem;
-  }
-
-  .no-samples {
-    color: #666;
-    font-style: italic;
-  }
-
-  /* Active Sample Badge */
-  .active-sample-badge {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem;
-    background: #2a4a2a;
-    border: 1px solid #4a7a4a;
-    border-radius: 6px;
-    margin: 0.5rem;
-    color: #fff;
+  .processing-text {
+    color: white;
+    font-weight: 600;
     font-size: 0.9rem;
+    letter-spacing: 0.5px;
   }
 
-  .change-sample-btn {
-    padding: 0.4rem 0.8rem;
-    background: #3a7bc8;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: background 0.2s;
-  }
-
-  .change-sample-btn:hover {
-    background: #4a8bd8;
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

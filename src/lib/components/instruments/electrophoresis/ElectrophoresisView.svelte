@@ -3,20 +3,26 @@
   import ElectrophoresisInstrument from './ElectrophoresisInstrument.svelte';
   import HoverInfoPanel from '../../shared/HoverInfoPanel.svelte';
   import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
+  import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
   import { evidence, toggleProteinPattern, setAlbuminLevel, setGlobulinLevel } from '../../../stores/evidence';
+  
+  const { hasSampleLoaded } = createInstrumentHelpers('electrophoresis');
+  
   let showObservationsSection = $state(true);
   let electrophoresisRef = $state<ElectrophoresisInstrument>();
+  let rightPanelRef = $state<InstrumentRightPanel>();
   let lastHoveredInfo = $state<string | null>(null);
   let isRunning = $state(false);
   let migrationComplete = $state(false);
   let isStained = $state(false);
 
   function startElectrophoresis() {
+    if (!$hasSampleLoaded) return;
+    
     isRunning = true;
     migrationComplete = false;
     isStained = false;
     electrophoresisRef?.runElectrophoresis();
-    // Migration completes after ~4 seconds
     setTimeout(() => {
       isRunning = false;
       migrationComplete = true;
@@ -24,7 +30,7 @@
   }
 
   function applyStain() {
-    if (!migrationComplete) return;
+    if (!migrationComplete || !$hasSampleLoaded) return;
     isStained = true;
     electrophoresisRef?.applyStain();
   }
@@ -32,20 +38,30 @@
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
   }
+  
+  function handleSamplePortClick() {
+    rightPanelRef?.openInventoryForSample('electrophoresis');
+  }
 </script>
 
 <div class="electrophoresis-view">
   <div class="stage-container">
     <StageArea showCaseHeader={true}>
-      <ElectrophoresisInstrument bind:this={electrophoresisRef} />
+      <ElectrophoresisInstrument 
+        bind:this={electrophoresisRef} 
+        hasSample={$hasSampleLoaded}
+        onSamplePortClick={handleSamplePortClick}
+      />
     </StageArea>
 
     <HoverInfoPanel infoKey={lastHoveredInfo} />
   </div>
 
   <InstrumentRightPanel 
+    bind:this={rightPanelRef}
     tabConfig="controls-inventory" 
     showDiagnosis={false}
+    instrument="electrophoresis"
   >
         <!-- Run Control - Always visible -->
         <div class="section">
@@ -55,11 +71,11 @@
           <div class="section-content">
             <button 
               class="run-button" 
-              disabled={isRunning}
+              disabled={isRunning || !$hasSampleLoaded}
               onclick={startElectrophoresis}
               onmouseenter={() => setHoveredInfo('run-electrophoresis')}
             >
-              {isRunning ? 'Running...' : 'Run Electrophoresis'}
+              {isRunning ? 'Running...' : $hasSampleLoaded ? 'Run Electrophoresis' : 'Load Sample First'}
             </button>
             <div class="help-text">
               Apply electric current to separate proteins by size and charge

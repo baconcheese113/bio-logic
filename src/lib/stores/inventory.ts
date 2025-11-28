@@ -1,16 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
-import type { SampleType } from '../../data/organisms';
+import type { SampleType, BiologicalProperties } from '../../data/organisms';
 
 export type InventoryItemType = 'sample' | 'result';
-
-// Process status for long-running tests (incubation, thermocycling, etc.)
-export interface ProcessStatus {
-  instrument: string; // e.g., 'culture', 'pcr'
-  processName: string; // e.g., 'Incubating', 'Thermocycling'
-  progress: number; // 0-100
-  timeRemaining?: string; // e.g., '2h 30m'
-  startTime: number;
-}
 
 export interface InventoryItem {
   id: string;
@@ -19,8 +10,8 @@ export interface InventoryItem {
   itemType: string; // e.g., 'blood', 'gram-stain', 'pcr-result'
   displayName: string;
   timestamp: number;
-  activeProcesses?: ProcessStatus[]; // For samples: tracks active long-running processes
-  data?: Record<string, unknown>; // Additional metadata
+  data?: Record<string, unknown>;
+  biologicalProperties?: BiologicalProperties;
 }
 
 export interface CaseInventory {
@@ -67,7 +58,7 @@ export const inventoryByCase = derived(
 );
 
 // Add a sample to inventory
-export function addSample(caseId: string, sampleType: SampleType) {
+export function addSample(caseId: string, sampleType: SampleType, biologicalProperties?: BiologicalProperties) {
   const currentInventory = get(inventory);
   
   // Check if sample of this type already exists for this case
@@ -87,7 +78,7 @@ export function addSample(caseId: string, sampleType: SampleType) {
     itemType: sampleType,
     displayName: formatSampleName(sampleType),
     timestamp: Date.now(),
-    activeProcesses: [],
+    biologicalProperties,
   };
   
   inventory.update(state => ({
@@ -98,74 +89,7 @@ export function addSample(caseId: string, sampleType: SampleType) {
   return true;
 }
 
-// Start a process for a sample (e.g., incubation, thermocycling)
-export function startProcess(
-  sampleId: string,
-  instrument: string,
-  processName: string,
-  durationMs?: number
-) {
-  const process: ProcessStatus = {
-    instrument,
-    processName,
-    progress: 0,
-    startTime: Date.now(),
-  };
-  
-  if (durationMs) {
-    process.timeRemaining = formatDuration(durationMs);
-  }
-  
-  inventory.update(state => ({
-    ...state,
-    items: state.items.map(item =>
-      item.id === sampleId
-        ? {
-            ...item,
-            activeProcesses: [...(item.activeProcesses || []), process],
-          }
-        : item
-    ),
-  }));
-}
-
-// Update process progress
-export function updateProcessProgress(
-  sampleId: string,
-  instrument: string,
-  progress: number
-) {
-  inventory.update(state => ({
-    ...state,
-    items: state.items.map(item =>
-      item.id === sampleId && item.activeProcesses
-        ? {
-            ...item,
-            activeProcesses: item.activeProcesses.map(p =>
-              p.instrument === instrument ? { ...p, progress } : p
-            ),
-          }
-        : item
-    ),
-  }));
-}
-
-// Complete a process for a sample
-export function completeProcess(sampleId: string, instrument: string) {
-  inventory.update(state => ({
-    ...state,
-    items: state.items.map(item =>
-      item.id === sampleId && item.activeProcesses
-        ? {
-            ...item,
-            activeProcesses: item.activeProcesses.filter(p => p.instrument !== instrument),
-          }
-        : item
-    ),
-  }));
-}
-
-// Get samples for a case (all samples are always available for use)
+// Get samples for a case
 export function getSamplesForCase(caseId: string) {
   const currentInventory = get(inventory);
   return currentInventory.items.filter(
@@ -187,7 +111,6 @@ export function replaceSample(caseId: string, sampleType: SampleType) {
       itemType: sampleType,
       displayName: formatSampleName(sampleType),
       timestamp: Date.now(),
-      activeProcesses: [],
     };
     
     return {
@@ -244,21 +167,13 @@ function formatSampleName(sampleType: SampleType): string {
     'csf': 'Cerebrospinal Fluid',
     'urine': 'Urine Sample',
     'tissue': 'Tissue Biopsy',
+    'culture-plate': 'Culture Plate',
+    'bacterial-isolate': 'Bacterial Isolate',
+    'pcr-amplicon': 'PCR Amplicon',
+    'dna-extract': 'DNA Extract',
+    'rna-extract': 'RNA Extract',
+    'protein-sample': 'Protein Sample',
+    'gene-sequence': 'Gene Sequence',
   };
   return names[sampleType] || sampleType;
-}
-
-// Helper to format duration
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
 }

@@ -38,3 +38,14 @@ let derivedValue = $derived(computation($state));
 **Remember:** If you're reading reactive state and writing to other state, you almost certainly need `$derived` not `$effect`.
 
 After making UI changes, verify the implementation works correctly by using the Playwright MCP browser tools to navigate the application, interact with elements, and take screenshots. This ensures changes behave as expected in the actual browser environment. The server runs on http://localhost:3000
+
+## Project Vision & Core Principles
+
+### Long-Term Vision
+My long term vision is to create a 3d world, kinda like overcooked, where the player picks up samples from the patient, then moves them into the lab and physically loads them into instruments or other equipment. There would be steps which take time to process while running assays, and that's what I'm trying to make sure we account for and build into our current proof of concept. The players could take multiple samples (cases) at the same time since some take time to process. Currently we've set things up so that there's only 1 instance of each "instrument", however that's just to be able to test that each instrument is working. In the future, players will start off with just a single microscope and 1 culture dish. Then they'll be able to purchase new instruments or multple copies of instruments (and place them in a free spot in the 3d world). So I want to prepare for all of that, but for now while we build out the PoC it's fine that we just have 1 of every instrument.
+
+### Current Implementation Guidelines
+- **Realistic Instrument Mechanics**: Instruments should have realistic steps (Load -> Process -> Result). Processing takes time, but should NOT block the UI.
+- **Non-Blocking "Busy" States**: Instruments run in the background. The player must be free to navigate away and perform other tasks while an instrument is running.
+- **Simplicity & Focus**: Avoid unnecessary code. Focus on capturing real scientific challenges, interpretation, and tool usage.
+- **Scalable Architecture**: Even if we only have 1 instance of an instrument now, the architecture should support multiple instances in the future.

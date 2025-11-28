@@ -1,5 +1,6 @@
 <script lang="ts">
   import { selectInstrument, returnToSampleSelection, currentCase } from '../stores/game-state';
+  import { inventory } from '../stores/inventory';
 
   let lastHoveredInfo = $state<'microscope' | 'culture' | 'biochemical' | 'serology' | 'electrophoresis' | 'pcr' | 'sanger' | 'elisa' | 'flow-cytometry' | null>(null);
 
@@ -52,8 +53,9 @@
     }
   }
 
-  // Check if PCR is available for this case
-  const showPCR = $derived($currentCase?.pcrTarget !== undefined);
+  // Check if PCR is available for this case OR if we have a gene sequence
+  const hasGeneSequence = $derived($inventory.items.some(item => item.itemType === 'gene-sequence'));
+  const showPCR = $derived($currentCase?.pcrTarget !== undefined || hasGeneSequence);
 </script>
 
 <div class="instrument-selection">
