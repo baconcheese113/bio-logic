@@ -38,6 +38,7 @@ interface CulturePlateOutput extends InstrumentOutput {
     isStreaked: boolean;
     isIncubating: boolean;
     coloniesVisible: boolean;
+    colonyPositions?: Array<{ left: number; top: number }>;
   };
 }
 ```
@@ -150,6 +151,14 @@ interface CulturePlateOutput extends InstrumentOutput {
         growthQuality: 'poor',
       };
     }
+    
+    // Generate fixed colony positions (stored in visualState)
+    // This ensures colonies don't move on re-renders
+    const colonyCount = state.output.observations.colonyCount || 0;
+    state.output.visualState.colonyPositions = Array.from({ length: colonyCount }, () => ({
+      left: Math.random() * 80 + 10,
+      top: Math.random() * 80 + 10,
+    }));
   }
   
   // Action 5: Record Evidence
@@ -248,13 +257,13 @@ interface CulturePlateOutput extends InstrumentOutput {
     <div class="observe-panel">
       <div class="petri-dish enlarged">
         <div class="media {state.configuration.settings.mediaType}">
-          {#if state.output.visualState.coloniesVisible}
+          {#if state.output.visualState.coloniesVisible && state.output.visualState.colonyPositions}
             <div class="colonies">
-              <!-- Render colonies based on observations -->
-              {#each Array(state.output.observations.colonyCount || 0) as _, i}
+              <!-- Render colonies using fixed positions -->
+              {#each state.output.visualState.colonyPositions as position, i}
                 <div 
                   class="colony {state.output.observations.colonyColor}"
-                  style="left: {Math.random() * 80 + 10}%; top: {Math.random() * 80 + 10}%"
+                  style="left: {position.left}%; top: {position.top}%"
                 ></div>
               {/each}
             </div>

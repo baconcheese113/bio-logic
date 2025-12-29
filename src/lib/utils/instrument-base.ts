@@ -137,14 +137,14 @@ export function createProcessingSimulator(
   cancel: () => void;
 } {
   let cancelled = false;
-  let intervalId: number | null = null;
+  let intervalId: ReturnType<typeof setInterval> | null = null;
 
   const start = async () => {
     return new Promise<void>((resolve) => {
       const startTime = Date.now();
       const updateInterval = 50; // Update every 50ms
 
-      intervalId = window.setInterval(() => {
+      intervalId = setInterval(() => {
         if (cancelled) {
           if (intervalId !== null) {
             clearInterval(intervalId);
