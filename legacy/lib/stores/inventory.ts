@@ -3,6 +3,20 @@ import type { SampleType, BiologicalProperties } from '../../data/organisms';
 
 export type InventoryItemType = 'sample' | 'result';
 
+export interface AddSampleOptions {
+  data?: Record<string, unknown>;
+  displayName?: string;
+  allowDuplicate?: boolean;
+}
+
+export interface InventoryObservation {
+  id: string;
+  label: string;
+  timestamp: number;
+  source?: string;
+  data?: Record<string, unknown>;
+}
+
 export interface InventoryItem {
   id: string;
   caseId: string;
@@ -11,6 +25,7 @@ export interface InventoryItem {
   displayName: string;
   timestamp: number;
   data?: Record<string, unknown>;
+  observations?: InventoryObservation[];
   biologicalProperties?: BiologicalProperties;
 }
 
@@ -29,6 +44,21 @@ const initialState: InventoryState = {
 };
 
 export const inventory = writable<InventoryState>(initialState);
+
+const BASE_SAMPLE_TYPES = new Set<SampleType>([
+  'blood',
+  'sputum',
+  'throat-swab',
+  'stool',
+  'wound',
+  'csf',
+  'urine',
+  'tissue',
+]);
+
+function isBaseSampleType(sampleType: SampleType): boolean {
+  return BASE_SAMPLE_TYPES.has(sampleType);
+}
 
 // Derived store: get inventory grouped by case
 export const inventoryByCase = derived(
@@ -58,17 +88,29 @@ export const inventoryByCase = derived(
 );
 
 // Add a sample to inventory
-export function addSample(caseId: string, sampleType: SampleType, biologicalProperties?: BiologicalProperties) {
+export function addSample(
+  caseId: string,
+  sampleType: SampleType,
+  biologicalProperties?: BiologicalProperties,
+  options?: AddSampleOptions
+) {
   const currentInventory = get(inventory);
-  
-  // Check if sample of this type already exists for this case
-  const existingSample = currentInventory.items.find(
-    item => item.caseId === caseId && item.type === 'sample' && item.itemType === sampleType
-  );
-  
-  if (existingSample) {
-    // Return false to indicate we need user confirmation
-    return false;
+
+  const shouldPreventDuplicate =
+    isBaseSampleType(sampleType) && options?.allowDuplicate !== true;
+  if (shouldPreventDuplicate) {
+    // Check if sample of this type already exists for this case
+    const existingSample = currentInventory.items.find(
+      (item) =>
+        item.caseId === caseId &&
+        item.type === 'sample' &&
+        item.itemType === sampleType
+    );
+
+    if (existingSample) {
+      // Return false to indicate we need user confirmation
+      return false;
+    }
   }
   
   const newSample: InventoryItem = {
@@ -76,8 +118,9 @@ export function addSample(caseId: string, sampleType: SampleType, biologicalProp
     caseId,
     type: 'sample',
     itemType: sampleType,
-    displayName: formatSampleName(sampleType),
+    displayName: options?.displayName ?? formatSampleName(sampleType),
     timestamp: Date.now(),
+    data: options?.data,
     biologicalProperties,
   };
   
@@ -85,8 +128,43 @@ export function addSample(caseId: string, sampleType: SampleType, biologicalProp
     ...state,
     items: [...state.items, newSample],
   }));
-  
-  return true;
+
+  return newSample;
+}
+
+export function addObservationToItem(
+  itemId: string,
+  observation: Omit<InventoryObservation, 'id' | 'timestamp'> & {
+    id?: string;
+    timestamp?: number;
+  }
+): boolean {
+  const obs: InventoryObservation = {
+    id: observation.id ?? `obs-${Date.now()}-${Math.random()}`,
+    timestamp: observation.timestamp ?? Date.now(),
+    label: observation.label,
+    source: observation.source,
+    data: observation.data,
+  };
+
+  let didUpdate = false;
+  inventory.update((state) => {
+    const idx = state.items.findIndex((i) => i.id === itemId);
+    if (idx === -1) return state;
+
+    const item = state.items[idx];
+    const nextItem: InventoryItem = {
+      ...item,
+      observations: [...(item.observations ?? []), obs],
+    };
+
+    const nextItems = state.items.slice();
+    nextItems[idx] = nextItem;
+    didUpdate = true;
+    return { ...state, items: nextItems };
+  });
+
+  return didUpdate;
 }
 
 // Get samples for a case

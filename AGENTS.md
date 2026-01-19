@@ -49,3 +49,5 @@ My long term vision is to create a 3d world, kinda like overcooked, where the pl
 - **Non-Blocking "Busy" States**: Instruments run in the background. The player must be free to navigate away and perform other tasks while an instrument is running.
 - **Simplicity & Focus**: Avoid unnecessary code. Focus on capturing real scientific challenges, interpretation, and tool usage.
 - **Scalable Architecture**: Even if we only have 1 instance of an instrument now, the architecture should support multiple instances in the future.
+
+After every change, see if there is a way to minimize the boilerplate.

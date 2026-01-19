@@ -9,8 +9,21 @@ import {
   generateProteinPatternPhrase,
   generatePCRPhrase
 } from './evidence-summary';
-import { addResult } from './inventory';
+import { addObservationToItem } from './inventory';
+import { instrumentState, type InstrumentType } from './instrument-state';
 import type { GramStain, Shape, Arrangement, Hemolysis, ProteinPattern, GeneTarget } from '../../data/organisms';
+
+function addObservationToInstrumentSample(
+  instrument: InstrumentType,
+  label: string,
+  source: string,
+  data?: Record<string, unknown>
+) {
+  const state = get(instrumentState);
+  const sampleId = state.activeSamples[instrument];
+  if (!sampleId) return;
+  addObservationToItem(sampleId, { label, source, data });
+}
 
 /**
  * Integration layer between the old evidence system and the new evidence summary system.
@@ -51,11 +64,12 @@ export function recordMicroscopyObservation(
   
   // Update inventory with complete observation
   if (gramStain || shape || arrangement) {
-    addResult(activeCase.caseId, 'microscopy', 'Microscopy Observation', {
-      gramStain,
-      shape,
-      arrangement
-    });
+    addObservationToInstrumentSample(
+      'microscope',
+      'Microscopy Observation',
+      'microscopy',
+      { gramStain, shape, arrangement }
+    );
   }
 }
 
@@ -68,9 +82,12 @@ export function recordAcidFastObservation(isAcidFast: boolean | null) {
       ? 'acid-fast bacilli' 
       : 'no acid-fast bacilli';
     addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'acidFast');
-    addResult(activeCase.caseId, 'acid-fast-stain', 'Acid-Fast Stain', {
-      isAcidFast
-    });
+    addObservationToInstrumentSample(
+      'microscope',
+      'Acid-Fast Stain',
+      'microscopy',
+      { isAcidFast }
+    );
   } else {
     removeEvidencePhrase(activeCase.caseId, 'microscopy', 'acidFast');
   }
@@ -85,9 +102,12 @@ export function recordCapsuleObservation(hasCapsule: boolean | null) {
       ? 'capsule present' 
       : 'no capsule';
     addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'capsule');
-    addResult(activeCase.caseId, 'capsule-stain', 'Capsule Stain', {
-      hasCapsule
-    });
+    addObservationToInstrumentSample(
+      'microscope',
+      'Capsule Stain',
+      'microscopy',
+      { hasCapsule }
+    );
   } else {
     removeEvidencePhrase(activeCase.caseId, 'microscopy', 'capsule');
   }
@@ -102,9 +122,12 @@ export function recordSporeObservation(hasSpores: boolean | null) {
       ? 'endospores' 
       : 'no spores';
     addEvidencePhrase(activeCase.caseId, phrase, 'microscopy', 'spores');
-    addResult(activeCase.caseId, 'spore-stain', 'Spore Stain', {
-      hasSpores
-    });
+    addObservationToInstrumentSample(
+      'microscope',
+      'Spore Stain',
+      'microscopy',
+      { hasSpores }
+    );
   } else {
     removeEvidencePhrase(activeCase.caseId, 'microscopy', 'spores');
   }
@@ -121,10 +144,12 @@ export function recordCultureObservation(
   
   const phrase = generateCulturePhrase(medium, growth, hemolysis);
   addEvidencePhrase(activeCase.caseId, phrase, 'culture');
-  addResult(activeCase.caseId, `culture-${medium}`, `Culture: ${medium === 'blood-agar' ? 'Blood Agar' : 'MacConkey'}`, {
-    growth,
-    hemolysis
-  });
+  addObservationToInstrumentSample(
+    'culture',
+    `Culture: ${medium === 'blood-agar' ? 'Blood Agar' : 'MacConKey'}`,
+    'culture',
+    { medium, growth, hemolysis }
+  );
 }
 
 // Biochemical tests
@@ -134,9 +159,12 @@ export function recordBiochemicalTest(test: 'catalase' | 'coagulase', result: bo
   
   const phrase = generateBiochemicalPhrase(test, result);
   addEvidencePhrase(activeCase.caseId, phrase, 'biochemical');
-  addResult(activeCase.caseId, test, `${test.charAt(0).toUpperCase() + test.slice(1)} Test`, {
-    result
-  });
+  addObservationToInstrumentSample(
+    'biochemical',
+    `${test.charAt(0).toUpperCase() + test.slice(1)} Test`,
+    'biochemical',
+    { test, result }
+  );
 }
 
 // Serology
@@ -146,10 +174,12 @@ export function recordBloodType(bloodType: string, rhFactor: boolean) {
   
   const phrase = generateBloodTypePhrase(bloodType, rhFactor);
   addEvidencePhrase(activeCase.caseId, phrase, 'serology');
-  addResult(activeCase.caseId, 'blood-type', 'Blood Typing Result', {
-    bloodType,
-    rhFactor
-  });
+  addObservationToInstrumentSample(
+    'serology',
+    'Blood Typing Result',
+    'serology',
+    { bloodType, rhFactor }
+  );
 }
 
 // Protein electrophoresis
@@ -159,9 +189,12 @@ export function recordProteinPattern(pattern: ProteinPattern) {
   
   const phrase = generateProteinPatternPhrase(pattern);
   addEvidencePhrase(activeCase.caseId, phrase, 'electrophoresis');
-  addResult(activeCase.caseId, 'protein-electrophoresis', 'Protein Electrophoresis', {
-    pattern
-  });
+  addObservationToInstrumentSample(
+    'electrophoresis',
+    'Protein Electrophoresis',
+    'electrophoresis',
+    { pattern }
+  );
 }
 
 // PCR
@@ -172,9 +205,12 @@ export function recordPCRResult(gene: GeneTarget) {
   const phrase = generatePCRPhrase(gene);
   if (phrase) {
     addEvidencePhrase(activeCase.caseId, phrase, 'pcr');
-    addResult(activeCase.caseId, 'pcr', `PCR Result: ${gene}`, {
-      gene
-    });
+    addObservationToInstrumentSample(
+      'pcr',
+      `PCR Result: ${gene}`,
+      'pcr',
+      { gene }
+    );
   }
 }
 

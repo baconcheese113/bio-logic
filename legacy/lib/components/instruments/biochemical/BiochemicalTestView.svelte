@@ -7,7 +7,8 @@
   import { evidence, setCatalase, setCoagulase } from '../../../stores/evidence';
   import { currentActiveCase } from '../../../stores/active-cases';
   import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
-  import { addResult } from '../../../stores/inventory';
+  import { addObservationToItem } from '../../../stores/inventory';
+  import { instrumentState } from '../../../stores/instrument-state';
   import '../../../styles/instrument-controls.css';
   
   const { hasSampleLoaded } = createInstrumentHelpers('biochemical');
@@ -21,6 +22,7 @@
   let catalaseAnimating = $state(false);
   let coagulasePerformed = $state(false);
   let coagulaseAnimating = $state(false);
+  let resultsRecorded = $state(false);
 
   function setHoveredInfo(key: string) {
     lastHoveredInfo = key;
@@ -51,6 +53,7 @@
   // Auto-record evidence and output to inventory when both tests complete
   $effect(() => {
     if (!$hasSampleLoaded || !$currentActiveCase) return;
+    if (resultsRecorded) return;
     
     if (catalasePerformed && coagulasePerformed) {
       const catalaseResult = getCatalaseResult();
@@ -65,12 +68,26 @@
       }
       
       // Add test results to inventory
-      addResult($currentActiveCase.caseId, 'biochemical-tests', 'Biochemical Test Results', {
-        catalase: catalaseResult,
-        coagulase: coagulaseResult,
-        timestamp: Date.now()
-      });
+      const loadedItemId = $instrumentState.activeSamples.biochemical;
+      if (loadedItemId) {
+        addObservationToItem(loadedItemId, {
+          label: 'Biochemical Tests',
+          source: 'biochemical',
+          data: {
+            catalase: catalaseResult,
+            coagulase: coagulaseResult,
+          },
+        });
+      }
+
+      resultsRecorded = true;
     }
+  });
+
+  $effect(() => {
+    if ($hasSampleLoaded) return;
+    resultsRecorded = false;
+    resetTests();
   });
 
   function resetTests() {
@@ -78,6 +95,7 @@
     catalaseAnimating = false;
     coagulasePerformed = false;
     coagulaseAnimating = false;
+    resultsRecorded = false;
   }
 
   function getCatalaseResult(): boolean | null {

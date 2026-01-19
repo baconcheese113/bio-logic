@@ -11,7 +11,7 @@
     filteredOrganisms,
     type FlowCytometryPopulationType,
   } from "../../../stores/evidence";
-  import { addResult } from "../../../stores/inventory";
+  import { addObservationToItem } from "../../../stores/inventory";
   import {
     startBackgroundProcess,
     getInstrumentProcess,
@@ -28,7 +28,6 @@
   let showInterpretationSection = $state(true);
   let showObservationsSection = $state(true);
   let cytometerRef = $state<FlowCytometryInstrument>();
-  let rightPanelRef: InstrumentRightPanel | undefined;
   let lastHoveredInfo = $state<string | null>(null);
   let activeProcessId = $state<string | null>(null);
   let hasRun = $state(false);
@@ -101,19 +100,21 @@
 
       observations = [...observations, observation];
 
-      // Add result to inventory
-      addResult(
-        $currentActiveCase.caseId,
-        "flow-cytometry-analysis",
-        `Flow Cytometry: ${cellTypeNames[popType]}`,
-        {
-          populationType: popType,
-          count: currentMeasurements.count,
-          percentage: currentMeasurements.percentage,
-          meanFSC: currentMeasurements.meanFSC,
-          meanSSC: currentMeasurements.meanSSC,
-        },
-      );
+      // Attach observation to the loaded sample (inventory item)
+      const loadedItemId = $instrumentState.activeSamples["flow-cytometry"];
+      if (loadedItemId) {
+        addObservationToItem(loadedItemId, {
+          label: `Flow Cytometry: ${cellTypeNames[popType]}`,
+          source: "flow-cytometry",
+          data: {
+            populationType: popType,
+            count: currentMeasurements.count,
+            percentage: currentMeasurements.percentage,
+            meanFSC: currentMeasurements.meanFSC,
+            meanSSC: currentMeasurements.meanSSC,
+          },
+        });
+      }
 
       measurements = null;
     }, 100);
@@ -142,7 +143,6 @@
   </div>
 
   <InstrumentRightPanel
-    bind:this={rightPanelRef}
     tabConfig="controls-inventory"
     showDiagnosis={false}
     instrument="flow-cytometry"

@@ -4,13 +4,21 @@
   import CollapsibleSection from '../../shared/CollapsibleSection.svelte';
   import InstrumentRightPanel from '../../shared/InstrumentRightPanel.svelte';
   import AntibioticPlate from './AntibioticPlate.svelte';
-  import { goToBiochemicalTests, isCorrectSample, correctOrganism } from '../../../stores/game-state';
+  import { isCorrectSample, correctOrganism } from '../../../stores/game-state';
   import { instrumentState, selectMedia, streakPlate, showColonies as showColoniesInState, clearSampleFromInstrument, type Colony } from '../../../stores/instrument-state';
   import { createInstrumentHelpers } from '../../../stores/instrument-helpers';
   import { evidence, setColonyColor, setHemolysis, setPenicillinZone, setStreptomycinZone, setTetracyclineZone, setChloramphenicolZone, setErythromycinZone } from '../../../stores/evidence';
-  import { addResult, addSample, type InventoryItem } from '../../../stores/inventory';
-  import { startBackgroundProcess, completeProcess } from '../../../stores/timer-service';
+  import { addSample, addObservationToItem, type InventoryItem } from '../../../stores/inventory';
   import { currentActiveCase } from '../../../stores/active-cases';
+  import { 
+    activeProcesses, 
+    startProcess, 
+    endProcess, 
+    getProcessProgress, 
+    isProcessComplete,
+    ticksToDisplay,
+    getProcessRemaining
+  } from '../../../../game';
   import type { ColonyColor } from '../../../../data/organisms';
   import '../../../styles/instrument-controls.css';
   
@@ -31,12 +39,83 @@
   let incubationProgress = $state(0);
   let antibioticIncubated = $state(false);
   
-  // Local incubation state (not in store - component-local)
-  let isIncubating = $state(false);
-  let localIncubationProgress = $state(0);
+  // Process-based incubation state
   let showColonies = $state(false);
   let colonies = $state<Colony[]>([]);
   let activeProcessId = $state<string | null>(null);
+  
+  // Derived state from process system
+  let cultureProcess = $derived(activeProcesses.current('culture'));
+  let isIncubating = $derived(cultureProcess !== undefined && !isProcessComplete(cultureProcess.id));
+  let localIncubationProgress = $derived(cultureProcess ? getProcessProgress(cultureProcess.id) : 0);
+  let incubationTimeRemaining = $derived(cultureProcess ? ticksToDisplay(getProcessRemaining(cultureProcess.id)) : '');
+  
+  // Watch for incubation completion
+  $effect(() => {
+    if (cultureProcess && isProcessComplete(cultureProcess.id) && !showColonies) {
+      // Incubation complete - show colonies
+      const newColonies = generateColonies();
+      colonies = newColonies;
+      showColoniesInState(newColonies);
+      showColonies = true;
+      
+      // Clean up process
+      endProcess(cultureProcess.id);
+      activeProcessId = null;
+      
+      // Create culture-plate sample in inventory
+      const organism = $correctOrganism;
+      const mediaType = $instrumentState.culture.selectedMedia;
+      const cultureProps = mediaType === 'blood-agar' 
+        ? organism?.culture?.bloodAgar 
+        : organism?.culture?.macConkey;
+      
+      if (newColonies.length > 0 && $currentActiveCase) {
+        const mediaName = mediaType ? MEDIA_INFO[mediaType].name : 'Culture Plate';
+        const created = addSample($currentActiveCase.caseId, 'culture-plate', undefined, {
+          displayName: `Culture Plate (${mediaName})`,
+          data: {
+            inputSampleId: $loadedSampleId,
+            media: mediaType,
+            mediaName,
+            colonyCount: newColonies.length,
+            colonyColor: cultureProps?.colonyColor || 'none',
+            hemolysis:
+              mediaType === 'blood-agar'
+                ? organism?.culture?.bloodAgar.hemolysis
+                : undefined,
+            lactoseFermenter:
+              mediaType === 'macconkey'
+                ? cultureProps?.colonyColor === 'pink'
+                : undefined,
+            incubationTicks: 120,
+            incubatedAt: Date.now(),
+            colonies: newColonies,
+          },
+        });
+
+        if (created) {
+          addObservationToItem(created.id, {
+            label: `Incubated on ${mediaName}`,
+            source: 'culture',
+            data: {
+              colonyCount: newColonies.length,
+              colonyColor: cultureProps?.colonyColor || 'none',
+              hemolysis:
+                mediaType === 'blood-agar'
+                  ? organism?.culture?.bloodAgar.hemolysis
+                  : undefined,
+              lactoseFermenter:
+                mediaType === 'macconkey'
+                  ? cultureProps?.colonyColor === 'pink'
+                  : undefined,
+            },
+          });
+        }
+      }
+
+    }
+  });
   
   function setHoveredInfo(key: string | null) {
     lastHoveredInfo = key;
@@ -61,11 +140,16 @@
   function clearCurrentSample() {
     clearSampleFromInstrument('culture');
     // Reset culture state
-    selectMedia('blood-agar');
-    isIncubating = false;
-    localIncubationProgress = 0;
+    selectMedia(null);
+    // Clear any active process
+    if (activeProcessId) {
+      endProcess(activeProcessId);
+      activeProcessId = null;
+    }
     showColonies = false;
     colonies = [];
+    // Also clear from instrument-state
+    showColoniesInState([]);
     resetAntibioticTest();
   }
 
@@ -126,70 +210,24 @@
   function handleIncubate() {
     if (!$loadedSampleId || !$currentActiveCase) return;
     
-    isIncubating = true;
-    localIncubationProgress = 0;
-    
-    // Start the incubation process in timer-service
-    activeProcessId = startBackgroundProcess(
+    // Start incubation using the game engine's process system
+    // Duration is in ticks - 120 ticks = ~2 minutes at normal speed
+    activeProcessId = startProcess(
       $currentActiveCase.caseId,
       'culture',
       $loadedSampleId,
-      'Incubating',
-      2000
+      'incubating',
+      120  // ticks
     );
-    
-    // Simulate incubation with progress bar
-    const interval = setInterval(() => {
-      localIncubationProgress = localIncubationProgress + 5;
-      
-      if (localIncubationProgress >= 100) {
-        clearInterval(interval);
-        isIncubating = false;
-        showColonies = true;
-        
-        const newColonies = generateColonies();
-        colonies = newColonies;
-        showColoniesInState(newColonies);
-        
-        // Complete the process in timer-service
-        if (activeProcessId) {
-          completeProcess(activeProcessId);
-          activeProcessId = null;
-        }
-        
-        // Create culture-plate sample in inventory (not a result - can be used as input for other instruments)
-        const organism = $correctOrganism;
-        const mediaType = $instrumentState.culture.selectedMedia;
-        const cultureProps = mediaType === 'blood-agar' 
-          ? organism?.culture?.bloodAgar 
-          : organism?.culture?.macConkey;
-        
-        // Only add as a sample if colonies grew
-        if (newColonies.length > 0) {
-          addSample($currentActiveCase.caseId, 'culture-plate');
-        }
-        
-        // Also add result for observation log
-        addResult(
-          $currentActiveCase.caseId,
-          'culture-result',
-          `${mediaType === 'blood-agar' ? 'Blood Agar' : 'MacConkey'} Culture`,
-          {
-            media: mediaType,
-            colonyCount: newColonies.length,
-            colonyColor: cultureProps?.colonyColor || 'none',
-            hemolysis: mediaType === 'blood-agar' ? organism?.culture?.bloodAgar.hemolysis : undefined,
-            lactoseFermenter: mediaType === 'macconkey' ? cultureProps?.colonyColor === 'pink' : undefined,
-          }
-        );
-      }
-    }, 50); // 2 seconds total (100ms * 20 steps)
   }
 
   function resetCulture() {
     selectMedia($instrumentState.culture.selectedMedia); // This resets all culture state
-    isIncubating = false;
-    localIncubationProgress = 0;
+    // Clear any active process
+    if (activeProcessId) {
+      endProcess(activeProcessId);
+      activeProcessId = null;
+    }
     showColonies = false;
     colonies = [];
   }
@@ -434,8 +472,6 @@
   <InstrumentRightPanel
     bind:this={rightPanelRef}
     instrument="culture"
-    primaryAction={goToBiochemicalTests}
-    primaryLabel="Run Biochemical Tests →"
     onSampleSelected={handleSampleSelected}
   >
     <!-- Media Selection & Workflow Section -->
@@ -511,7 +547,12 @@
             <div class="progress-container">
               <div class="progress-bar" style="width: {localIncubationProgress}%"></div>
             </div>
-            <p class="progress-text">Incubating... {localIncubationProgress}%</p>
+            <p class="progress-text">
+              Incubating... {Math.floor(localIncubationProgress)}%
+              {#if incubationTimeRemaining}
+                <span class="time-remaining">({incubationTimeRemaining})</span>
+              {/if}
+            </p>
           {/if}
 
           {#if showColonies}

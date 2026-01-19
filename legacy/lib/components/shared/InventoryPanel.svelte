@@ -62,18 +62,26 @@
   }
 
   function selectSampleForLoading(sample: InventoryItem) {
-    // Auto-load compatible samples immediately when clicked in inventory
+    // In instrument-highlight mode, clicking a compatible sample loads it immediately.
+    // If the instrument already has a sample, the player must clear it first.
     if (highlightInstrument && isCompatibleSample(sample)) {
-      loadSample(sample);
-    } else {
-      // For non-compatible or when no highlight, just toggle pending
-      if (pendingSample?.id === sample.id) {
-        pendingSample = null;
-        onSampleSelected?.(null);
-      } else {
-        pendingSample = sample;
-        onSampleSelected?.(sample);
+      if ($instrumentState.activeSamples[highlightInstrument]) {
+        selectItem(sample);
+        return;
       }
+      loadSample(sample);
+      return;
+    }
+
+    // Otherwise (no highlight or not compatible), just toggle pending + selection.
+    if (pendingSample?.id === sample.id) {
+      pendingSample = null;
+      onSampleSelected?.(null);
+      selectItem(sample);
+    } else {
+      pendingSample = sample;
+      onSampleSelected?.(sample);
+      selectItem(sample);
     }
   }
 
@@ -81,6 +89,7 @@
     if (highlightInstrument && sample.type === "sample") {
       loadSampleIntoInstrument(highlightInstrument, sample.id);
       pendingSample = null; // Clear pending after loading
+      selectedItem = null;
       onSampleLoaded?.(sample);
     }
   }
@@ -96,6 +105,40 @@
   function formatTimestamp(timestamp: number): string {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function getSampleSubtitle(sample: InventoryItem): string | null {
+    if (sample.type !== "sample") return null;
+
+    const obsCount = sample.observations?.length ?? 0;
+
+    if (sample.itemType === "culture-plate" && sample.data) {
+      const mediaName =
+        typeof sample.data.mediaName === "string" ? sample.data.mediaName : null;
+      const colonyCount =
+        typeof sample.data.colonyCount === "number" ? sample.data.colonyCount : null;
+      const hemolysis =
+        typeof sample.data.hemolysis === "string" ? sample.data.hemolysis : null;
+      const lactoseFermenter =
+        typeof sample.data.lactoseFermenter === "boolean"
+          ? sample.data.lactoseFermenter
+          : null;
+
+      const parts: string[] = [];
+      if (mediaName) parts.push(mediaName);
+      if (colonyCount !== null) parts.push(`${colonyCount} colonies`);
+      if (hemolysis) parts.push(`${hemolysis} hemolysis`);
+      if (lactoseFermenter !== null)
+        parts.push(lactoseFermenter ? "lactose +" : "lactose −");
+
+      if (obsCount > 0) parts.push(`${obsCount} obs`);
+
+      return parts.length > 0 ? parts.join(" • ") : null;
+    }
+
+    if (obsCount > 0) return `${obsCount} obs`;
+
+    return null;
   }
 
   // Check if instrument is busy (has active process)
@@ -144,7 +187,7 @@
               <span class="expand-icon">{isExpanded ? "▼" : "▶"}</span>
               <span class="case-badge">{getCaseTitle(caseId)}</span>
               <span class="item-count">
-                {caseInventory.samples.length + caseInventory.results.length} items
+                {caseInventory.samples.length} items
               </span>
               {#if isActive}
                 <span class="active-badge">Active</span>
@@ -182,6 +225,7 @@
                       {@const instrumentsUsing = getInstrumentsUsingSample(
                         sample.id,
                       )}
+                      {@const subtitle = getSampleSubtitle(sample)}
                       <div
                         class="inventory-card sample"
                         class:selected={selectedItem?.id === sample.id}
@@ -223,16 +267,84 @@
                           <div class="item-time">
                             Collected: {formatTimestamp(sample.timestamp)}
                           </div>
+                          {#if subtitle}
+                            <div class="item-subtitle">{subtitle}</div>
+                          {/if}
                           <div class="item-status status-available">
                             Available
                           </div>
                         </div>
-                        {#if selectedItem?.id === sample.id && sample.data}
+
+                        {#if selectedItem?.id === sample.id}
                           <div class="card-details">
-                            {#each Object.entries(sample.data) as [key, value]}
+                            {#if sample.itemType === "culture-plate" && sample.data}
+                              {@const mediaName =
+                                typeof sample.data.mediaName === "string"
+                                  ? sample.data.mediaName
+                                  : null}
+                              {@const colonyCount =
+                                typeof sample.data.colonyCount === "number"
+                                  ? sample.data.colonyCount
+                                  : null}
+                              {@const colonyColor =
+                                typeof sample.data.colonyColor === "string"
+                                  ? sample.data.colonyColor
+                                  : null}
+                              {@const hemolysis =
+                                typeof sample.data.hemolysis === "string"
+                                  ? sample.data.hemolysis
+                                  : null}
+                              {@const lactoseFermenter =
+                                typeof sample.data.lactoseFermenter === "boolean"
+                                  ? sample.data.lactoseFermenter
+                                  : null}
+
+                              {#if mediaName}
+                                <div class="detail-line">
+                                  <span class="detail-label">media:</span>
+                                  <span class="detail-value">{mediaName}</span>
+                                </div>
+                              {/if}
+                              {#if colonyCount !== null}
+                                <div class="detail-line">
+                                  <span class="detail-label">colonies:</span>
+                                  <span class="detail-value">{colonyCount}</span>
+                                </div>
+                              {/if}
+                              {#if colonyColor}
+                                <div class="detail-line">
+                                  <span class="detail-label">colony color:</span>
+                                  <span class="detail-value">{colonyColor}</span>
+                                </div>
+                              {/if}
+                              {#if hemolysis}
+                                <div class="detail-line">
+                                  <span class="detail-label">hemolysis:</span>
+                                  <span class="detail-value">{hemolysis}</span>
+                                </div>
+                              {/if}
+                              {#if lactoseFermenter !== null}
+                                <div class="detail-line">
+                                  <span class="detail-label">lactose:</span>
+                                  <span class="detail-value">
+                                    {lactoseFermenter ? "positive" : "negative"}
+                                  </span>
+                                </div>
+                              {/if}
+                            {/if}
+
+                            <div class="detail-line">
+                              <span class="detail-label">observations:</span>
+                              <span class="detail-value">
+                                {sample.observations?.length ?? 0}
+                              </span>
+                            </div>
+                            {#each sample.observations ?? [] as obs}
                               <div class="detail-line">
-                                <span class="detail-label">{key}:</span>
-                                <span class="detail-value">{value}</span>
+                                <span class="detail-label"
+                                  >{formatTimestamp(obs.timestamp)}:</span
+                                >
+                                <span class="detail-value">{obs.label}</span>
                               </div>
                             {/each}
                           </div>
@@ -397,6 +509,7 @@
     border-left: 3px solid #4a7c59;
   }
 
+
   .card-header {
     display: flex;
     align-items: center;
@@ -466,6 +579,12 @@
     font-size: 0.7rem;
   }
 
+  .item-subtitle {
+    color: #bbb;
+    font-size: 0.7rem;
+  }
+
+
   .item-status {
     font-size: 0.7rem;
     font-weight: 600;
@@ -489,6 +608,7 @@
     border-top: 1px solid #3a3a3a;
     font-size: 0.7rem;
   }
+
 
   .detail-line {
     display: flex;

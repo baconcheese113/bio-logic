@@ -14,8 +14,16 @@
   import PlateReaderView from './lib/components/instruments/elisa/PlateReaderView.svelte';
   import FlowCytometryView from './lib/components/instruments/flow-cytometry/FlowCytometryView.svelte';
   import DiagnosisView from './lib/components/DiagnosisView.svelte';
+  import GameTest from './game/GameTest.svelte';
+  
+  // Check URL for test mode: ?test=game
+  const urlParams = new URLSearchParams(window.location.search);
+  const testMode = urlParams.get('test') === 'game';
 </script>
 
+{#if testMode}
+  <GameTest />
+{:else}
 <main>
   <!-- Keep all components mounted to preserve state, show/hide with CSS -->
   <div class="view" class:visible={$gameState.gamePhase === 'case-presentation'}>
@@ -74,6 +82,7 @@
     <DiagnosisView />
   </div>
 </main>
+{/if}
 
 <style>
   main {
