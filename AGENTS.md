@@ -51,3 +51,5 @@ My long term vision is to create a 3d world, kinda like overcooked, where the pl
 - **Scalable Architecture**: Even if we only have 1 instance of an instrument now, the architecture should support multiple instances in the future.
 
 After every change, see if there is a way to minimize the boilerplate.
+
+Reuse styles from base.css when possible

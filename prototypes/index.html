@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BioLogic Prototypes</title>
+  <link rel="stylesheet" href="./shared/base.css" />
+  <style>
+    .prototype-gallery {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+    }
+
+    .prototype-gallery h1 {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+
+    .prototype-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    .prototype-card {
+      background: var(--bg-dark);
+      border: var(--border-medium);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .prototype-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--brass-light);
+    }
+
+    .prototype-card a {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .card-preview {
+      height: 160px;
+      background: var(--bg-medium);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      border-bottom: var(--border-thin);
+    }
+
+    .card-content {
+      padding: var(--space-md);
+    }
+
+    .card-content h3 {
+      margin-bottom: var(--space-sm);
+    }
+
+    .card-content p {
+      color: var(--parchment-aged);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .card-tag {
+      display: inline-block;
+      margin-top: var(--space-sm);
+      padding: 2px 8px;
+      background: var(--brass-dark);
+      color: var(--parchment);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+
+    .card-tag.svelte { background: #ff3e00; }
+    
+    .prototype-card.featured {
+      border-color: var(--brass-light);
+      box-shadow: 0 0 20px rgba(184, 149, 110, 0.3);
+    }
+
+    .description {
+      text-align: center;
+      color: var(--parchment-aged);
+      margin-bottom: var(--space-xl);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-gallery">
+    <h1>BioLogic Lab View Prototypes</h1>
+    <p class="description">
+      Testing different approaches to the Lab View simulation. 
+      Svelte-only versions prioritize DOM readability for agent testing. 
+      Phaser versions explore animation and visual effects.
+    </p>
+
+    <div class="prototype-grid">
+      <div class="prototype-card featured" data-ref="card-lab-view">
+        <a href="./svelte-lab-avatar/">
+          <div class="card-preview">🧑‍🔬</div>
+          <div class="card-content">
+            <h3>Lab View</h3>
+            <p>Golden Age (1880s) laboratory. Move around the lab, pick up samples, load them into instruments. Must be adjacent to interact.</p>
+            <span class="card-tag svelte">Active Prototype</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="prototype-card" data-ref="card-oz-agents">
+        <a href="./oz/README.md">
+          <div class="card-preview">🤖</div>
+          <div class="card-content">
+            <h3>Oz Agent Team</h3>
+            <p>Multi-agent development team: Game Designer, Architect, 2 Developers (adversarial), Art Director, and Subject Matter Expert.</p>
+            <span class="card-tag">Oz Cloud Agents</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

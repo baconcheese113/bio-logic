@@ -17,7 +17,9 @@
 
 **Deliverables:**
 - Fresh Svelte 5 project with TypeScript
-- Global clock system (tick-based, pause/speed controls)
+- Global clock system (tick-based, pause/speed controls, Frostpunk-style event timeline)
+- Clock shows upcoming scheduled events (culture ready, patient status change, etc.)
+- Player can click to jump ahead to any event time
 - Core type definitions (Case, Sample, Artifact, Observation)
 - Basic app shell with view routing
 - CSS foundation with era-appropriate styling (1880s aesthetic)
@@ -311,17 +313,38 @@
 
 ---
 
+## In Scope for Prototype
+
+- Lab grid placement / building (simplified 2D grid)
+- Multiple instrument instances (purchase duplicates)
+- Economy (funds, purchasing instruments/consumables)
+- 2 Eras: Golden Age (1880s) + Antibiotic Era (1940s)
+- Discovery Challenges (unlock era transitions)
+
 ## Out of Scope for Prototype
 
-- Lab grid placement / building
-- Multiple instrument instances
-- Economy (funds, purchasing)
-- Era progression / Discovery Challenges
 - Assistants / Automation
 - Full epidemiological simulation
 - 3D Overcooked-style world
 - Multiplayer
 - Save/Load
+
+---
+
+## Testing Requirements
+
+**CRITICAL:** No Epic is complete until validated in the real browser.
+
+Every change must be tested using Playwright MCP browser tools:
+1. `mcp_playwright_browser_navigate` to http://localhost:3000
+2. `mcp_playwright_browser_snapshot` to verify UI structure
+3. `mcp_playwright_browser_click` to test interactions
+4. `mcp_playwright_browser_take_screenshot` for visual verification
+
+This ensures:
+- All elements have proper `data-ref` attributes
+- Agent-compatible interactions work correctly
+- No timing-dependent or broken UI states
 
 ---
 
