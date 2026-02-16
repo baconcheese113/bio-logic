@@ -30,7 +30,7 @@
   });
 
   const hasCapacity = $derived(furniture.contents.length < def.contentCapacity);
-  const canDrop = $derived(playerHasItem && isAdjacent() && hasCapacity);
+  const canDrop = $derived(playerHasItem && isAdjacent() && hasCapacity && furniture.type !== 'cabinet');
 
   const equipmentIcons = $derived(
     furniture.contents

@@ -14,13 +14,15 @@
     observations: Observation[];
     patients: Patient[];
     currentTick: number;
-    loadedPlate: CulturePlateState | null;
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
   }
 
-  let { furniture, samples, observations, patients, currentTick, loadedPlate, onRecordObservation }: Props = $props();
+  let { furniture, samples, observations, patients, currentTick, onRecordObservation }: Props = $props();
 
-  // --- Derived from props ---
+  // --- Derived from furniture contents ---
+  const loadedPlate = $derived(
+    furniture.contents.find((i): i is Extract<typeof i, { kind: 'culture-plate' }> => i.kind === 'culture-plate')?.plate ?? null
+  );
   const loadedSample = $derived(samples[0] ?? null);
   const patient = $derived(
     loadedSample ? patients.find(p => p.id === loadedSample.patientId) ?? null : null

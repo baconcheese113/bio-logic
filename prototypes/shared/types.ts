@@ -172,9 +172,56 @@ export type SampleLocation =
   | { type: 'player' }
   | { type: 'storage'; storageId: string };
 
-// === Media Types ===
+// === Media Types & Recipes ===
 
 export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
+
+export const MEDIA_RECIPES = {
+  'nutrient-agar': {
+    label: 'Nutrient Agar Plate',
+    ingredients: ['empty-dish', 'agar-powder', 'peptone'] as SupplyType[],
+    prepTicks: 300,
+  },
+  'blood-agar': {
+    label: 'Blood Agar Plate',
+    ingredients: ['empty-dish', 'agar-powder', 'defibrinated-blood'] as SupplyType[],
+    prepTicks: 400,
+  },
+  'gelatin': {
+    label: 'Gelatin Plate',
+    ingredients: ['empty-dish', 'gelatin-powder', 'peptone'] as SupplyType[],
+    prepTicks: 250,
+  },
+} as const satisfies Record<MediaType, { label: string; ingredients: SupplyType[]; prepTicks: number }>;
+
+/** Check which recipes can be made from the supplies on a workbench */
+export function getAvailableRecipes(contents: Item[]): MediaType[] {
+  const supplies = contents.filter((i): i is Item & { kind: 'supply' } => i.kind === 'supply');
+  const supplyTypes = supplies.map(s => s.supplyType);
+  return (Object.entries(MEDIA_RECIPES) as [MediaType, typeof MEDIA_RECIPES[MediaType]][])
+    .filter(([, recipe]) => recipe.ingredients.every(ing => supplyTypes.includes(ing)))
+    .map(([type]) => type);
+}
+
+/** Remove recipe ingredients from a contents array, returning new array */
+export function consumeRecipeIngredients(contents: Item[], mediaType: MediaType): Item[] {
+  const recipe = MEDIA_RECIPES[mediaType];
+  const remaining = [...contents];
+  for (const ingredient of recipe.ingredients) {
+    const idx = remaining.findIndex(i => i.kind === 'supply' && i.supplyType === ingredient);
+    if (idx >= 0) remaining.splice(idx, 1);
+  }
+  return remaining;
+}
+
+// === Active Prep (background processing) ===
+
+export interface ActivePrep {
+  furnitureId: string;
+  mediaType: MediaType;
+  startTick: number;
+  duration: number;
+}
 
 // === Supplies & Equipment (data-driven, types inferred) ===
 
@@ -272,13 +319,14 @@ export interface Furniture {
 
 // === Workbench Mode Detection ===
 
-export type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'general';
+export type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'prep' | 'general';
 
 export function detectWorkbenchMode(contents: Item[]): WorkbenchMode {
   const has = (t: EquipmentType) => contents.some(i => i.kind === 'equipment' && i.equipmentType === t);
   if (has('microscope')) return 'microscope';
   if (has('bunsen-burner') || has('inoculation-loop')) return 'culture';
   if (has('staining-rack')) return 'staining';
+  if (has('flask') || has('steam-sterilizer')) return 'prep';
   return 'general';
 }
 

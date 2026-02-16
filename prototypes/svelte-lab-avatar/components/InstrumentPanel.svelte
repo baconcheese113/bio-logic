@@ -7,11 +7,13 @@
     samples: Sample[];
     playerPosition: GridPosition;
     carrying: Item[];
+    carryCapacity: number;
     onDrop: () => void;
+    onPickup: (itemIndex: number) => void;
     onOpen: () => void;
   }
 
-  let { furniture, samples, playerPosition, carrying, onDrop, onOpen }: Props = $props();
+  let { furniture, samples, playerPosition, carrying, carryCapacity, onDrop, onPickup, onOpen }: Props = $props();
 
   const furnitureSamples = $derived(
     furniture
@@ -32,6 +34,8 @@
   const hasCapacity = $derived(furniture ? furniture.contents.length < (def?.contentCapacity ?? 0) : false);
   const canDrop = $derived(carrying.length > 0 && isAdjacent() && hasCapacity);
   const mode = $derived(furniture?.type === 'workbench' ? detectWorkbenchMode(furniture.contents) : null);
+  const playerLoad = $derived(getCarryingLoad(carrying));
+  const canPickup = $derived(isAdjacent() && playerLoad < carryCapacity);
 </script>
 
 <aside class="sidebar" class:visible={furniture !== null} data-ref="furniture-panel">
@@ -53,6 +57,13 @@
               <li class="sample-item">
                 <span>{getItemIcon(item)}</span>
                 <span class="text-sm">{getItemLabel(item)}</span>
+                {#if item.kind !== 'equipment' && canPickup}
+                  <button
+                    class="pickup-btn"
+                    onclick={() => onPickup(i)}
+                    title="Pick up"
+                  >↑</button>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -123,6 +134,30 @@
     background: var(--bg-medium);
     border-radius: 4px;
     margin-bottom: var(--space-xs);
+  }
+
+  .pickup-btn {
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-dark);
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    color: var(--brass-light);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.15s;
+    padding: 0;
+  }
+
+  .pickup-btn:hover {
+    background: var(--brass-dark);
+    border-color: var(--brass);
+    color: var(--parchment);
   }
 
   .drop-btn {

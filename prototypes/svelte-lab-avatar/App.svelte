@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createInitialLabState, generatePatient, WAITING_BENCHES, TILE_SIZE } from '../shared/mock-data';
-  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, Furniture, Item, CulturePlateState } from '../shared/types';
-  import { getCarryingLoad, getItemSize, getItemIcon, getItemLabel, FURNITURE_DEFS, detectWorkbenchMode } from '../shared/types';
+  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, Furniture, Item, CulturePlateState, MediaType, ActivePrep } from '../shared/types';
+  import { getCarryingLoad, getItemSize, getItemIcon, getItemLabel, FURNITURE_DEFS, detectWorkbenchMode, MEDIA_RECIPES, consumeRecipeIngredients } from '../shared/types';
   import LabGrid from './components/LabGrid.svelte';
   import ClockBar from './components/ClockBar.svelte';
   import InstrumentPanel from './components/InstrumentPanel.svelte';
@@ -21,10 +21,10 @@
   let notebookOpen = $state(false);
   /** When set, shows diagnosis panel for this patient */
   let diagnosisPatientId = $state<string | null>(null);
-  /** Culture plates loaded into workbenches (keyed by furnitureId) */
-  let loadedPlates = $state<Record<string, CulturePlateState>>({});
   /** When set, shows cabinet contents picker */
   let cabinetOpenId = $state<string | null>(null);
+  /** Background media preparations in progress */
+  let activePreps = $state<ActivePrep[]>([]);
 
   // Counter for generating unique sample IDs
   let sampleCounter = 0;
@@ -42,6 +42,7 @@
         updateSampleDegradation();
         updatePatientPatience();
         maybeSpawnNewPatient();
+        checkPrepCompletion();
       }, 100); // Update 10 times per second
     }
 
@@ -168,7 +169,7 @@
     if (!isAdjacent(labState.player.position, patient.benchPosition)) return;
     
     selectedPatientId = patientId;
-    selectedInstrumentId = null; // Deselect instrument when selecting patient
+    selectedFurnitureId = null; // Deselect furniture when selecting patient
   }
 
   function handleCollectSample(sampleType: SampleType) {
@@ -302,11 +303,53 @@
           : s
       );
     }
+  }
 
-    // If item is a culture plate and this is a culture workbench, track it
-    if (dropped.kind === 'culture-plate') {
-      loadedPlates = { ...loadedPlates, [furnitureId]: dropped.plate };
+  function handlePrepMedia(furnitureId: string, mediaType: MediaType) {
+    const furn = labState.furniture.find(f => f.id === furnitureId);
+    if (!furn) return;
+
+    // Don't start if already prepping on this bench
+    if (activePreps.some(p => p.furnitureId === furnitureId)) return;
+
+    // Consume ingredients immediately
+    furn.contents = consumeRecipeIngredients(furn.contents, mediaType);
+
+    // Start background prep timer
+    const recipe = MEDIA_RECIPES[mediaType];
+    activePreps = [...activePreps, {
+      furnitureId,
+      mediaType,
+      startTick: labState.currentTick,
+      duration: recipe.prepTicks,
+    }];
+  }
+
+  function checkPrepCompletion() {
+    const completed = activePreps.filter(p =>
+      labState.currentTick - p.startTick >= p.duration
+    );
+
+    if (completed.length === 0) return;
+
+    for (const prep of completed) {
+      const furn = labState.furniture.find(f => f.id === prep.furnitureId);
+      if (!furn) continue;
+
+      plateCounter++;
+      const recipe = MEDIA_RECIPES[prep.mediaType];
+      const newPlate: CulturePlateState = {
+        id: `plate-${plateCounter}`,
+        mediaType: prep.mediaType,
+        phase: 'ready',
+        label: recipe.label,
+      };
+      furn.contents = [...furn.contents, { kind: 'culture-plate', plate: newPlate }];
     }
+
+    activePreps = activePreps.filter(p =>
+      labState.currentTick - p.startTick < p.duration
+    );
   }
 
   function handleCabinetTake(item: Item) {
@@ -314,8 +357,61 @@
     const load = getCarryingLoad(player.carrying);
     if (load + getItemSize(item) > player.carryCapacity) return;
     
+    // Decrement supply quantity in cabinet
+    if (cabinetOpenId && item.kind === 'supply') {
+      const cabinet = labState.furniture.find(f => f.id === cabinetOpenId);
+      if (cabinet) {
+        const supplyIdx = cabinet.contents.findIndex(
+          i => i.kind === 'supply' && i.supplyType === item.supplyType
+        );
+        if (supplyIdx >= 0) {
+          const existing = cabinet.contents[supplyIdx];
+          if (existing.kind === 'supply' && existing.quantity > 1) {
+            cabinet.contents = cabinet.contents.map((c, i) =>
+              i === supplyIdx && c.kind === 'supply'
+                ? { ...c, quantity: c.quantity - 1 }
+                : c
+            );
+          } else {
+            cabinet.contents = cabinet.contents.filter((_, i) => i !== supplyIdx);
+          }
+        }
+      }
+    }
+    
     labState.player.carrying = [...labState.player.carrying, item];
     cabinetOpenId = null;
+  }
+
+  function handlePickupFromFurniture(furnitureId: string, itemIndex: number) {
+    const player = labState.player;
+    const furn = labState.furniture.find(f => f.id === furnitureId);
+    if (!furn) return;
+    if (!isAdjacent(player.position, furn.position)) return;
+    
+    const item = furn.contents[itemIndex];
+    if (!item) return;
+    
+    // Don't pick up equipment (it's part of the bench)
+    if (item.kind === 'equipment') return;
+    
+    const load = getCarryingLoad(player.carrying);
+    if (load + getItemSize(item) > player.carryCapacity) return;
+    
+    // Remove from furniture
+    furn.contents = furn.contents.filter((_, i) => i !== itemIndex);
+    
+    // Add to carrying
+    labState.player.carrying = [...labState.player.carrying, item];
+    
+    // Update sample location if applicable
+    if (item.kind === 'sample') {
+      labState.samples = labState.samples.map(s =>
+        s.id === item.sampleId
+          ? { ...s, location: { type: 'player' as const } }
+          : s
+      );
+    }
   }
 
   let observationCounter = 0;
@@ -440,9 +536,10 @@
       observations={labState.observations}
       patients={labState.patients}
       currentTick={labState.currentTick}
-      loadedPlate={loadedPlates[viewingFurniture.id] ?? null}
+      activePrep={activePreps.find(p => p.furnitureId === viewingFurniture.id) ?? null}
       onClose={handleCloseInstrumentView}
       onRecordObservation={handleRecordObservation}
+      onPrepMedia={handlePrepMedia}
     />
   {:else}
     <ClockBar
@@ -496,7 +593,9 @@
           samples={labState.samples}
           playerPosition={labState.player.position}
           carrying={labState.player.carrying}
+          carryCapacity={labState.player.carryCapacity}
           onDrop={() => selectedFurniture && handleItemDrop(selectedFurniture.id)}
+          onPickup={(idx) => selectedFurniture && handlePickupFromFurniture(selectedFurniture.id, idx)}
           onOpen={() => selectedFurniture && (viewingFurnitureId = selectedFurniture.id)}
         />
       {/if}

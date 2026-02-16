@@ -282,6 +282,16 @@ function createFurniture(): Furniture[] {
       ],
     },
     {
+      id: 'workbench-prep',
+      type: 'workbench',
+      name: 'Preparation Bench',
+      position: { x: 6, y: 5 },
+      contents: [
+        { kind: 'equipment', equipmentType: 'flask' },
+        { kind: 'equipment', equipmentType: 'steam-sterilizer' },
+      ],
+    },
+    {
       id: 'cabinet-1',
       type: 'cabinet',
       name: 'Reagent Cabinet',

@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { Furniture, Sample, Observation, Patient, CulturePlateState } from '../../shared/types';
+  import type { Furniture, Sample, Observation, Patient, CulturePlateState, MediaType, ActivePrep } from '../../shared/types';
   import { FURNITURE_DEFS, detectWorkbenchMode } from '../../shared/types';
   import MicroscopeStage from './instruments/MicroscopeStage.svelte';
   import CultureStation from './instruments/CultureStation.svelte';
+  import PrepStation from './instruments/PrepStation.svelte';
 
   interface Props {
     furniture: Furniture;
@@ -10,12 +11,13 @@
     observations: Observation[];
     patients: Patient[];
     currentTick: number;
-    loadedPlate: CulturePlateState | null;
+    activePrep: ActivePrep | null;
     onClose: () => void;
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
+    onPrepMedia?: (furnitureId: string, mediaType: MediaType) => void;
   }
 
-  let { furniture, samples, observations, patients, currentTick, loadedPlate, onClose, onRecordObservation }: Props = $props();
+  let { furniture, samples, observations, patients, currentTick, activePrep, onClose, onRecordObservation, onPrepMedia }: Props = $props();
 
   const def = $derived(FURNITURE_DEFS[furniture.type]);
   const mode = $derived(detectWorkbenchMode(furniture.contents));
@@ -45,7 +47,9 @@
     {#if mode === 'microscope'}
       <MicroscopeStage {furniture} {samples} {observations} {onRecordObservation} />
     {:else if mode === 'culture'}
-      <CultureStation {furniture} {samples} {observations} {patients} {currentTick} {loadedPlate} {onRecordObservation} />
+      <CultureStation {furniture} {samples} {observations} {patients} {currentTick} {onRecordObservation} />
+    {:else if mode === 'prep'}
+      <PrepStation {furniture} {currentTick} {activePrep} onPrepStart={(mediaType) => onPrepMedia?.(furniture.id, mediaType)} />
     {:else}
       <div class="text-center text-muted">
         <p class="icon-xl mb-md">{def.icon}</p>
