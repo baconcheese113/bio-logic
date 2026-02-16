@@ -228,7 +228,7 @@
   });
 </script>
 
-<div class="colony-plate">
+<div class="flex flex-col items-center gap-sm">
   <canvas
     bind:this={canvas}
     width={PLATE_SIZE}
@@ -241,33 +241,26 @@
   ></canvas>
 
   {#if pickingEnabled && selectedColony}
-    <div class="pick-feedback" class:pure={selectedColony.isIsolated} class:mixed={!selectedColony.isIsolated}>
+    <div class="flex items-center gap-sm py-xs px-md rounded-md font-semibold text-sm" class:pick-pure={selectedColony.isIsolated} class:pick-mixed={!selectedColony.isIsolated}>
       {#if selectedColony.isContaminant}
-        <span class="pick-icon">⚠</span>
+        <span class="text-lg">⚠</span>
         <span>Contaminant colony — not the target organism</span>
       {:else if selectedColony.isIsolated}
-        <span class="pick-icon">✓</span>
+        <span class="text-lg">✓</span>
         <span>Isolated colony — pure culture</span>
       {:else}
-        <span class="pick-icon">✗</span>
+        <span class="text-lg">✗</span>
         <span>Confluent zone — mixed culture</span>
       {/if}
     </div>
   {:else if pickingEnabled}
-    <p class="pick-hint">Click a colony to pick it for subculture or staining.</p>
+    <p class="text-sm italic m-0" style:color="var(--parchment-aged)">Click a colony to pick it for subculture or staining.</p>
   {/if}
 
-  <div class="plate-label">{MEDIA_COLORS[mediaType].label} — After Incubation</div>
+  <div class="text-xs uppercase tracking-widest" style:color="var(--parchment-aged)">{MEDIA_COLORS[mediaType].label} — After Incubation</div>
 </div>
 
 <style>
-  .colony-plate {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-
   .plate-canvas {
     width: 400px;
     height: 400px;
@@ -279,43 +272,15 @@
     cursor: crosshair;
   }
 
-  .plate-label {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .pick-feedback {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-md);
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  .pick-feedback.pure {
+  .pick-pure {
     background: #1a3a1a;
     color: #6cba6c;
     border: 1px solid #2a5a2a;
   }
 
-  .pick-feedback.mixed {
+  .pick-mixed {
     background: #3a1a1a;
     color: #d06c6c;
     border: 1px solid #5a2a2a;
-  }
-
-  .pick-icon {
-    font-size: 1.1rem;
-  }
-
-  .pick-hint {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    font-style: italic;
-    margin: 0;
   }
 </style>

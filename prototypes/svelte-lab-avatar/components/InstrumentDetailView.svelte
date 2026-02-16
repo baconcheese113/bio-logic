@@ -35,7 +35,7 @@
   <header class="header-bar">
     <div class="flex items-center gap-md">
       <span class="icon-lg">{def.icon}</span>
-      <h1>{furniture.name}</h1>
+      <h1 class="m-0">{furniture.name}</h1>
       <span class="tag">{mode}</span>
     </div>
     <button class="btn-close" onclick={onClose} data-ref="btn-close-detail">
@@ -51,7 +51,7 @@
     {:else if mode === 'prep'}
       <PrepStation {furniture} {currentTick} {activePrep} onPrepStart={(mediaType) => onPrepMedia?.(furniture.id, mediaType)} />
     {:else}
-      <div class="text-center text-muted">
+      <div class="text-center" style:color="var(--text-muted)">
         <p class="icon-xl mb-md">{def.icon}</p>
         <p class="text-lg mb-sm">{furniture.name} detail view coming soon</p>
         <p>Mode: <code>{mode}</code></p>
@@ -65,11 +65,4 @@
 </div>
 
 <style>
-  h1 {
-    margin: 0;
-  }
-
-  .text-lg {
-    font-size: 1.25rem;
-  }
 </style>

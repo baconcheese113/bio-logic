@@ -14,7 +14,7 @@
 
 <div class="sample-hud" class:visible={carrying.length > 0} data-ref="sample-hud">
   {#if carrying.length > 0}
-    <div class="hud-content panel flex items-center gap-md p-sm">
+    <div class="panel flex items-center gap-md p-sm rounded-lg shadow-lg">
       <span class="text-xs uppercase text-muted">Carrying ({load}/{carryCapacity}):</span>
       {#each carrying as item}
         <div class="flex items-center gap-sm">
@@ -38,10 +38,5 @@
 
   .sample-hud.visible {
     transform: translateX(-50%) translateY(0);
-  }
-
-  .hud-content {
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
   }
 </style>

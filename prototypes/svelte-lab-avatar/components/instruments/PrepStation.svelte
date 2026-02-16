@@ -51,8 +51,8 @@
   });
 </script>
 
-<div class="prep-station">
-  <h3>Media Preparation</h3>
+<div class="flex flex-col gap-md p-md w-full max-w-[600px]">
+  <h3 class="m-0 pb-sm font-heading border-b-thin" style:color="var(--brass-light)">Media Preparation</h3>
 
   {#if activePrep && prepRecipe}
     <!-- Preparation in progress -->
@@ -68,63 +68,63 @@
     </div>
   {:else}
     <!-- Supplies on bench -->
-    <section class="section">
-      <h4>Supplies on Bench</h4>
+    <section class="flex flex-col gap-sm">
+      <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Supplies on Bench</h4>
       {#if supplies.length > 0}
-        <div class="item-list">
+        <div class="flex flex-col gap-xs">
           {#each supplies as item}
-            <div class="item-row">
+            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm" style:background="var(--bg-medium)">
               <span>{getItemIcon(item)}</span>
               <span>{getItemLabel(item)}</span>
             </div>
           {/each}
         </div>
       {:else}
-        <p class="empty-text">No supplies. Bring ingredients from the cabinet.</p>
+        <p class="text-sm italic" style:color="var(--parchment-aged)">No supplies. Bring ingredients from the cabinet.</p>
       {/if}
     </section>
 
     <!-- Finished plates on bench -->
     {#if plates.length > 0}
-      <section class="section">
-        <h4>Prepared Plates</h4>
-        <div class="item-list">
+      <section class="flex flex-col gap-sm">
+        <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Prepared Plates</h4>
+        <div class="flex flex-col gap-xs">
           {#each plates as item}
-            <div class="item-row plate-row">
+            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm border" style:background="var(--bg-medium)" style:border-color="var(--status-idle)">
               <span>🧫</span>
               <span>{getItemLabel(item)}</span>
               <span class="phase-tag ready">Ready</span>
             </div>
           {/each}
         </div>
-        <p class="hint">Pick up plates and bring them to the culture bench.</p>
+        <p class="text-sm italic" style:color="var(--parchment-aged)">Pick up plates and bring them to the culture bench.</p>
       </section>
     {/if}
 
     <!-- Available recipes -->
-    <section class="section">
-      <h4>Available Recipes</h4>
+    <section class="flex flex-col gap-sm">
+      <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Available Recipes</h4>
       {#if availableRecipes.length > 0}
-        <div class="recipe-list">
+        <div class="flex flex-col gap-sm">
           {#each availableRecipes as mediaType}
             {@const recipe = MEDIA_RECIPES[mediaType]}
             <button class="recipe-btn" onclick={() => onPrepStart(mediaType)}>
-              <span class="recipe-icon">🧫</span>
-              <div class="recipe-info">
-                <span class="recipe-name">{recipe.label}</span>
-                <span class="recipe-time">~{Math.round(recipe.prepTicks / 10)}s</span>
+              <span class="text-2xl">🧫</span>
+              <div class="flex-1 flex flex-col items-start">
+                <span class="font-heading text-sm" style:color="var(--brass-light)">{recipe.label}</span>
+                <span class="text-xs" style:color="var(--parchment-aged)">~{Math.round(recipe.prepTicks / 10)}s</span>
               </div>
-              <span class="recipe-go">Prepare →</span>
+              <span class="text-sm uppercase tracking-wider" style:color="var(--status-idle)">Prepare →</span>
             </button>
           {/each}
         </div>
       {:else}
-        <div class="recipe-hint">
-          <p>Bring supplies from the reagent cabinet:</p>
-          <ul class="recipe-requirements">
+        <div class="text-sm" style:color="var(--parchment-aged)">
+          <p class="mb-sm">Bring supplies from the reagent cabinet:</p>
+          <ul class="list-none flex flex-col gap-xs">
             {#each Object.entries(MEDIA_RECIPES) as [, recipe]}
-              <li>
-                <strong>{recipe.label}:</strong>
+              <li class="py-xs px-sm rounded text-xs" style:background="var(--bg-medium)">
+                <strong style:color="var(--brass-light)">{recipe.label}:</strong>
                 {recipe.ingredients.join(' + ')}
               </li>
             {/each}
@@ -136,58 +136,6 @@
 </div>
 
 <style>
-  .prep-station {
-    width: 100%;
-    max-width: 600px;
-    padding: var(--space-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-  }
-
-  h3 {
-    margin: 0;
-    color: var(--brass-light);
-    font-family: var(--font-heading);
-    border-bottom: var(--border-thin);
-    padding-bottom: var(--space-sm);
-  }
-
-  .section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .section h4 {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--brass);
-  }
-
-  .item-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  .item-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-sm);
-    background: var(--bg-medium);
-    border-radius: 4px;
-    font-size: 0.9rem;
-  }
-
-  .plate-row {
-    border: 1px solid var(--status-idle);
-  }
-
   .phase-tag {
     margin-left: auto;
     font-size: 0.75rem;
@@ -200,19 +148,6 @@
   .phase-tag.ready {
     background: #2a4a2a;
     color: #6cba6c;
-  }
-
-  .hint {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    font-style: italic;
-  }
-
-  /* Recipe list */
-  .recipe-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
   }
 
   .recipe-btn {
@@ -232,59 +167,6 @@
   .recipe-btn:hover {
     border-color: var(--brass);
     box-shadow: var(--shadow-sm);
-  }
-
-  .recipe-icon { font-size: 1.5rem; }
-
-  .recipe-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .recipe-name {
-    font-family: var(--font-heading);
-    font-size: 0.9rem;
-    color: var(--brass-light);
-  }
-
-  .recipe-time {
-    font-size: 0.75rem;
-    color: var(--parchment-aged);
-  }
-
-  .recipe-go {
-    font-size: 0.8rem;
-    color: var(--status-idle);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* Recipe hint for when no supplies present */
-  .recipe-hint {
-    font-size: 0.85rem;
-    color: var(--parchment-aged);
-  }
-
-  .recipe-hint p { margin-bottom: var(--space-sm); }
-
-  .recipe-requirements {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  .recipe-requirements li {
-    padding: var(--space-xs) var(--space-sm);
-    background: var(--bg-medium);
-    border-radius: 4px;
-    font-size: 0.8rem;
-  }
-
-  .recipe-requirements strong {
-    color: var(--brass-light);
   }
 
   /* Progress display */

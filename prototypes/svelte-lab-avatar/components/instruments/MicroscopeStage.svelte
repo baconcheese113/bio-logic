@@ -158,9 +158,9 @@
   }
 </script>
 
-<div class="microscope-stage" data-ref="microscope-stage">
+<div class="flex gap-xl p-xl max-w-[1000px] w-full" data-ref="microscope-stage">
   <!-- Left: Visual field (what you see through eyepiece) -->
-  <div class="visual-field-container">
+  <div class="flex gap-md items-center">
     <div class="eyepiece-frame">
       <div 
         class="visual-field" 
@@ -195,11 +195,11 @@
           <div class="empty-field">No slide loaded</div>
         {/if}
       </div>
-      <div class="field-label">View through eyepiece</div>
+      <div class="mt-sm text-xs uppercase tracking-widest" style:color="var(--parchment-aged)">View through eyepiece</div>
     </div>
     
     <!-- Focus wheel -->
-    <div class="focus-wheel-container">
+    <div class="flex flex-col items-center gap-xs">
       <div class="focus-label">Focus</div>
       <div 
         class="focus-wheel"
@@ -211,12 +211,12 @@
         </div>
         <button class="focus-btn" onclick={() => adjustFocus(-10)}>▼</button>
       </div>
-      <div class="focus-value">{focusLevel}%</div>
+      <div class="text-xs font-mono" style:color="var(--brass)">{focusLevel}%</div>
     </div>
   </div>
 
   <!-- Right: Controls and observation selection -->
-  <aside class="controls-panel">
+  <aside class="flex-1 min-w-[280px] max-w-[320px] p-md rounded-lg border-thin overflow-y-auto max-h-[400px]" style:background="var(--bg-dark)">
     <!-- Objective selection -->
     <section class="control-section">
       <h4>Objective Lens</h4>
@@ -232,7 +232,7 @@
 
     <!-- Sample info -->
     <section class="control-section">
-      <h4>Stage</h4>
+      <h4 class="mb-sm text-xs uppercase tracking-wider" style:color="var(--brass)">Stage</h4>
       {#if loadedSample}
         <div class="flex items-center gap-sm mb-sm flex-wrap">
           <span class="sample-dot" style:background={SAMPLE_COLORS[loadedSample.type]}></span>
@@ -240,14 +240,14 @@
         </div>
         <span class="condition-badge {loadedSample.condition}">{loadedSample.condition}</span>
       {:else}
-        <p class="empty-text">Load a stained slide to observe</p>
+        <p class="text-sm italic" style:color="var(--parchment-aged)">Load a stained slide to observe</p>
       {/if}
     </section>
 
     <!-- Observation selection (only visible when in focus with sample) -->
     {#if loadedSample && isInFocus}
-      <section class="control-section observation-section">
-        <h4>What do you see?</h4>
+      <section class="observation-section control-section">
+        <h4 class="mb-sm text-xs uppercase tracking-wider" style:color="var(--brass)">What do you see?</h4>
         
         <div class="obs-group">
           <span class="obs-label">Gram Stain:</span>
@@ -319,33 +319,13 @@
       </section>
     {:else if loadedSample}
       <section class="control-section">
-        <p class="empty-text">Adjust focus to observe sample</p>
+        <p class="text-sm italic" style:color="var(--parchment-aged)">Adjust focus to observe sample</p>
       </section>
     {/if}
   </aside>
 </div>
 
 <style>
-  .microscope-stage { 
-    display: flex; 
-    gap: var(--space-xl); 
-    padding: var(--space-xl); 
-    max-width: 1000px; 
-    width: 100%; 
-  }
-
-  .visual-field-container {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
-  }
-
-  .eyepiece-frame {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
   .visual-field {
     width: 280px;
     height: 280px;
@@ -387,27 +367,6 @@
     font-style: italic;
     text-align: center;
     padding: var(--space-lg);
-  }
-
-  .field-label {
-    margin-top: var(--space-sm);
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .focus-wheel-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-  }
-
-  .focus-label {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    text-transform: uppercase;
   }
 
   .focus-wheel {
@@ -454,27 +413,8 @@
     transition: height 0.1s;
   }
 
-  .focus-value {
-    font-size: 0.8rem;
-    color: var(--brass);
-    font-family: var(--font-mono);
-  }
-
-  .controls-panel { 
-    flex: 1;
-    min-width: 280px;
-    max-width: 320px;
-    background: var(--bg-dark); 
-    border: var(--border-thin); 
-    border-radius: 8px; 
-    padding: var(--space-md);
-    overflow-y: auto;
-    max-height: 400px;
-  }
-
-  .objective-row {
-    display: flex;
-    gap: var(--space-xs);
+  .control-section {
+    margin-bottom: var(--space-md);
   }
 
   .btn-sm { 

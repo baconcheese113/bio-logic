@@ -79,12 +79,12 @@
   ];
 </script>
 
-<div class="culture-observations">
-  <h4>What do you observe?</h4>
+<div class="p-md rounded-md" style:background="var(--bg-medium)">
+  <h4 class="m-0 mb-sm text-xs" style:color="var(--brass)">What do you observe?</h4>
 
   <div class="obs-group">
     <span class="obs-label">Growth:</span>
-    <div class="obs-options">
+    <div class="flex flex-wrap gap-xs">
       {#each growthOptions as opt}
         <button
           class="obs-btn"
@@ -97,7 +97,7 @@
 
   <div class="obs-group">
     <span class="obs-label">Colony Color:</span>
-    <div class="obs-options">
+    <div class="flex flex-wrap gap-xs">
       {#each colorOptions as opt}
         <button
           class="obs-btn color-btn"
@@ -113,7 +113,7 @@
 
   <div class="obs-group">
     <span class="obs-label">Hemolysis:</span>
-    <div class="obs-options">
+    <div class="flex flex-wrap gap-xs">
       {#each hemolysisOptions as opt}
         <button
           class="obs-btn"
@@ -127,7 +127,7 @@
   {#if isOnGelatin}
     <div class="obs-group">
       <span class="obs-label">Gelatin Liquefaction:</span>
-      <div class="obs-options">
+      <div class="flex flex-wrap gap-xs">
         {#each lactoseOptions as opt}
           <button
             class="obs-btn"
@@ -149,18 +149,6 @@
 </div>
 
 <style>
-  .culture-observations {
-    background: var(--bg-medium);
-    border-radius: 6px;
-    padding: var(--space-md);
-  }
-
-  h4 {
-    margin: 0 0 var(--space-sm) 0;
-    color: var(--brass);
-    font-size: 0.85rem;
-  }
-
   .obs-group {
     margin-bottom: var(--space-sm);
   }
@@ -171,12 +159,6 @@
     color: var(--brass);
     margin-bottom: var(--space-xs);
     text-transform: uppercase;
-  }
-
-  .obs-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
   }
 
   .obs-btn {
@@ -198,21 +180,10 @@
     border-color: var(--brass-light);
   }
 
-  .color-btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
   .color-swatch {
     width: 10px;
     height: 10px;
     border-radius: 50%;
     border: 1px solid rgba(0, 0, 0, 0.2);
-  }
-
-  .record-btn {
-    width: 100%;
-    margin-top: var(--space-md);
   }
 </style>

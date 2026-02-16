@@ -51,15 +51,71 @@
 </div>
 
 <style>
-  .player-avatar { position: absolute; display: flex; align-items: center; justify-content: center; z-index: 50; pointer-events: none; transition: left 0.3s ease, top 0.3s ease; }
+  .player-avatar { 
+    position: absolute; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 50; 
+    pointer-events: none; 
+    transition: left 0.3s ease, top 0.3s ease; 
+  }
   .player-avatar.moving { animation: bob 0.15s ease-in-out infinite alternate; }
   @keyframes bob { 0% { transform: translateY(0); } 100% { transform: translateY(-3px); } }
 
-  .avatar-body { position: relative; width: 48px; height: 48px; transition: transform 0.2s ease; }
-  .avatar-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: linear-gradient(145deg, #2a2520 0%, #1a1815 100%); border: 3px solid var(--brass); border-radius: 50%; box-shadow: 0 4px 8px rgba(0,0,0,0.5), 0 0 12px rgba(184,149,110,0.4); }
-  .avatar-direction { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid #ffc107; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+  .avatar-body { 
+    position: relative; 
+    width: 48px; 
+    height: 48px; 
+    transition: transform 0.2s ease; 
+  }
+  .avatar-icon { 
+    width: 48px; 
+    height: 48px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 2rem; 
+    background: linear-gradient(145deg, #2a2520 0%, #1a1815 100%); 
+    border: 3px solid var(--brass); 
+    border-radius: 50%; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5), 0 0 12px rgba(184,149,110,0.4); 
+  }
+  .avatar-direction { 
+    position: absolute; 
+    top: -4px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    width: 0; 
+    height: 0; 
+    border-left: 8px solid transparent; 
+    border-right: 8px solid transparent; 
+    border-bottom: 10px solid #ffc107; 
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); 
+  }
 
-  .held-item { position: absolute; bottom: -4px; right: -4px; font-size: 0.9rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); animation: glow 1s ease-in-out infinite alternate; }
-  .carry-count { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; border-radius: 50%; background: var(--brass); color: var(--bg-darkest); font-size: 0.65rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+  .held-item { 
+    position: absolute; 
+    bottom: -4px; 
+    right: -4px; 
+    font-size: 0.9rem; 
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); 
+    animation: glow 1s ease-in-out infinite alternate; 
+  }
+  .carry-count { 
+    position: absolute; 
+    top: -4px; 
+    right: -4px; 
+    width: 16px; 
+    height: 16px; 
+    border-radius: 50%; 
+    background: var(--brass); 
+    color: var(--bg-darkest); 
+    font-size: 0.65rem; 
+    font-weight: bold; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+  }
   @keyframes glow { 0% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); } 100% { filter: drop-shadow(0 2px 8px rgba(255,255,255,0.3)); } }
 </style>

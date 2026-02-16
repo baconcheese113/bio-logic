@@ -176,7 +176,7 @@
               onclick={() => onPatientClick(patient.id)}
             />
           {:else if tile.type === 'waiting-bench'}
-            <span class="tile-icon bench-empty">🪑</span>
+            <div class="tile-icon bench-empty">🪑</div>
           {/if}
         </div>
       {/each}
@@ -204,12 +204,12 @@
   </div>
 
   <!-- Zoom indicator -->
-  <div class="zoom-indicator" data-ref="zoom-indicator">
+  <div class="absolute bottom-md right-md py-xs px-sm rounded border-thin font-mono text-xs" style:background="var(--bg-dark)" style:color="var(--parchment-aged)" data-ref="zoom-indicator">
     {Math.round(labState.camera.zoom * 100)}%
   </div>
 
   <!-- Instructions -->
-  <div class="instructions">
+  <div class="absolute bottom-md left-1/2 -translate-x-1/2 text-center text-sm opacity-60" style:color="var(--parchment-aged)">
     <p>Left-click tile to move • Right-drag to pan • Scroll to zoom</p>
     <p>Click sample to pick up • Click instrument slot to drop</p>
   </div>
@@ -230,8 +230,4 @@
   .tile-waiting-bench { background: #2a2520; border: 1px solid #3a352e; }
   .tile-icon { font-size: 1.5rem; opacity: 0.7; }
   .bench-empty { opacity: 0.3; }
-
-  .zoom-indicator { position: absolute; bottom: var(--space-md); right: var(--space-md); padding: var(--space-xs) var(--space-sm); background: var(--bg-dark); border: var(--border-thin); border-radius: 4px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--parchment-aged); }
-  .instructions { position: absolute; bottom: var(--space-md); left: 50%; transform: translateX(-50%); text-align: center; font-size: 0.9rem; color: var(--parchment-aged); opacity: 0.6; }
-  .instructions p { margin: 2px 0; }
 </style>
