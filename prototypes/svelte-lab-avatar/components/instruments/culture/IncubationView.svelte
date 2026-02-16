@@ -49,7 +49,7 @@
     </p>
 
     <div class="h-[10px] bg-bg-dark border border-brass-dark rounded-[5px] overflow-hidden">
-      <div class="progress-fill" style:width="{progress}%"></div>
+      <div class="progress-fill" style:width="{progress}%" style:background="linear-gradient(90deg, #c45a20, #e8a060)"></div>
     </div>
 
     <p class="text-xs text-parchment-aged m-0">
@@ -95,12 +95,5 @@
   @keyframes pulse-warm {
     0%, 100% { box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3); }
     50% { box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3), 0 0 8px rgba(196, 90, 32, 0.15); }
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #c45a20, #e8a060);
-    transition: width 0.3s;
-    border-radius: 5px;
   }
 </style>

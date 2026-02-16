@@ -85,7 +85,7 @@
           <h4>Already Collected</h4>
           <div class="flex flex-wrap gap-xs">
             {#each patient.collectedSamples as sampleType}
-              <span class="collected-tag" style:background={SAMPLE_COLORS[sampleType]}>
+              <span class="status-tag" style:background={SAMPLE_COLORS[sampleType]}>
                 {formatSampleType(sampleType)}
               </span>
             {/each}
@@ -119,13 +119,5 @@
 
   .sidebar.visible {
     transform: translateX(0);
-  }
-
-  .collected-tag {
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 0.8rem;
-    color: white;
-    opacity: 0.7;
   }
 </style>

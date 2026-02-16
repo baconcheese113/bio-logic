@@ -77,8 +77,8 @@
 
     <div class="flex-1 p-md overflow-y-auto">
       <!-- Patient info -->
-      <section class="mb-lg patient-info">
-        <h3 class="section-title">Patient</h3>
+      <section class="mb-lg inset-section">
+        <h3 class="section-heading">Patient</h3>
         <div class="flex items-center gap-md mb-sm">
           <span class="text-base font-semibold text-parchment">🧑‍⚕️ {patient.name}</span>
           <span class="patient-status {patient.status}">{patient.status}</span>
@@ -88,7 +88,7 @@
 
       <!-- Your observations -->
       <section class="mb-lg">
-        <h3 class="section-title">Your Observations</h3>
+        <h3 class="section-heading">Your Observations</h3>
         {#if patientObservations.length === 0}
           <p class="empty-text">No observations recorded for this patient.</p>
         {:else}
@@ -105,7 +105,7 @@
 
       <!-- Organism selection -->
       <section class="mb-lg">
-        <h3 class="section-title">Identified Organism</h3>
+        <h3 class="section-heading">Identified Organism</h3>
         <select class="select" bind:value={selectedOrganism}>
           <option value={null}>-- Select organism --</option>
           {#each ORGANISMS as org}
@@ -116,7 +116,7 @@
 
       <!-- Category selection -->
       <section class="mb-lg">
-        <h3 class="section-title">Category</h3>
+        <h3 class="section-heading">Category</h3>
         <div class="flex flex-wrap gap-xs">
           {#each CATEGORIES as cat}
             <button 
@@ -131,7 +131,7 @@
 
       <!-- Treatment selection -->
       <section class="mb-lg">
-        <h3 class="section-title">Recommended Treatment</h3>
+        <h3 class="section-heading">Recommended Treatment</h3>
         <select class="select" bind:value={selectedTreatment}>
           <option value={null}>-- Select treatment --</option>
           {#each TREATMENTS as treat}
@@ -167,32 +167,6 @@
     flex-direction: column;
   }
 
-  .panel-header {
-    background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
-    border-bottom: var(--border-thin);
-  }
-
-  .panel-footer {
-    background: var(--bg-medium);
-    border-top: var(--border-thin);
-  }
-
-  .section-title {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--brass);
-    margin: 0 0 var(--space-sm) 0;
-    border-bottom: 1px solid var(--brass-dark);
-    padding-bottom: var(--space-xs);
-  }
-
-  .patient-info {
-    background: var(--bg-medium);
-    padding: var(--space-md);
-    border-radius: 6px;
-  }
-
   .patient-status {
     padding: 2px 8px;
     border-radius: 4px;
@@ -220,32 +194,5 @@
   .obs-value {
     color: var(--parchment);
     text-transform: capitalize;
-  }
-
-  .select {
-    width: 100%;
-    padding: var(--space-sm);
-    background: var(--bg-medium);
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    color: var(--parchment);
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-
-  .select:focus {
-    outline: none;
-    border-color: var(--brass);
-  }
-
-  .select option {
-    background: var(--bg-dark);
-    color: var(--parchment);
-  }
-
-  .btn-sm {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: 0.8rem;
   }
 </style>

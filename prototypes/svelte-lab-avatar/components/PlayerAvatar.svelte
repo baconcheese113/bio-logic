@@ -111,7 +111,7 @@
     border-radius: 50%; 
     background: var(--brass); 
     color: var(--bg-darkest); 
-    font-size: 0.65rem; 
+    font-size: 0.75rem; 
     font-weight: bold; 
     display: flex; 
     align-items: center; 

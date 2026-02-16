@@ -109,14 +109,39 @@ Your city has diseases. Your lab fights them. This creates stakes without "game 
 
 ---
 
+## Lab World Taxonomy
+
+Everything in the lab world falls into one of four categories, from most permanent to most transient:
+
+| Category | Definition | Examples |
+|----------|-----------|---------|
+| **Structure** | Building architecture — walls, floors, doors, windows | Walls, floors, doors, windows, drain |
+| **Fixture** | Permanently installed lab infrastructure — cannot be moved once placed | Built-in workbench, plumbed sink, gas line, fume hood, wall shelving |
+| **Equipment** | Movable machinery and tools — can be relocated | Ice box, microscope, steam sterilizer, centrifuge, hand incubator, bunsen burner, inoculation loop |
+| **Consumable** | Depletable supplies — used up during workflows | Reagents, stains, empty dishes, media powder, distilled water |
+
+**Placement:**
+- Structures define the room shape and cannot be changed after building
+- Fixtures occupy floor tiles and may require infrastructure (gas, water)
+- Equipment is either `freeStanding` (occupies floor tiles) or `benchtop` (placed on a fixture's work surface)
+- Consumables are always `benchtop` — stored on shelving, cabinets, or workbench surfaces
+
+**Containers:** Many items are containers that hold substances (culture plates hold media + bacteria, flasks hold liquid reagents, vials hold patient samples). Containers are a core mechanic — transferring substances between containers drives most lab workflows.
+
+**Samples:** A sample is a substance inside a container (vial, tube, swab transport). The container is the item; the sample is its contents.
+
+All placeable things share `gridSize: [cols, rows]` for spatial placement on either floor tiles or fixture surfaces.
+
+---
+
 ## Lab Management & Designer
 
 The lab is a physical space the player builds and manages.
 
 **Core Concept:**
 - Top-Down Lab View with grid-based layout
-- Instrument Placement affects workflow
-- Infrastructure Requirements (power, ventilation, biosafety)
+- Fixture and equipment placement affects workflow
+- Infrastructure requirements (power, gas, water, ventilation, biosafety)
 - Era-Appropriate Labs evolve with technology
 
 **Lab Layout by Era:**
@@ -130,11 +155,12 @@ The lab is a physical space the player builds and manages.
 | Contamination Risk | High | Medium | Low | Very Low |
 
 **Lab Management Actions:**
-- Buy Instrument (costs funds, requires space + prerequisites)
-- Place Instrument (drag to valid grid cell)
-- Upgrade Infrastructure (power, ventilation, biosafety)
-- Relocate Instrument (costs funds, takes time)
-- Decommission Instrument (recoup some funds)
+- Buy equipment (costs funds, requires space + prerequisites)
+- Place equipment on floor (freestanding) or on fixture surface (benchtop)
+- Install fixtures (permanent — choose placement carefully)
+- Upgrade infrastructure (power, gas, water, ventilation, biosafety)
+- Relocate equipment (costs funds, takes time)
+- Decommission equipment (recoup some funds)
 
 ---
 

@@ -901,22 +901,4 @@
   .lid-badge { background: #2a3a4a; color: #88bbdd; }
   .loop-badge { background: #2a4a2a; color: #88dd88; }
   .contam-badge { background: #4a2a2a; color: #d06c6c; }
-
-  .btn-sm {
-    padding: 2px 10px;
-    font-size: 0.8rem;
-    border: var(--border-thin);
-    border-radius: 4px;
-    background: var(--bg-medium);
-    color: var(--parchment-aged);
-    cursor: pointer;
-  }
-  .btn-sm:hover:not(:disabled) { border-color: var(--brass); }
-  .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-sm.btn-primary {
-    background: var(--brass-dark);
-    color: var(--parchment);
-    border-color: var(--brass);
-  }
-  .btn-sm.btn-primary:hover:not(:disabled) { background: var(--brass); }
 </style>

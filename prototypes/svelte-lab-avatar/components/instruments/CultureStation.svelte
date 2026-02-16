@@ -104,7 +104,7 @@
   {#if phase === 'workbench'}
     {#if loadedPlate}
       <div class="flex items-center gap-sm py-xs px-sm text-sm" style:color="var(--parchment-aged)">
-        <span class="media-swatch" style:background={MEDIA_COLORS[selectedMedia].base}></span>
+        <span class="sample-dot" style:background={MEDIA_COLORS[selectedMedia].base}></span>
         <span>{MEDIA_COLORS[selectedMedia].label} plate</span>
       </div>
     {/if}
@@ -155,19 +155,13 @@
             {onRecordObservation}
           />
         {/if}
-        <button class="btn-restart" onclick={handleRestart}>Start New Plate</button>
+        <button class="btn-sm" onclick={handleRestart}>Start New Plate</button>
       </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .media-swatch {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.15);
-  }
-
   .quality-badge {
     padding: 3px 10px;
     border-radius: 10px;
@@ -180,15 +174,4 @@
   .quality-fair { background: #4a3a1a; color: #e0a840; }
   .quality-poor { background: #4a2a2a; color: #d06c6c; }
   .quality-none { background: #3a3a3a; color: #888; }
-
-  .btn-restart {
-    background: var(--bg-medium);
-    border: var(--border-thin);
-    color: var(--parchment-aged);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-  .btn-restart:hover { border-color: var(--brass); }
 </style>

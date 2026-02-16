@@ -52,7 +52,7 @@
   
   {#if isOpen}
     <aside class="notebook-panel">
-      <header class="notebook-header">
+      <header class="panel-header">
         <h3 class="m-0 text-sm text-brass-light">📓 Lab Notebook</h3>
       </header>
       
@@ -118,12 +118,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .notebook-header {
-    padding: var(--space-sm) var(--space-md);
-    background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
-    border-bottom: var(--border-thin);
   }
 
   .notebook-body {

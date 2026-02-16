@@ -87,7 +87,7 @@
     <div class="flex flex-wrap gap-xs">
       {#each growthOptions as opt}
         <button
-          class="obs-btn"
+          class="obs-btn capitalize"
           class:selected={selectedGrowth === opt}
           onclick={() => selectedGrowth = opt}
         >{opt}</button>
@@ -100,7 +100,7 @@
     <div class="flex flex-wrap gap-xs">
       {#each colorOptions as opt}
         <button
-          class="obs-btn color-btn"
+          class="obs-btn capitalize color-btn"
           class:selected={selectedColor === opt.value}
           onclick={() => selectedColor = opt.value}
         >
@@ -116,7 +116,7 @@
     <div class="flex flex-wrap gap-xs">
       {#each hemolysisOptions as opt}
         <button
-          class="obs-btn"
+          class="obs-btn capitalize"
           class:selected={selectedHemolysis === opt.value}
           onclick={() => selectedHemolysis = opt.value}
         >{opt.label}</button>
@@ -130,7 +130,7 @@
       <div class="flex flex-wrap gap-xs">
         {#each lactoseOptions as opt}
           <button
-            class="obs-btn"
+            class="obs-btn capitalize"
             class:selected={selectedLactose === opt.value}
             onclick={() => selectedLactose = opt.value}
           >{opt.label}</button>
@@ -149,37 +149,6 @@
 </div>
 
 <style>
-  .obs-group {
-    margin-bottom: var(--space-sm);
-  }
-
-  .obs-label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--brass);
-    margin-bottom: var(--space-xs);
-    text-transform: uppercase;
-  }
-
-  .obs-btn {
-    padding: 4px 8px;
-    font-size: 0.8rem;
-    background: var(--bg-dark);
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    color: var(--parchment);
-    cursor: pointer;
-    transition: all 0.15s;
-    text-transform: capitalize;
-  }
-
-  .obs-btn:hover { border-color: var(--brass); }
-  .obs-btn.selected {
-    background: var(--brass);
-    color: var(--bg-darkest);
-    border-color: var(--brass-light);
-  }
-
   .color-swatch {
     width: 10px;
     height: 10px;

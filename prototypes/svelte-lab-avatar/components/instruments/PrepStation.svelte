@@ -59,8 +59,8 @@
     <div class="prep-progress-section">
       <div class="prep-recipe-name">{prepRecipe.label}</div>
       <div class="prep-phase">{phaseLabel}</div>
-      <div class="progress-bar">
-        <div class="progress-fill" style:width="{prepProgress * 100}%"></div>
+      <div class="progress-track" style:max-width="300px">
+        <div class="progress-fill" style:width="{prepProgress * 100}%" style:background="linear-gradient(90deg, var(--brass-dark), var(--brass-light))"></div>
       </div>
       <div class="prep-time">
         {Math.round(prepElapsed / 10)}s / {Math.round(activePrep.duration / 10)}s
@@ -191,23 +191,6 @@
     font-size: 0.9rem;
     color: var(--parchment-aged);
     font-style: italic;
-  }
-
-  .progress-bar {
-    width: 100%;
-    max-width: 300px;
-    height: 8px;
-    background: var(--bg-dark);
-    border-radius: 4px;
-    overflow: hidden;
-    border: 1px solid var(--brass-dark);
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--brass-dark), var(--brass-light));
-    border-radius: 4px;
-    transition: width 0.3s;
   }
 
   .prep-time {

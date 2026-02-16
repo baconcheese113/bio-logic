@@ -223,7 +223,7 @@
       <div class="objective-row">
         {#each ['10x', '40x', '100x'] as obj}
           <button 
-            class="btn btn-sm {selectedObjective === obj ? 'active' : ''}"
+            class="btn btn-sm flex-1 {selectedObjective === obj ? 'active' : ''}"
             onclick={() => selectObjective(obj as '10x' | '40x' | '100x')}
           >{obj}</button>
         {/each}
@@ -251,7 +251,7 @@
         
         <div class="obs-group">
           <span class="obs-label">Gram Stain:</span>
-          <div class="obs-options">
+          <div class="flex flex-wrap gap-xs">
             <button class="obs-btn {selectedGram === 'positive' ? 'selected' : ''}" onclick={() => selectedGram = 'positive'}>
               Purple (+)
             </button>
@@ -263,7 +263,7 @@
         
         <div class="obs-group">
           <span class="obs-label">Shape:</span>
-          <div class="obs-options">
+          <div class="flex flex-wrap gap-xs">
             <button class="obs-btn {selectedShape === 'cocci' ? 'selected' : ''}" onclick={() => selectedShape = 'cocci'}>
               Cocci
             </button>
@@ -278,7 +278,7 @@
         
         <div class="obs-group">
           <span class="obs-label">Arrangement:</span>
-          <div class="obs-options">
+          <div class="flex flex-wrap gap-xs">
             <button class="obs-btn {selectedArrangement === 'singles' ? 'selected' : ''}" onclick={() => selectedArrangement = 'singles'}>
               Singles
             </button>
@@ -296,7 +296,7 @@
         
         <div class="obs-group">
           <span class="obs-label">Special:</span>
-          <div class="obs-options">
+          <div class="flex flex-wrap gap-xs">
             <button class="obs-btn {selectedSpecial.includes('acid-fast') ? 'selected' : ''}" onclick={() => toggleSpecial('acid-fast')}>
               Acid-Fast
             </button>
@@ -413,59 +413,10 @@
     transition: height 0.1s;
   }
 
-  .control-section {
-    margin-bottom: var(--space-md);
-  }
-
-  .btn-sm { 
-    padding: var(--space-xs) var(--space-sm); 
-    font-size: 0.8rem; 
-    flex: 1;
-  }
-
   .observation-section {
     background: var(--bg-medium);
     border-radius: 6px;
     padding: var(--space-sm);
-  }
-
-  .obs-group {
-    margin-bottom: var(--space-sm);
-  }
-
-  .obs-label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--brass);
-    margin-bottom: var(--space-xs);
-    text-transform: uppercase;
-  }
-
-  .obs-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
-  }
-
-  .obs-btn {
-    padding: 4px 8px;
-    font-size: 0.8rem;
-    background: var(--bg-dark);
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    color: var(--parchment);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .obs-btn:hover {
-    border-color: var(--brass);
-  }
-
-  .obs-btn.selected {
-    background: var(--brass);
-    color: var(--bg-darkest);
-    border-color: var(--brass-light);
   }
 
   .record-btn {

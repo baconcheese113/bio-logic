@@ -73,7 +73,7 @@
       </section>
 
       {#if isAdjacent()}
-        <span class="adjacent-tag">Within reach</span>
+        <span class="status-tag" style:background="var(--status-ready)">Within reach</span>
       {/if}
 
       <section class="control-section">
@@ -110,16 +110,6 @@
 
   .sidebar.visible {
     transform: translateX(0);
-  }
-
-  .adjacent-tag {
-    display: inline-block;
-    padding: 2px 8px;
-    background: var(--status-ready);
-    color: white;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    text-transform: uppercase;
   }
 
   .pickup-btn {

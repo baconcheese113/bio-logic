@@ -66,7 +66,7 @@
 
   <div class="absolute bottom-[6px] flex gap-[2px] items-center">
     {#each equipmentIcons as eqIcon}
-      <span class="text-[0.7rem]">{eqIcon}</span>
+      <span class="text-[0.85rem]">{eqIcon}</span>
     {/each}
     {#if canDrop}<span class="drop-slot">+</span>{/if}
   </div>
@@ -98,7 +98,7 @@
     position: absolute;
     top: 2px;
     right: 2px;
-    font-size: 0.55rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--brass);
