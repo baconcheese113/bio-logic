@@ -1,105 +1,92 @@
 <script lang="ts">
-  import type { Instrument, Sample, GridPosition, HeldItem } from '../../shared/types';
-  import { INSTRUMENT_ICONS, SAMPLE_COLORS, CONDITION_OPACITY } from '../../shared/types';
+  import type { Furniture, Sample, GridPosition, Item } from '../../shared/types';
+  import { FURNITURE_DEFS, detectWorkbenchMode, getItemIcon, getItemLabel, getCarryingLoad } from '../../shared/types';
 
   interface Props {
-    instrument: Instrument | null;
+    furniture: Furniture | null;
     samples: Sample[];
     playerPosition: GridPosition;
-    heldItem: HeldItem | null;
+    carrying: Item[];
     onDrop: () => void;
     onOpen: () => void;
   }
 
-  let { instrument, samples, playerPosition, heldItem, onDrop, onOpen }: Props = $props();
+  let { furniture, samples, playerPosition, carrying, onDrop, onOpen }: Props = $props();
 
-  const instrumentSamples = $derived(
-    instrument
+  const furnitureSamples = $derived(
+    furniture
       ? samples.filter(s =>
-          s.location.type === 'instrument' && s.location.instrumentId === instrument.id
+          s.location.type === 'furniture' && s.location.furnitureId === furniture.id
         )
       : []
   );
 
   const isAdjacent = $derived(() => {
-    if (!instrument) return false;
-    const dx = Math.abs(playerPosition.x - instrument.position.x);
-    const dy = Math.abs(playerPosition.y - instrument.position.y);
+    if (!furniture) return false;
+    const dx = Math.abs(playerPosition.x - furniture.position.x);
+    const dy = Math.abs(playerPosition.y - furniture.position.y);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
   });
 
-  const hasEmptySlot = $derived(instrument?.slots.some(s => s.sampleId === null) ?? false);
-  const canDrop = $derived(heldItem !== null && isAdjacent() && hasEmptySlot);
+  const def = $derived(furniture ? FURNITURE_DEFS[furniture.type] : null);
+  const hasCapacity = $derived(furniture ? furniture.contents.length < (def?.contentCapacity ?? 0) : false);
+  const canDrop = $derived(carrying.length > 0 && isAdjacent() && hasCapacity);
+  const mode = $derived(furniture?.type === 'workbench' ? detectWorkbenchMode(furniture.contents) : null);
 </script>
 
-<aside class="sidebar" class:visible={instrument !== null} data-ref="instrument-panel">
-  {#if instrument}
+<aside class="sidebar" class:visible={furniture !== null} data-ref="furniture-panel">
+  {#if furniture && def}
     <div class="sidebar-header">
-      <span class="icon-md">{INSTRUMENT_ICONS[instrument.type]}</span>
-      <span class="text-brass">{instrument.name}</span>
+      <span class="icon-md">{def.icon}</span>
+      <span class="text-brass">{furniture.name}</span>
+      {#if mode}
+        <span class="mode-badge">{mode}</span>
+      {/if}
     </div>
 
     <div class="sidebar-body">
       <section class="control-section">
-        <h4>Status</h4>
-        <div class="flex items-center gap-sm mb-sm">
-          <span class="badge {instrument.status}" data-ref="instrument-status">
-            {instrument.status.toUpperCase()}
-          </span>
-          {#if instrument.status === 'busy'}
-            <span class="font-mono text-sm" style:color="var(--status-busy)">{instrument.progress}%</span>
-          {/if}
-        </div>
-        {#if isAdjacent()}
-          <span class="adjacent-tag">Within reach</span>
-        {/if}
-      </section>
-
-      <section class="control-section">
-        <h4>Samples ({instrumentSamples.length}/{instrument.slots.length})</h4>
-        {#if instrumentSamples.length > 0}
+        <h4>Contents ({furniture.contents.length}/{def.contentCapacity})</h4>
+        {#if furniture.contents.length > 0}
           <ul class="sample-list">
-            {#each instrumentSamples as sample}
-              <li class="sample-item" data-ref="panel-sample-{sample.id}">
-                <span
-                  class="sample-dot"
-                  style:background={SAMPLE_COLORS[sample.type]}
-                  style:opacity={CONDITION_OPACITY[sample.condition]}
-                ></span>
-                <div class="flex flex-col">
-                  <span class="text-sm">{sample.label}</span>
-                  <span class="condition-badge {sample.condition}">{sample.condition}</span>
-                </div>
+            {#each furniture.contents as item, i}
+              <li class="sample-item">
+                <span>{getItemIcon(item)}</span>
+                <span class="text-sm">{getItemLabel(item)}</span>
               </li>
             {/each}
           </ul>
         {:else}
-          <p class="empty-text">No samples loaded</p>
+          <p class="empty-text">Empty</p>
         {/if}
       </section>
+
+      {#if isAdjacent()}
+        <span class="adjacent-tag">Within reach</span>
+      {/if}
 
       <section class="control-section">
         <h4>Actions</h4>
         <div class="flex flex-col gap-sm">
           {#if canDrop}
-            <button class="btn drop-btn" onclick={onDrop} data-ref="btn-drop-sample">
-              {heldItem?.kind === 'plate' ? 'Place Plate Here' : 'Drop Sample Here'}
+            <button class="btn drop-btn" onclick={onDrop} data-ref="btn-drop-item">
+              Place Item Here
             </button>
           {/if}
           <button 
             class="btn" 
-            disabled={instrument.status === 'busy' || !isAdjacent()} 
+            disabled={!isAdjacent()} 
             onclick={onOpen}
-            data-ref="btn-open-instrument"
+            data-ref="btn-open-furniture"
           >
-            Open Instrument
+            Open {furniture.type === 'workbench' ? 'Workbench' : furniture.name}
           </button>
         </div>
       </section>
     </div>
   {:else}
     <div class="flex items-center justify-center flex-1 p-lg text-center text-muted">
-      <p>Select an instrument to view details</p>
+      <p>Select furniture to view details</p>
     </div>
   {/if}
 </aside>

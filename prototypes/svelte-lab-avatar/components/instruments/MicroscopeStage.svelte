@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { Instrument, Sample, MicroscopeFindings, Observation } from '../../../shared/types';
+  import type { Furniture, Sample, MicroscopeFindings, Observation } from '../../../shared/types';
   import { SAMPLE_COLORS, CONDITION_OPACITY } from '../../../shared/types';
   import { getCaseTemplate } from '../../../shared/mock-data';
 
   interface Props {
-    instrument: Instrument;
+    furniture: Furniture;
     samples: Sample[];
     observations: Observation[];
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
   }
 
-  let { instrument, samples, observations, onRecordObservation }: Props = $props();
+  let { furniture, samples, observations, onRecordObservation }: Props = $props();
   
   const loadedSample = $derived(samples[0] ?? null);
   
@@ -33,7 +33,7 @@
   // Get existing observations for this sample
   const existingObservations = $derived(
     loadedSample
-      ? observations.filter(o => o.patientId === loadedSample.patientId && o.instrumentType === 'microscope')
+      ? observations.filter(o => o.patientId === loadedSample.patientId && o.source === 'microscope')
       : []
   );
   
@@ -58,7 +58,7 @@
       if (loadedSample) {
         // Get existing observations for this sample
         const sampleObs = observations.filter(
-          o => o.patientId === loadedSample.patientId && o.instrumentType === 'microscope'
+          o => o.patientId === loadedSample.patientId && o.source === 'microscope'
         );
         
         selectedGram = sampleObs.find(o => o.field === 'gram')?.value ?? null;
@@ -118,7 +118,7 @@
         patientId: loadedSample.patientId,
         caseId: loadedSample.caseId,
         patientName: loadedSample.label.split(' - ')[1] || 'Unknown',
-        instrumentType: 'microscope',
+        source: 'microscope',
         field: 'gram',
         value: selectedGram,
       });
@@ -128,7 +128,7 @@
         patientId: loadedSample.patientId,
         caseId: loadedSample.caseId,
         patientName: loadedSample.label.split(' - ')[1] || 'Unknown',
-        instrumentType: 'microscope',
+        source: 'microscope',
         field: 'shape',
         value: selectedShape,
       });
@@ -138,7 +138,7 @@
         patientId: loadedSample.patientId,
         caseId: loadedSample.caseId,
         patientName: loadedSample.label.split(' - ')[1] || 'Unknown',
-        instrumentType: 'microscope',
+        source: 'microscope',
         field: 'arrangement',
         value: selectedArrangement,
       });
@@ -148,7 +148,7 @@
         patientId: loadedSample.patientId,
         caseId: loadedSample.caseId,
         patientName: loadedSample.label.split(' - ')[1] || 'Unknown',
-        instrumentType: 'microscope',
+        source: 'microscope',
         field: special,
         value: 'positive',
       });

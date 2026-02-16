@@ -7,28 +7,24 @@
 
   interface Props {
     labState: LabState;
-    selectedInstrumentId: string | null;
-    onInstrumentClick: (instrumentId: string) => void;
-    onInstrumentDoubleClick: (instrumentId: string) => void;
+    selectedFurnitureId: string | null;
+    onFurnitureClick: (furnitureId: string) => void;
+    onFurnitureDoubleClick: (furnitureId: string) => void;
     onCameraChange: (camera: LabState['camera']) => void;
     onTileClick: (position: GridPosition) => void;
-    onSamplePickup: (sampleId: string) => void;
-    onSampleDrop: (instrumentId: string) => void;
+    onItemDrop: (furnitureId: string) => void;
     onPatientClick: (patientId: string) => void;
-    onSupplyShelfClick: () => void;
   }
 
   let {
     labState,
-    selectedInstrumentId,
-    onInstrumentClick,
-    onInstrumentDoubleClick,
+    selectedFurnitureId,
+    onFurnitureClick,
+    onFurnitureDoubleClick,
     onCameraChange,
     onTileClick,
-    onSamplePickup,
-    onSampleDrop,
+    onItemDrop,
     onPatientClick,
-    onSupplyShelfClick,
   }: Props = $props();
 
   let isDragging = $state(false);
@@ -111,9 +107,9 @@
     return `tile tile-${tile.type}`;
   }
 
-  function getSamplesForInstrument(instrumentId: string): Sample[] {
+  function getSamplesForFurniture(furnitureId: string): Sample[] {
     return labState.samples.filter(s =>
-      s.location.type === 'instrument' && s.location.instrumentId === instrumentId
+      s.location.type === 'furniture' && s.location.furnitureId === furnitureId
     );
   }
 
@@ -173,14 +169,6 @@
             <span class="tile-icon">⚙</span>
           {:else if tile.type === 'door'}
             <span class="tile-icon">🚪</span>
-          {:else if tile.type === 'supply-shelf'}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <span
-              class="tile-icon shelf-icon"
-              class:shelf-adjacent={playerAdjacent}
-              onclick={(e) => { e.stopPropagation(); if (playerAdjacent) onSupplyShelfClick(); }}
-            >🗄️</span>
           {:else if tile.type === 'waiting-bench' && patient}
             <PatientTile
               {patient}
@@ -194,19 +182,17 @@
       {/each}
     {/each}
 
-    <!-- Instruments -->
-    {#each labState.instruments as instrument}
+    <!-- Furniture -->
+    {#each labState.furniture as furn}
       <InstrumentTile
-        {instrument}
-        samples={getSamplesForInstrument(instrument.id)}
+        furniture={furn}
         tileSize={TILE_SIZE}
-        isSelected={selectedInstrumentId === instrument.id}
+        isSelected={selectedFurnitureId === furn.id}
         playerPosition={labState.player.position}
-        playerHasSample={labState.player.heldItem !== null}
-        onClick={() => onInstrumentClick(instrument.id)}
-        onDoubleClick={() => onInstrumentDoubleClick(instrument.id)}
-        onSamplePickup={onSamplePickup}
-        onSampleDrop={() => onSampleDrop(instrument.id)}
+        playerHasItem={labState.player.carrying.length > 0}
+        onClick={() => onFurnitureClick(furn.id)}
+        onDoubleClick={() => onFurnitureDoubleClick(furn.id)}
+        onItemDrop={() => onItemDrop(furn.id)}
       />
     {/each}
 
@@ -242,11 +228,7 @@
   .tile-window { background: linear-gradient(135deg, #4a5a6a 0%, #3a4a5a 100%); border-color: #5a6a7a; }
   .tile-drain { background: #2a2520; border: 1px solid #3a352e; }
   .tile-waiting-bench { background: #2a2520; border: 1px solid #3a352e; }
-  .tile-supply-shelf { background: linear-gradient(135deg, #3a352e 0%, #4a4035 100%); border: 1px solid #5a5045; }
   .tile-icon { font-size: 1.5rem; opacity: 0.7; }
-  .shelf-icon { cursor: default; transition: transform 0.15s, opacity 0.15s; }
-  .shelf-icon.shelf-adjacent { cursor: pointer; opacity: 1; }
-  .shelf-icon.shelf-adjacent:hover { transform: scale(1.15); }
   .bench-empty { opacity: 0.3; }
 
   .zoom-indicator { position: absolute; bottom: var(--space-md); right: var(--space-md); padding: var(--space-xs) var(--space-sm); background: var(--bg-dark); border: var(--border-thin); border-radius: 4px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--parchment-aged); }

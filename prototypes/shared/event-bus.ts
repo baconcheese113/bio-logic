@@ -7,10 +7,10 @@ import type { GridPosition } from './types';
 
 // Event types for the lab
 export interface LabEvents {
-  'instrument-clicked': string;
+  'furniture-clicked': string;
   'tile-clicked': GridPosition;
-  'sample-picked-up': string;
-  'sample-dropped': { sampleId: string; instrumentId: string; slotIndex: number };
+  'item-picked-up': string;
+  'item-placed': { furnitureId: string };
   'speed-changed': number;
   'pause-toggled': boolean;
   'tick': number;

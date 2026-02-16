@@ -1,24 +1,24 @@
 <script lang="ts">
-  import type { Instrument, Sample, Observation, Patient, CulturePlate } from '../../shared/types';
-  import { INSTRUMENT_ICONS, STATUS_COLORS } from '../../shared/types';
+  import type { Furniture, Sample, Observation, Patient, CulturePlateState } from '../../shared/types';
+  import { FURNITURE_DEFS, detectWorkbenchMode } from '../../shared/types';
   import MicroscopeStage from './instruments/MicroscopeStage.svelte';
   import CultureStation from './instruments/CultureStation.svelte';
 
   interface Props {
-    instrument: Instrument;
+    furniture: Furniture;
     samples: Sample[];
     observations: Observation[];
     patients: Patient[];
     currentTick: number;
-    loadedPlate: CulturePlate | null;
+    loadedPlate: CulturePlateState | null;
     onClose: () => void;
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
   }
 
-  let { instrument, samples, observations, patients, currentTick, loadedPlate, onClose, onRecordObservation }: Props = $props();
+  let { furniture, samples, observations, patients, currentTick, loadedPlate, onClose, onRecordObservation }: Props = $props();
 
-  const icon = $derived(INSTRUMENT_ICONS[instrument.type]);
-  const statusColor = $derived(STATUS_COLORS[instrument.status]);
+  const def = $derived(FURNITURE_DEFS[furniture.type]);
+  const mode = $derived(detectWorkbenchMode(furniture.contents));
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -29,14 +29,12 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="fullscreen" data-ref="instrument-detail-view">
+<div class="fullscreen" data-ref="furniture-detail-view">
   <header class="header-bar">
     <div class="flex items-center gap-md">
-      <span class="icon-lg">{icon}</span>
-      <h1>{instrument.name}</h1>
-      <span class="tag" style:background={statusColor}>
-        {instrument.status.toUpperCase()}
-      </span>
+      <span class="icon-lg">{def.icon}</span>
+      <h1>{furniture.name}</h1>
+      <span class="tag">{mode}</span>
     </div>
     <button class="btn-close" onclick={onClose} data-ref="btn-close-detail">
       ✕ Close
@@ -44,15 +42,15 @@
   </header>
 
   <main class="fullscreen-content">
-    {#if instrument.type === 'microscope'}
-      <MicroscopeStage {instrument} {samples} {observations} {onRecordObservation} />
-    {:else if instrument.type === 'culture-incubator'}
-      <CultureStation {instrument} {samples} {observations} {patients} {currentTick} {loadedPlate} {onRecordObservation} />
+    {#if mode === 'microscope'}
+      <MicroscopeStage {furniture} {samples} {observations} {onRecordObservation} />
+    {:else if mode === 'culture'}
+      <CultureStation {furniture} {samples} {observations} {patients} {currentTick} {loadedPlate} {onRecordObservation} />
     {:else}
       <div class="text-center text-muted">
-        <p class="icon-xl mb-md">{icon}</p>
-        <p class="text-lg mb-sm">{instrument.name} detail view coming soon</p>
-        <p>Input type: <code>{instrument.inputConfig.type}</code></p>
+        <p class="icon-xl mb-md">{def.icon}</p>
+        <p class="text-lg mb-sm">{furniture.name} detail view coming soon</p>
+        <p>Mode: <code>{mode}</code></p>
       </div>
     {/if}
   </main>

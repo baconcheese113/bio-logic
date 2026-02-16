@@ -1,37 +1,27 @@
 <script lang="ts">
-  import type { HeldItem } from '../../shared/types';
-  import { SAMPLE_COLORS, CONDITION_OPACITY } from '../../shared/types';
+  import type { Item } from '../../shared/types';
+  import { getItemIcon, getItemLabel, getCarryingLoad } from '../../shared/types';
 
   interface Props {
-    heldItem: HeldItem | null;
+    carrying: Item[];
+    carryCapacity: number;
   }
 
-  let { heldItem }: Props = $props();
+  let { carrying, carryCapacity }: Props = $props();
+
+  const load = $derived(getCarryingLoad(carrying));
 </script>
 
-<div class="sample-hud" class:visible={heldItem !== null} data-ref="sample-hud">
-  {#if heldItem?.kind === 'sample'}
-    {@const sample = heldItem.sample}
+<div class="sample-hud" class:visible={carrying.length > 0} data-ref="sample-hud">
+  {#if carrying.length > 0}
     <div class="hud-content panel flex items-center gap-md p-sm">
-      <span class="text-xs uppercase text-muted">Carrying:</span>
-      <div class="flex items-center gap-sm">
-        <span 
-          class="sample-dot"
-          style:background={SAMPLE_COLORS[sample.type]}
-          style:opacity={CONDITION_OPACITY[sample.condition]}
-        ></span>
-        <span data-ref="held-sample">{sample.label}</span>
-        <span class="condition-badge {sample.condition}">{sample.condition}</span>
-      </div>
-    </div>
-  {:else if heldItem?.kind === 'plate'}
-    {@const plate = heldItem.plate}
-    <div class="hud-content panel flex items-center gap-md p-sm">
-      <span class="text-xs uppercase text-muted">Carrying:</span>
-      <div class="flex items-center gap-sm">
-        <span class="plate-icon">🧫</span>
-        <span data-ref="held-plate">{plate.label}</span>
-      </div>
+      <span class="text-xs uppercase text-muted">Carrying ({load}/{carryCapacity}):</span>
+      {#each carrying as item}
+        <div class="flex items-center gap-sm">
+          <span>{getItemIcon(item)}</span>
+          <span>{getItemLabel(item)}</span>
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
@@ -53,9 +43,5 @@
   .hud-content {
     border-radius: 8px;
     box-shadow: var(--shadow-lg);
-  }
-
-  .plate-icon {
-    font-size: 1.2rem;
   }
 </style>

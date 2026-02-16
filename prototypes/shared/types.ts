@@ -124,12 +124,14 @@ export interface TreatmentOutcome {
   wrong: { result: 'worsened'; message: string; fundsEarned: number };
 }
 
+export type ObservationSource = 'microscope' | 'culture' | 'staining' | 'serology' | 'general';
+
 export interface Observation {
   id: string;
   patientId: string;    // links observation to specific patient
   caseId: string;
   patientName: string;
-  instrumentType: InstrumentType;
+  source: ObservationSource;
   field: string;      // e.g., 'gram', 'shape', 'hemolysis'
   value: string;      // e.g., 'positive', 'cocci', 'beta'
   timestamp: number;  // game tick when recorded
@@ -166,76 +168,126 @@ export interface Sample {
 }
 
 export type SampleLocation = 
-  | { type: 'instrument'; instrumentId: string; slotIndex: number }
+  | { type: 'furniture'; furnitureId: string }
   | { type: 'player' }
   | { type: 'storage'; storageId: string };
 
-// === Culture Plates ===
+// === Media Types ===
 
-export type MediaType = 'blood-agar' | 'macconkey' | 'nutrient-agar';
+export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
 
-export interface CulturePlate {
+// === Supplies & Equipment (data-driven, types inferred) ===
+
+export const SUPPLIES = {
+  'agar-powder': { label: 'Agar Powder', icon: '🫙', size: 1 },
+  'gelatin-powder': { label: 'Gelatin Powder', icon: '🫙', size: 1 },
+  'beef-extract': { label: 'Beef Extract', icon: '🫙', size: 1 },
+  'peptone': { label: 'Peptone', icon: '🫙', size: 1 },
+  'defibrinated-blood': { label: 'Defibrinated Blood', icon: '🩸', size: 1 },
+  'empty-dish': { label: 'Empty Petri Dish', icon: '🧫', size: 1 },
+  'distilled-water': { label: 'Distilled Water', icon: '💧', size: 1 },
+} as const;
+
+export type SupplyType = keyof typeof SUPPLIES;
+
+export const EQUIPMENT = {
+  'bunsen-burner': { label: 'Bunsen Burner', icon: '🔥', size: 1 },
+  'inoculation-loop': { label: 'Inoculation Loop', icon: '〰️', size: 1 },
+  'steam-sterilizer': { label: 'Steam Sterilizer', icon: '♨️', size: 2 },
+  'flask': { label: 'Laboratory Flask', icon: '⚗️', size: 1 },
+  'staining-rack': { label: 'Staining Rack', icon: '🧪', size: 1 },
+  'microscope': { label: 'Brass Microscope', icon: '🔬', size: 2 },
+  'hand-centrifuge': { label: 'Hand Centrifuge', icon: '🔄', size: 2 },
+} as const;
+
+export type EquipmentType = keyof typeof EQUIPMENT;
+
+// === Culture Plate State ===
+
+export type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
+
+export interface CulturePlateState {
   id: string;
-  mediaType: MediaType;
+  mediaType: MediaType | null;
+  phase: PlatePhase;
   label: string;
 }
 
-// === Held Item (discriminated union) ===
+// === Items (discriminated union — anything the player can carry or place) ===
 
-export type HeldItem =
-  | { kind: 'sample'; sample: Sample }
-  | { kind: 'plate'; plate: CulturePlate };
+export type Item =
+  | { kind: 'sample'; sampleId: string }
+  | { kind: 'supply'; supplyType: SupplyType; quantity: number }
+  | { kind: 'equipment'; equipmentType: EquipmentType }
+  | { kind: 'culture-plate'; plate: CulturePlateState };
 
-// === Instruments ===
-
-export type InstrumentType = 
-  | 'microscope'
-  | 'staining-bench'
-  | 'culture-incubator'
-  | 'serology-station'
-  | 'centrifuge'
-  | 'ice-box';
-
-export type InstrumentStatus = 'idle' | 'busy' | 'ready' | 'error';
-
-// === Input Configuration ===
-// Defines how samples are loaded into an instrument
-// Add new types as instruments are implemented
-
-export type InputConfig =
-  | { type: 'stage'; capacity: 1 }           // Microscope: single sample on stage
-  | { type: 'slots'; capacity: number }       // Centrifuge: fixed tube slots
-  | { type: 'plate' }                         // ELISA/PCR: accepts a prepared plate
-  | { type: 'lanes'; capacity: number }       // Gel: samples loaded into lanes
-  | { type: 'dish'; capacity: number };       // Culture: petri dishes
-
-export interface SampleSlot {
-  index: number;
-  sampleId: string | null;
-  /** Visual position offset within instrument sprite/element */
-  offsetX: number;
-  offsetY: number;
+export function getItemSize(item: Item): number {
+  switch (item.kind) {
+    case 'sample': return 1;
+    case 'supply': return SUPPLIES[item.supplyType].size;
+    case 'equipment': return EQUIPMENT[item.equipmentType].size;
+    case 'culture-plate': return 1;
+  }
 }
 
-export interface Instrument {
+export function getItemLabel(item: Item): string {
+  switch (item.kind) {
+    case 'sample': return 'Sample';
+    case 'supply': return `${SUPPLIES[item.supplyType].label}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`;
+    case 'equipment': return EQUIPMENT[item.equipmentType].label;
+    case 'culture-plate': return item.plate.label;
+  }
+}
+
+export function getItemIcon(item: Item): string {
+  switch (item.kind) {
+    case 'sample': return '🧪';
+    case 'supply': return SUPPLIES[item.supplyType].icon;
+    case 'equipment': return EQUIPMENT[item.equipmentType].icon;
+    case 'culture-plate': return '🧫';
+  }
+}
+
+export function getCarryingLoad(items: Item[]): number {
+  return items.reduce((sum, item) => sum + getItemSize(item), 0);
+}
+
+// === Furniture (world objects that items go on/in) ===
+
+export const FURNITURE_DEFS = {
+  'workbench': { label: 'Workbench', icon: '🪵', contentCapacity: 8 },
+  'cabinet': { label: 'Reagent Cabinet', icon: '🗄️', contentCapacity: 20 },
+  'ice-box': { label: 'Ice Box', icon: '🧊', contentCapacity: 6 },
+} as const;
+
+export type FurnitureType = keyof typeof FURNITURE_DEFS;
+
+export interface Furniture {
   id: string;
-  type: InstrumentType;
+  type: FurnitureType;
   name: string;
   position: GridPosition;
-  status: InstrumentStatus;
-  /** How samples are loaded into this instrument */
-  inputConfig: InputConfig;
-  /** Current sample slots (legacy, replaced by inputConfig) */
-  slots: SampleSlot[];
-  /** Processing progress (0-100) when busy */
-  progress: number;
+  contents: Item[];
+}
+
+// === Workbench Mode Detection ===
+
+export type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'general';
+
+export function detectWorkbenchMode(contents: Item[]): WorkbenchMode {
+  const has = (t: EquipmentType) => contents.some(i => i.kind === 'equipment' && i.equipmentType === t);
+  if (has('microscope')) return 'microscope';
+  if (has('bunsen-burner') || has('inoculation-loop')) return 'culture';
+  if (has('staining-rack')) return 'staining';
+  return 'general';
 }
 
 // === Player ===
 
 export interface Player {
   position: GridPosition;
-  heldItem: HeldItem | null;
+  carrying: Item[];
+  carryCapacity: number;
   facing: Direction;
   /** For movement animation */
   isMoving: boolean;
@@ -244,13 +296,13 @@ export interface Player {
 
 // === Lab Grid ===
 
-export type TileType = 'floor' | 'wall' | 'door' | 'gas-lamp' | 'window' | 'drain' | 'waiting-bench' | 'supply-shelf';
+export type TileType = 'floor' | 'wall' | 'door' | 'gas-lamp' | 'window' | 'drain' | 'waiting-bench';
 
 export interface LabTile {
   type: TileType;
   walkable: boolean;
-  /** If an instrument occupies this tile */
-  instrumentId: string | null;
+  /** If a piece of furniture occupies this tile */
+  furnitureId: string | null;
   /** If a patient is sitting on this bench */
   patientId: string | null;
 }
@@ -273,8 +325,8 @@ export interface LabState {
   height: number;
   /** 2D array of tiles [y][x] */
   grid: LabTile[][];
-  /** All instruments in the lab */
-  instruments: Instrument[];
+  /** All furniture in the lab */
+  furniture: Furniture[];
   /** All samples in the lab */
   samples: Sample[];
   /** Player avatar state */
@@ -307,10 +359,10 @@ export interface PlayerStats {
 // === Events (for Phaser↔Svelte communication) ===
 
 export type LabEvent = 
-  | { type: 'instrument-clicked'; instrumentId: string }
+  | { type: 'furniture-clicked'; furnitureId: string }
   | { type: 'tile-clicked'; position: GridPosition }
-  | { type: 'sample-picked-up'; sampleId: string }
-  | { type: 'sample-dropped'; sampleId: string; instrumentId: string; slotIndex: number }
+  | { type: 'item-picked-up'; itemIndex: number }
+  | { type: 'item-placed'; furnitureId: string }
   | { type: 'speed-changed'; speed: number }
   | { type: 'pause-toggled'; isPaused: boolean };
 
@@ -333,20 +385,12 @@ export const CONDITION_OPACITY: Record<SampleCondition, number> = {
   'spoiled': 0.3,
 };
 
-export const INSTRUMENT_ICONS: Record<InstrumentType, string> = {
+export const OBSERVATION_ICONS: Record<ObservationSource, string> = {
   'microscope': '🔬',
-  'staining-bench': '🧪',
-  'culture-incubator': '🦠',
-  'serology-station': '💉',
-  'centrifuge': '🔄',
-  'ice-box': '🧊',
-};
-
-export const STATUS_COLORS: Record<InstrumentStatus, string> = {
-  'idle': '#4caf50',
-  'busy': '#ff9800',
-  'ready': '#2196f3',
-  'error': '#f44336',
+  'culture': '🦠',
+  'staining': '🧪',
+  'serology': '💉',
+  'general': '📋',
 };
 
 export const PATIENCE_BY_STATUS: Record<PatientStatus, number> = {

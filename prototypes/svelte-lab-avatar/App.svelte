@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createInitialLabState, generatePatient, WAITING_BENCHES, TILE_SIZE } from '../shared/mock-data';
-  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, HeldItem, CulturePlate, MediaType } from '../shared/types';
+  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, Furniture, Item, CulturePlateState } from '../shared/types';
+  import { getCarryingLoad, getItemSize, getItemIcon, getItemLabel, FURNITURE_DEFS, detectWorkbenchMode } from '../shared/types';
   import LabGrid from './components/LabGrid.svelte';
   import ClockBar from './components/ClockBar.svelte';
   import InstrumentPanel from './components/InstrumentPanel.svelte';
@@ -12,18 +13,18 @@
   import type { Diagnosis } from '../shared/types';
 
   let labState = $state<LabState>(createInitialLabState());
-  let selectedInstrumentId = $state<string | null>(null);
+  let selectedFurnitureId = $state<string | null>(null);
   let selectedPatientId = $state<string | null>(null);
-  /** When set, shows full-screen instrument detail view */
-  let viewingInstrumentId = $state<string | null>(null);
+  /** When set, shows full-screen furniture detail view */
+  let viewingFurnitureId = $state<string | null>(null);
   /** Whether the notebook panel is open */
   let notebookOpen = $state(false);
   /** When set, shows diagnosis panel for this patient */
   let diagnosisPatientId = $state<string | null>(null);
-  /** When set, shows supply shelf media picker */
-  let supplyShelfOpen = $state(false);
-  /** Culture plates loaded into instruments (keyed by instrumentId) */
-  let loadedPlates = $state<Record<string, CulturePlate>>({});
+  /** Culture plates loaded into workbenches (keyed by furnitureId) */
+  let loadedPlates = $state<Record<string, CulturePlateState>>({});
+  /** When set, shows cabinet contents picker */
+  let cabinetOpenId = $state<string | null>(null);
 
   // Counter for generating unique sample IDs
   let sampleCounter = 0;
@@ -109,9 +110,9 @@
       // Check if in ice box (slows degradation significantly)
       let isInColdStorage = false;
       const loc = sample.location;
-      if (loc.type === 'instrument') {
-        const inst = labState.instruments.find(i => i.id === loc.instrumentId);
-        isInColdStorage = inst?.type === 'ice-box';
+      if (loc.type === 'furniture') {
+        const furn = labState.furniture.find(f => f.id === loc.furnitureId);
+        isInColdStorage = furn?.type === 'ice-box';
       }
       
       const age = labState.currentTick - sample.collectedAtTick;
@@ -137,20 +138,26 @@
     labState.isPaused = !labState.isPaused;
   }
 
-  function handleInstrumentClick(instrumentId: string) {
-    selectedInstrumentId = selectedInstrumentId === instrumentId ? null : instrumentId;
-    selectedPatientId = null; // Deselect patient when selecting instrument
+  function handleInstrumentClick(furnitureId: string) {
+    selectedFurnitureId = selectedFurnitureId === furnitureId ? null : furnitureId;
+    selectedPatientId = null;
   }
 
-  function handleInstrumentDoubleClick(instrumentId: string) {
-    const instrument = labState.instruments.find(i => i.id === instrumentId);
-    if (!instrument) return;
-    if (!isAdjacent(labState.player.position, instrument.position)) return;
-    viewingInstrumentId = instrumentId;
+  function handleInstrumentDoubleClick(furnitureId: string) {
+    const furn = labState.furniture.find(f => f.id === furnitureId);
+    if (!furn) return;
+    if (!isAdjacent(labState.player.position, furn.position)) return;
+    
+    // Cabinets open an overlay picker instead of detail view
+    if (furn.type === 'cabinet') {
+      cabinetOpenId = furnitureId;
+      return;
+    }
+    viewingFurnitureId = furnitureId;
   }
 
   function handleCloseInstrumentView() {
-    viewingInstrumentId = null;
+    viewingFurnitureId = null;
   }
 
   function handlePatientClick(patientId: string) {
@@ -166,7 +173,10 @@
 
   function handleCollectSample(sampleType: SampleType) {
     if (!selectedPatientId) return;
-    if (labState.player.heldItem) return; // Can only hold one item
+    
+    const player = labState.player;
+    const load = getCarryingLoad(player.carrying);
+    if (load >= player.carryCapacity) return; // hands full
     
     const patient = labState.patients.find(p => p.id === selectedPatientId);
     if (!patient) return;
@@ -191,8 +201,8 @@
       label: `${sampleType.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')} - ${patient.name}`,
     };
     
-    // Add sample to player's hand
-    labState.player.heldItem = { kind: 'sample', sample: newSample };
+    // Add sample item to player's carrying
+    labState.player.carrying = [...labState.player.carrying, { kind: 'sample', sampleId: newSample.id }];
     labState.samples = [...labState.samples, newSample];
     
     // Mark sample as collected on patient
@@ -245,23 +255,21 @@
   }
 
   function handleSamplePickup(sampleId: string) {
-    if (labState.player.heldItem) return;
+    const player = labState.player;
+    const load = getCarryingLoad(player.carrying);
+    if (load >= player.carryCapacity) return;
 
     const sample = labState.samples.find(s => s.id === sampleId);
     if (!sample) return;
 
     const loc = sample.location;
-    if (loc.type === 'instrument') {
-      const instrument = labState.instruments.find(i => i.id === loc.instrumentId);
-      if (instrument && isAdjacent(labState.player.position, instrument.position)) {
-        labState.player.heldItem = { kind: 'sample', sample: { ...sample } };
+    if (loc.type === 'furniture') {
+      const furn = labState.furniture.find(f => f.id === loc.furnitureId);
+      if (furn && isAdjacent(labState.player.position, furn.position)) {
+        // Remove sample item from furniture contents
+        furn.contents = furn.contents.filter(i => !(i.kind === 'sample' && i.sampleId === sampleId));
         
-        const inst = labState.instruments.find(i => i.id === loc.instrumentId);
-        if (inst) {
-          const slot = inst.slots.find(s => s.sampleId === sampleId);
-          if (slot) slot.sampleId = null;
-        }
-
+        labState.player.carrying = [...labState.player.carrying, { kind: 'sample', sampleId }];
         labState.samples = labState.samples.map(s =>
           s.id === sampleId ? { ...s, location: { type: 'player' as const } } : s
         );
@@ -269,88 +277,54 @@
     }
   }
 
-  function handleSampleDrop(instrumentId: string) {
-    if (!labState.player.heldItem || labState.player.heldItem.kind !== 'sample') return;
+  function handleItemDrop(furnitureId: string) {
+    if (labState.player.carrying.length === 0) return;
 
-    const instrument = labState.instruments.find(i => i.id === instrumentId);
-    if (!instrument) return;
+    const furn = labState.furniture.find(f => f.id === furnitureId);
+    if (!furn) return;
+    if (!isAdjacent(labState.player.position, furn.position)) return;
 
-    if (!isAdjacent(labState.player.position, instrument.position)) return;
+    const def = FURNITURE_DEFS[furn.type];
+    if (furn.contents.length >= def.contentCapacity) return;
 
-    const emptySlot = instrument.slots.find(s => s.sampleId === null);
-    if (!emptySlot) return;
-
-    const sampleId = labState.player.heldItem.sample.id;
-
-    emptySlot.sampleId = sampleId;
-
-    labState.samples = labState.samples.map(s =>
-      s.id === sampleId
-        ? { ...s, location: { type: 'instrument' as const, instrumentId, slotIndex: emptySlot.index } }
-        : s
-    );
-
-    labState.player.heldItem = null;
-  }
-
-  function handleCollectPlate(mediaType: MediaType) {
-    if (labState.player.heldItem) return;
+    // Drop the first item from carrying
+    const [dropped, ...rest] = labState.player.carrying;
     
-    const MEDIA_LABELS: Record<MediaType, string> = {
-      'blood-agar': 'Blood Agar',
-      'macconkey': 'MacConkey',
-      'nutrient-agar': 'Nutrient Agar',
-    };
-    
-    plateCounter++;
-    const plate: CulturePlate = {
-      id: `plate-${plateCounter}`,
-      mediaType,
-      label: MEDIA_LABELS[mediaType],
-    };
-    
-    labState.player.heldItem = { kind: 'plate', plate };
-    supplyShelfOpen = false;
-  }
+    // Add to furniture contents
+    furn.contents = [...furn.contents, dropped];
+    labState.player.carrying = rest;
 
-  function handleSupplyShelfClick() {
-    // Find the supply shelf tile
-    for (let y = 0; y < labState.height; y++) {
-      for (let x = 0; x < labState.width; x++) {
-        if (labState.grid[y][x].type === 'supply-shelf') {
-          if (isAdjacent(labState.player.position, { x, y })) {
-            if (labState.player.heldItem) return; // hands full
-            supplyShelfOpen = true;
-            return;
-          }
-        }
-      }
+    // If item is a sample, update sample location
+    if (dropped.kind === 'sample') {
+      labState.samples = labState.samples.map(s =>
+        s.id === dropped.sampleId
+          ? { ...s, location: { type: 'furniture' as const, furnitureId } }
+          : s
+      );
+    }
+
+    // If item is a culture plate and this is a culture workbench, track it
+    if (dropped.kind === 'culture-plate') {
+      loadedPlates = { ...loadedPlates, [furnitureId]: dropped.plate };
     }
   }
 
-  function handleItemDrop(instrumentId: string) {
-    if (!labState.player.heldItem) return;
-    if (labState.player.heldItem.kind === 'sample') {
-      handleSampleDrop(instrumentId);
-    } else if (labState.player.heldItem.kind === 'plate') {
-      // Drop plate into culture workbench
-      const instrument = labState.instruments.find(i => i.id === instrumentId);
-      if (!instrument || instrument.type !== 'culture-incubator') return;
-      if (!isAdjacent(labState.player.position, instrument.position)) return;
-      if (loadedPlates[instrumentId]) return; // already has a plate
-      
-      loadedPlates = { ...loadedPlates, [instrumentId]: labState.player.heldItem.plate };
-      labState.player.heldItem = null;
-    }
+  function handleCabinetTake(item: Item) {
+    const player = labState.player;
+    const load = getCarryingLoad(player.carrying);
+    if (load + getItemSize(item) > player.carryCapacity) return;
+    
+    labState.player.carrying = [...labState.player.carrying, item];
+    cabinetOpenId = null;
   }
 
   let observationCounter = 0;
 
   function handleRecordObservation(obs: Omit<Observation, 'id' | 'timestamp'>) {
-    // Check if observation already exists for this patient+instrument+field
+    // Check if observation already exists for this patient+source+field
     const existingIndex = labState.observations.findIndex(
       o => o.patientId === obs.patientId && 
-           o.instrumentType === obs.instrumentType && 
+           o.source === obs.source && 
            o.field === obs.field
     );
     
@@ -379,15 +353,15 @@
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
   }
 
-  const selectedInstrument = $derived(
-    selectedInstrumentId
-      ? labState.instruments.find(i => i.id === selectedInstrumentId) ?? null
+  const selectedFurniture = $derived(
+    selectedFurnitureId
+      ? labState.furniture.find(f => f.id === selectedFurnitureId) ?? null
       : null
   );
 
-  const viewingInstrument = $derived(
-    viewingInstrumentId
-      ? labState.instruments.find(i => i.id === viewingInstrumentId) ?? null
+  const viewingFurniture = $derived(
+    viewingFurnitureId
+      ? labState.furniture.find(f => f.id === viewingFurnitureId) ?? null
       : null
   );
 
@@ -457,16 +431,16 @@
 </script>
 
 <div class="app-container">
-  {#if viewingInstrument}
+  {#if viewingFurniture}
     <InstrumentDetailView
-      instrument={viewingInstrument}
+      furniture={viewingFurniture}
       samples={labState.samples.filter(s =>
-        s.location.type === 'instrument' && s.location.instrumentId === viewingInstrument.id
+        s.location.type === 'furniture' && s.location.furnitureId === viewingFurniture.id
       )}
       observations={labState.observations}
       patients={labState.patients}
       currentTick={labState.currentTick}
-      loadedPlate={loadedPlates[viewingInstrument.id] ?? null}
+      loadedPlate={loadedPlates[viewingFurniture.id] ?? null}
       onClose={handleCloseInstrumentView}
       onRecordObservation={handleRecordObservation}
     />
@@ -481,7 +455,7 @@
 
     <div class="main-content">
       <div class="lab-viewport">
-        <SampleHUD heldItem={labState.player.heldItem} />
+        <SampleHUD carrying={labState.player.carrying} carryCapacity={labState.player.carryCapacity} />
         
         <NotebookPanel 
           observations={labState.observations}
@@ -491,15 +465,13 @@
 
         <LabGrid
           {labState}
-          {selectedInstrumentId}
-          onInstrumentClick={handleInstrumentClick}
-          onInstrumentDoubleClick={handleInstrumentDoubleClick}
+          selectedFurnitureId={selectedFurnitureId}
+          onFurnitureClick={handleInstrumentClick}
+          onFurnitureDoubleClick={handleInstrumentDoubleClick}
           onCameraChange={handleCameraChange}
           onTileClick={handleTileClick}
-          onSamplePickup={handleSamplePickup}
-          onSampleDrop={handleItemDrop}
+          onItemDrop={handleItemDrop}
           onPatientClick={handlePatientClick}
-          onSupplyShelfClick={handleSupplyShelfClick}
         />
       </div>
 
@@ -513,46 +485,42 @@
       {:else if selectedPatient}
         <PatientPanel
           patient={selectedPatient}
-          playerHasItem={labState.player.heldItem !== null}
+          playerHasItem={labState.player.carrying.length > 0}
           hasObservations={selectedPatientHasObservations}
           onCollectSample={handleCollectSample}
           onSubmitDiagnosis={handleOpenDiagnosis}
         />
       {:else}
         <InstrumentPanel
-          instrument={selectedInstrument}
+          furniture={selectedFurniture}
           samples={labState.samples}
           playerPosition={labState.player.position}
-          heldItem={labState.player.heldItem}
-          onDrop={() => selectedInstrument && handleItemDrop(selectedInstrument.id)}
-          onOpen={() => selectedInstrument && (viewingInstrumentId = selectedInstrument.id)}
+          carrying={labState.player.carrying}
+          onDrop={() => selectedFurniture && handleItemDrop(selectedFurniture.id)}
+          onOpen={() => selectedFurniture && (viewingFurnitureId = selectedFurniture.id)}
         />
       {/if}
 
-      {#if supplyShelfOpen}
-        <div class="overlay" onclick={() => supplyShelfOpen = false}>
-          <div class="card" onclick={(e) => e.stopPropagation()}>
-            <div class="card-header">
-              <span class="icon-lg">🗄️</span>
-              <h2>Supply Shelf</h2>
-            </div>
-            <p class="mb-md" style="color: var(--parchment-aged)">Select a prepared plate:</p>
-            <div class="flex flex-col gap-sm">
-              <button class="btn" onclick={() => handleCollectPlate('blood-agar')}>
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#8b3a3a;margin-right:8px"></span>
-                Blood Agar
-              </button>
-              <button class="btn" onclick={() => handleCollectPlate('macconkey')}>
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c97b8b;margin-right:8px"></span>
-                MacConkey
-              </button>
-              <button class="btn" onclick={() => handleCollectPlate('nutrient-agar')}>
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c9b896;margin-right:8px"></span>
-                Nutrient Agar
-              </button>
+      {#if cabinetOpenId}
+        {@const cabinet = labState.furniture.find(f => f.id === cabinetOpenId)}
+        {#if cabinet}
+          <div class="overlay" onclick={() => cabinetOpenId = null}>
+            <div class="card" onclick={(e) => e.stopPropagation()}>
+              <div class="card-header">
+                <span class="icon-lg">🗄️</span>
+                <h2>{cabinet.name}</h2>
+              </div>
+              <p class="mb-md" style="color: var(--parchment-aged)">Take a supply:</p>
+              <div class="flex flex-col gap-sm">
+                {#each cabinet.contents as item}
+                  <button class="btn" onclick={() => handleCabinetTake({ ...item, ...(item.kind === 'supply' ? { quantity: 1 } : {}) })}>
+                    {getItemIcon(item)} {getItemLabel(item)}
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
-        </div>
+        {/if}
       {/if}
     </div>
   {/if}

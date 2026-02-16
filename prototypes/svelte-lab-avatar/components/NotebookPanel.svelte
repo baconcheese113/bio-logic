@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Observation } from '../../shared/types';
-  import { INSTRUMENT_ICONS } from '../../shared/types';
+  import { OBSERVATION_ICONS } from '../../shared/types';
 
   interface Props {
     observations: Observation[];
@@ -67,7 +67,7 @@
               <ul class="obs-list">
                 {#each group.observations as obs}
                   <li class="obs-item">
-                    <span class="obs-icon">{INSTRUMENT_ICONS[obs.instrumentType]}</span>
+                    <span class="obs-icon">{OBSERVATION_ICONS[obs.source]}</span>
                     <span class="obs-text">{formatObservation(obs)}</span>
                   </li>
                 {/each}

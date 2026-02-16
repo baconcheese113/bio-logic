@@ -19,11 +19,11 @@
   let selectedHemolysis = $state<string | null>(null);
   let selectedLactose = $state<string | null>(null);
 
-  const isOnMacConkey = $derived(mediaType === 'macconkey');
+  const isOnGelatin = $derived(mediaType === 'gelatin');
 
   // Sync from existing observations
   const existingObs = $derived(
-    observations.filter(o => o.patientId === patientId && o.instrumentType === 'culture-incubator')
+    observations.filter(o => o.patientId === patientId && o.source === 'culture')
   );
 
   let initializedFor = $state<string | null>(null);
@@ -53,7 +53,7 @@
         patientId,
         caseId,
         patientName,
-        instrumentType: 'culture-incubator',
+        source: 'culture',
         field,
         value,
       });
@@ -124,9 +124,9 @@
     </div>
   </div>
 
-  {#if isOnMacConkey}
+  {#if isOnGelatin}
     <div class="obs-group">
-      <span class="obs-label">Lactose Fermentation:</span>
+      <span class="obs-label">Gelatin Liquefaction:</span>
       <div class="obs-options">
         {#each lactoseOptions as opt}
           <button

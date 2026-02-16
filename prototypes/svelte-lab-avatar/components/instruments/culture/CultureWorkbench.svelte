@@ -19,12 +19,12 @@
 <script lang="ts">
   import type { MediaType, DensityGrid } from './streak-types';
   import { MEDIA_COLORS, GRID_SIZE, SIM, createDensityGrid, plateToGrid } from './streak-types';
-  import type { Sample, CulturePlate } from '../../../../shared/types';
+  import type { Sample, CulturePlateState } from '../../../../shared/types';
   import { SAMPLE_COLORS } from '../../../../shared/types';
 
   interface Props {
     loadedSample: Sample | null;
-    loadedPlate: CulturePlate | null;
+    loadedPlate: CulturePlateState | null;
     mediaType: MediaType;
     onStreakComplete: (grid: DensityGrid, contaminationEvents: number) => void;
   }

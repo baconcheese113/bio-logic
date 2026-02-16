@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Instrument, Sample, Observation, CultureFindings, Patient, CulturePlate } from '../../../shared/types';
+  import type { Furniture, Sample, Observation, CultureFindings, Patient, CulturePlateState } from '../../../shared/types';
   import type { MediaType, DensityGrid, Colony, StreakQuality } from './culture/streak-types';
   import { MEDIA_COLORS } from './culture/streak-types';
   import { generateColoniesFromGrid, computeGridQuality } from './culture/colony-generator';
@@ -9,16 +9,16 @@
   import CultureObservations from './culture/CultureObservations.svelte';
 
   interface Props {
-    instrument: Instrument;
+    furniture: Furniture;
     samples: Sample[];
     observations: Observation[];
     patients: Patient[];
     currentTick: number;
-    loadedPlate: CulturePlate | null;
+    loadedPlate: CulturePlateState | null;
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
   }
 
-  let { instrument, samples, observations, patients, currentTick, loadedPlate, onRecordObservation }: Props = $props();
+  let { furniture, samples, observations, patients, currentTick, loadedPlate, onRecordObservation }: Props = $props();
 
   // --- Derived from props ---
   const loadedSample = $derived(samples[0] ?? null);

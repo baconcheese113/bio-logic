@@ -5,11 +5,12 @@
 
 // === Media ===
 
-export type MediaType = 'blood-agar' | 'macconkey' | 'nutrient-agar';
+import type { MediaType } from '../../../../shared/types';
+export type { MediaType };
 
 export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; label: string }> = {
   'blood-agar': { base: '#8b3a3a', streak: '#5c2020', label: 'Blood Agar' },
-  'macconkey': { base: '#c97b8b', streak: '#a05a6a', label: 'MacConkey' },
+  'gelatin': { base: '#d4b86a', streak: '#b89840', label: 'Gelatin' },
   'nutrient-agar': { base: '#c9b896', streak: '#a89870', label: 'Nutrient Agar' },
 };
 

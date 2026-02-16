@@ -6,7 +6,7 @@
 import type {
   LabState,
   LabTile,
-  Instrument,
+  Furniture,
   Sample,
   Player,
   Patient,
@@ -17,6 +17,7 @@ import type {
   CaseFindings,
   Diagnosis,
   TreatmentOutcome,
+  Item,
 } from './types';
 
 import { PATIENCE_BY_STATUS, SKIN_TONES, HAIR_COLORS } from './types';
@@ -26,11 +27,11 @@ import { PATIENCE_BY_STATUS, SKIN_TONES, HAIR_COLORS } from './types';
 const GRID_WIDTH = 11;
 const GRID_HEIGHT = 7;
 
-function createTile(type: LabTile['type'], instrumentId: string | null = null): LabTile {
+function createTile(type: LabTile['type']): LabTile {
   return {
     type,
-    walkable: type !== 'wall' && type !== 'waiting-bench' && type !== 'supply-shelf',
-    instrumentId,
+    walkable: type !== 'wall' && type !== 'waiting-bench',
+    furnitureId: null,
     patientId: null,
   };
 }
@@ -75,9 +76,6 @@ function createGrid(): LabTile[][] {
   
   // Add drain in lab floor
   grid[5][5] = createTile('drain');
-  
-  // Supply shelf on north wall of lab area
-  grid[1][7] = createTile('supply-shelf');
   
   // Entry door (bottom left of waiting room)
   grid[GRID_HEIGHT - 1][1] = createTile('door');
@@ -235,93 +233,75 @@ export function generatePatient(benchPosition: { x: number; y: number }, current
   };
 }
 
-// === Instruments (Lab area starts at x=4, after waiting room) ===
+// === Furniture (replaces old Instrument system) ===
 
-function createInstruments(): Instrument[] {
+function createFurniture(): Furniture[] {
   return [
     {
-      id: 'microscope-1',
-      type: 'microscope',
-      name: 'Brass Microscope',
+      id: 'workbench-microscope',
+      type: 'workbench',
+      name: 'Microscope Bench',
       position: { x: 5, y: 1 },
-      status: 'idle',
-      inputConfig: { type: 'stage', capacity: 1 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: 0, offsetY: 0 },
+      contents: [
+        { kind: 'equipment', equipmentType: 'microscope' },
       ],
-      progress: 0,
     },
     {
-      id: 'staining-1',
-      type: 'staining-bench',
+      id: 'workbench-staining',
+      type: 'workbench',
       name: 'Staining Bench',
       position: { x: 7, y: 1 },
-      status: 'idle',
-      inputConfig: { type: 'slots', capacity: 2 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: -8, offsetY: 0 },
-        { index: 1, sampleId: null, offsetX: 8, offsetY: 0 },
+      contents: [
+        { kind: 'equipment', equipmentType: 'staining-rack' },
       ],
-      progress: 0,
     },
     {
-      id: 'culture-1',
-      type: 'culture-incubator',
-      name: 'Culture Workbench',
+      id: 'workbench-culture',
+      type: 'workbench',
+      name: 'Culture Bench',
       position: { x: 9, y: 2 },
-      status: 'idle',
-      inputConfig: { type: 'dish', capacity: 4 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: -8, offsetY: -8 },
-        { index: 1, sampleId: null, offsetX: 8, offsetY: -8 },
-        { index: 2, sampleId: null, offsetX: -8, offsetY: 8 },
-        { index: 3, sampleId: null, offsetX: 8, offsetY: 8 },
+      contents: [
+        { kind: 'equipment', equipmentType: 'bunsen-burner' },
+        { kind: 'equipment', equipmentType: 'inoculation-loop' },
       ],
-      progress: 0,
     },
     {
-      id: 'serology-1',
-      type: 'serology-station',
-      name: 'Serology Station',
+      id: 'workbench-serology',
+      type: 'workbench',
+      name: 'Serology Bench',
       position: { x: 9, y: 4 },
-      status: 'idle',
-      inputConfig: { type: 'stage', capacity: 1 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: 0, offsetY: 0 },
-      ],
-      progress: 0,
+      contents: [],
     },
     {
-      id: 'centrifuge-1',
-      type: 'centrifuge',
-      name: 'Hand Centrifuge',
+      id: 'workbench-centrifuge',
+      type: 'workbench',
+      name: 'Centrifuge Bench',
       position: { x: 5, y: 3 },
-      status: 'idle',
-      inputConfig: { type: 'slots', capacity: 4 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: -10, offsetY: -10 },
-        { index: 1, sampleId: null, offsetX: 10, offsetY: -10 },
-        { index: 2, sampleId: null, offsetX: -10, offsetY: 10 },
-        { index: 3, sampleId: null, offsetX: 10, offsetY: 10 },
+      contents: [
+        { kind: 'equipment', equipmentType: 'hand-centrifuge' },
       ],
-      progress: 0,
+    },
+    {
+      id: 'cabinet-1',
+      type: 'cabinet',
+      name: 'Reagent Cabinet',
+      position: { x: 7, y: 0 },
+      contents: [
+        { kind: 'supply', supplyType: 'empty-dish', quantity: 99 },
+        { kind: 'supply', supplyType: 'agar-powder', quantity: 99 },
+        { kind: 'supply', supplyType: 'gelatin-powder', quantity: 99 },
+        { kind: 'supply', supplyType: 'beef-extract', quantity: 99 },
+        { kind: 'supply', supplyType: 'peptone', quantity: 99 },
+        { kind: 'supply', supplyType: 'defibrinated-blood', quantity: 99 },
+        { kind: 'supply', supplyType: 'distilled-water', quantity: 99 },
+      ],
     },
     {
       id: 'icebox-1',
       type: 'ice-box',
       name: 'Ice Box',
       position: { x: 4, y: 5 },
-      status: 'idle',
-      inputConfig: { type: 'slots', capacity: 6 },
-      slots: [
-        { index: 0, sampleId: null, offsetX: -16, offsetY: -8 },
-        { index: 1, sampleId: null, offsetX: 0, offsetY: -8 },
-        { index: 2, sampleId: null, offsetX: 16, offsetY: -8 },
-        { index: 3, sampleId: null, offsetX: -16, offsetY: 8 },
-        { index: 4, sampleId: null, offsetX: 0, offsetY: 8 },
-        { index: 5, sampleId: null, offsetX: 16, offsetY: 8 },
-      ],
-      progress: 0,
+      contents: [],
     },
   ];
 }
@@ -331,7 +311,8 @@ function createInstruments(): Instrument[] {
 function createPlayer(): Player {
   return {
     position: { x: 6, y: 3 },
-    heldItem: null,
+    carrying: [],
+    carryCapacity: 3,
     facing: 'down',
     isMoving: false,
     targetPosition: null,
@@ -349,13 +330,13 @@ const WAITING_BENCHES = [
 
 export function createInitialLabState(): LabState {
   const grid = createGrid();
-  const instruments = createInstruments();
+  const furniture = createFurniture();
   
-  // Mark instrument positions in grid
-  for (const inst of instruments) {
-    const { x, y } = inst.position;
+  // Mark furniture positions in grid
+  for (const furn of furniture) {
+    const { x, y } = furn.position;
     if (grid[y] && grid[y][x]) {
-      grid[y][x].instrumentId = inst.id;
+      grid[y][x].furnitureId = furn.id;
       grid[y][x].walkable = false;
     }
   }
@@ -368,7 +349,7 @@ export function createInitialLabState(): LabState {
     width: GRID_WIDTH,
     height: GRID_HEIGHT,
     grid,
-    instruments,
+    furniture,
     samples: [],
     player: createPlayer(),
     camera: {
