@@ -107,5 +107,5 @@
   .dot.pickable:hover { transform: scale(1.3); }
   @keyframes pickable { 0% { border-color: rgba(255,255,255,0.3); } 100% { border-color: rgba(255,255,255,0.8); } }
 
-  .drop-slot { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--status-idle); border-radius: 50%; color: var(--status-idle); font-size: 0.7rem; font-weight: bold; }
+  .drop-slot { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--status-idle); border-radius: 50%; color: var(--status-idle); font-size: 0.8rem; font-weight: bold; }
 </style>

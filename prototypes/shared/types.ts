@@ -87,11 +87,14 @@ export interface MicroscopeFindings {
   spores?: boolean;
 }
 
+export type GramType = 'positive' | 'negative';
+
 export interface CultureFindings {
   growth: boolean;
   hemolysis: HemolysisType;
   colonyColor: ColonyColor;
   lactoseFermenter?: boolean;
+  gramType: GramType;
 }
 
 export interface CaseFindings {
@@ -167,6 +170,22 @@ export type SampleLocation =
   | { type: 'player' }
   | { type: 'storage'; storageId: string };
 
+// === Culture Plates ===
+
+export type MediaType = 'blood-agar' | 'macconkey' | 'nutrient-agar';
+
+export interface CulturePlate {
+  id: string;
+  mediaType: MediaType;
+  label: string;
+}
+
+// === Held Item (discriminated union) ===
+
+export type HeldItem =
+  | { kind: 'sample'; sample: Sample }
+  | { kind: 'plate'; plate: CulturePlate };
+
 // === Instruments ===
 
 export type InstrumentType = 
@@ -216,7 +235,7 @@ export interface Instrument {
 
 export interface Player {
   position: GridPosition;
-  heldSample: Sample | null;
+  heldItem: HeldItem | null;
   facing: Direction;
   /** For movement animation */
   isMoving: boolean;
@@ -225,7 +244,7 @@ export interface Player {
 
 // === Lab Grid ===
 
-export type TileType = 'floor' | 'wall' | 'door' | 'gas-lamp' | 'window' | 'drain' | 'waiting-bench';
+export type TileType = 'floor' | 'wall' | 'door' | 'gas-lamp' | 'window' | 'drain' | 'waiting-bench' | 'supply-shelf';
 
 export interface LabTile {
   type: TileType;

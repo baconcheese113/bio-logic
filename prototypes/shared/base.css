@@ -7,6 +7,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
 :root {
+  /* === Text Size Floor === */
+  --font-size-min: 0.8rem;
+
   /* === Background Colors === */
   --bg-darkest: #0f0e0d;
   --bg-dark: #1a1815;
@@ -168,7 +171,7 @@ h3 { font-size: 1.25rem; }
   gap: var(--space-xs);
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -257,7 +260,7 @@ h3 { font-size: 1.25rem; }
   color: var(--bg-darkest);
   padding: var(--space-xs) var(--space-sm);
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: bold;
   font-family: var(--font-mono);
 }
@@ -326,7 +329,7 @@ h3 { font-size: 1.25rem; }
 
 .control-section h4 {
   font-family: var(--font-heading);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--brass);
@@ -346,7 +349,7 @@ h3 { font-size: 1.25rem; }
 
 /* === Sample Condition Badge === */
 .condition-badge {
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 3px;
@@ -371,7 +374,7 @@ kbd {
   border: 1px solid var(--brass-dark);
   border-radius: 3px;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 /* === Code === */
@@ -410,7 +413,7 @@ code {
   background: var(--bg-dark);
   border-top: var(--border-thin);
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--parchment-aged);
 }
 
@@ -457,4 +460,4 @@ code {
 .uppercase { text-transform: uppercase; }
 .font-mono { font-family: var(--font-mono); }
 .text-sm { font-size: 0.875rem; }
-.text-xs { font-size: 0.75rem; }
+.text-xs { font-size: 0.8rem; }

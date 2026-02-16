@@ -29,7 +29,7 @@ const GRID_HEIGHT = 7;
 function createTile(type: LabTile['type'], instrumentId: string | null = null): LabTile {
   return {
     type,
-    walkable: type !== 'wall' && type !== 'waiting-bench',
+    walkable: type !== 'wall' && type !== 'waiting-bench' && type !== 'supply-shelf',
     instrumentId,
     patientId: null,
   };
@@ -75,6 +75,9 @@ function createGrid(): LabTile[][] {
   
   // Add drain in lab floor
   grid[5][5] = createTile('drain');
+  
+  // Supply shelf on north wall of lab area
+  grid[1][7] = createTile('supply-shelf');
   
   // Entry door (bottom left of waiting room)
   grid[GRID_HEIGHT - 1][1] = createTile('door');
@@ -128,7 +131,7 @@ const CASE_TEMPLATES: CaseTemplate[] = [
     status: 'guarded',
     findings: {
       microscope: { gram: 'positive', shape: 'cocci', arrangement: 'clusters' },
-      culture: { growth: true, hemolysis: 'beta', colonyColor: 'golden' },
+      culture: { growth: true, hemolysis: 'beta', colonyColor: 'golden', gramType: 'positive' },
     },
     correctDiagnosis: {
       organism: 'staphylococcus-aureus',
@@ -149,7 +152,7 @@ const CASE_TEMPLATES: CaseTemplate[] = [
     status: 'declining',
     findings: {
       microscope: { gram: 'positive', shape: 'bacilli', arrangement: 'singles', acidFast: true },
-      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'cream' },
+      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'cream', gramType: 'positive' },
     },
     correctDiagnosis: {
       organism: 'mycobacterium-tuberculosis',
@@ -170,7 +173,7 @@ const CASE_TEMPLATES: CaseTemplate[] = [
     status: 'critical',
     findings: {
       microscope: { gram: 'positive', shape: 'bacilli', arrangement: 'singles' },
-      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'gray' },
+      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'gray', gramType: 'positive' },
     },
     correctDiagnosis: {
       organism: 'corynebacterium-diphtheriae',
@@ -191,7 +194,7 @@ const CASE_TEMPLATES: CaseTemplate[] = [
     status: 'stable',
     findings: {
       microscope: { gram: 'negative', shape: 'bacilli', arrangement: 'singles' },
-      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'cream', lactoseFermenter: true },
+      culture: { growth: true, hemolysis: 'gamma', colonyColor: 'cream', lactoseFermenter: true, gramType: 'negative' },
     },
     correctDiagnosis: {
       organism: 'escherichia-coli',
@@ -264,7 +267,7 @@ function createInstruments(): Instrument[] {
     {
       id: 'culture-1',
       type: 'culture-incubator',
-      name: 'Culture Incubator',
+      name: 'Culture Workbench',
       position: { x: 9, y: 2 },
       status: 'idle',
       inputConfig: { type: 'dish', capacity: 4 },
@@ -328,7 +331,7 @@ function createInstruments(): Instrument[] {
 function createPlayer(): Player {
   return {
     position: { x: 6, y: 3 },
-    heldSample: null,
+    heldItem: null,
     facing: 'down',
     isMoving: false,
     targetPosition: null,

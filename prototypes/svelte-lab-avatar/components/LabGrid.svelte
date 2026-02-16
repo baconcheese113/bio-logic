@@ -15,6 +15,7 @@
     onSamplePickup: (sampleId: string) => void;
     onSampleDrop: (instrumentId: string) => void;
     onPatientClick: (patientId: string) => void;
+    onSupplyShelfClick: () => void;
   }
 
   let {
@@ -27,6 +28,7 @@
     onSamplePickup,
     onSampleDrop,
     onPatientClick,
+    onSupplyShelfClick,
   }: Props = $props();
 
   let isDragging = $state(false);
@@ -171,6 +173,14 @@
             <span class="tile-icon">⚙</span>
           {:else if tile.type === 'door'}
             <span class="tile-icon">🚪</span>
+          {:else if tile.type === 'supply-shelf'}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <span
+              class="tile-icon shelf-icon"
+              class:shelf-adjacent={playerAdjacent}
+              onclick={(e) => { e.stopPropagation(); if (playerAdjacent) onSupplyShelfClick(); }}
+            >🗄️</span>
           {:else if tile.type === 'waiting-bench' && patient}
             <PatientTile
               {patient}
@@ -192,7 +202,7 @@
         tileSize={TILE_SIZE}
         isSelected={selectedInstrumentId === instrument.id}
         playerPosition={labState.player.position}
-        playerHasSample={labState.player.heldSample !== null}
+        playerHasSample={labState.player.heldItem !== null}
         onClick={() => onInstrumentClick(instrument.id)}
         onDoubleClick={() => onInstrumentDoubleClick(instrument.id)}
         onSamplePickup={onSamplePickup}
@@ -232,10 +242,14 @@
   .tile-window { background: linear-gradient(135deg, #4a5a6a 0%, #3a4a5a 100%); border-color: #5a6a7a; }
   .tile-drain { background: #2a2520; border: 1px solid #3a352e; }
   .tile-waiting-bench { background: #2a2520; border: 1px solid #3a352e; }
+  .tile-supply-shelf { background: linear-gradient(135deg, #3a352e 0%, #4a4035 100%); border: 1px solid #5a5045; }
   .tile-icon { font-size: 1.5rem; opacity: 0.7; }
+  .shelf-icon { cursor: default; transition: transform 0.15s, opacity 0.15s; }
+  .shelf-icon.shelf-adjacent { cursor: pointer; opacity: 1; }
+  .shelf-icon.shelf-adjacent:hover { transform: scale(1.15); }
   .bench-empty { opacity: 0.3; }
 
-  .zoom-indicator { position: absolute; bottom: var(--space-md); right: var(--space-md); padding: var(--space-xs) var(--space-sm); background: var(--bg-dark); border: var(--border-thin); border-radius: 4px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--parchment-aged); }
-  .instructions { position: absolute; bottom: var(--space-md); left: 50%; transform: translateX(-50%); text-align: center; font-size: 0.7rem; color: var(--parchment-aged); opacity: 0.6; }
+  .zoom-indicator { position: absolute; bottom: var(--space-md); right: var(--space-md); padding: var(--space-xs) var(--space-sm); background: var(--bg-dark); border: var(--border-thin); border-radius: 4px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--parchment-aged); }
+  .instructions { position: absolute; bottom: var(--space-md); left: 50%; transform: translateX(-50%); text-align: center; font-size: 0.9rem; color: var(--parchment-aged); opacity: 0.6; }
   .instructions p { margin: 2px 0; }
 </style>

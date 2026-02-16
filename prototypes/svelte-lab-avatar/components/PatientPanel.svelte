@@ -4,13 +4,13 @@
 
   interface Props {
     patient: Patient | null;
-    playerHasSample: boolean;
+    playerHasItem: boolean;
     hasObservations: boolean;
     onCollectSample: (sampleType: SampleType) => void;
     onSubmitDiagnosis: () => void;
   }
 
-  let { patient, playerHasSample, hasObservations, onCollectSample, onSubmitDiagnosis }: Props = $props();
+  let { patient, playerHasItem, hasObservations, onCollectSample, onSubmitDiagnosis }: Props = $props();
 
   // Available samples that haven't been collected yet
   let availableSamples = $derived(
@@ -57,10 +57,10 @@
 
       <section class="control-section">
         <h4>Available Samples</h4>
-        {#if playerHasSample}
+        {#if playerHasItem}
           <p class="warning-text">
             <span class="warning-icon">⚠️</span>
-            Deposit your current sample first
+            Deposit your current item first
           </p>
         {:else if availableSamples.length === 0}
           <p class="empty-text">All samples collected</p>
@@ -163,7 +163,7 @@
   .collected-tag {
     padding: 2px 6px;
     border-radius: 3px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: white;
     opacity: 0.7;
   }

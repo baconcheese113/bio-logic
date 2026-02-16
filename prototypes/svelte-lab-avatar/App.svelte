@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createInitialLabState, generatePatient, WAITING_BENCHES, TILE_SIZE } from '../shared/mock-data';
-  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation } from '../shared/types';
+  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, HeldItem, CulturePlate, MediaType } from '../shared/types';
   import LabGrid from './components/LabGrid.svelte';
   import ClockBar from './components/ClockBar.svelte';
   import InstrumentPanel from './components/InstrumentPanel.svelte';
@@ -20,9 +20,14 @@
   let notebookOpen = $state(false);
   /** When set, shows diagnosis panel for this patient */
   let diagnosisPatientId = $state<string | null>(null);
+  /** When set, shows supply shelf media picker */
+  let supplyShelfOpen = $state(false);
+  /** Culture plates loaded into instruments (keyed by instrumentId) */
+  let loadedPlates = $state<Record<string, CulturePlate>>({});
 
   // Counter for generating unique sample IDs
   let sampleCounter = 0;
+  let plateCounter = 0;
 
   // Tick simulation for degradation and patience
   let tickInterval: ReturnType<typeof setInterval> | null = null;
@@ -161,7 +166,7 @@
 
   function handleCollectSample(sampleType: SampleType) {
     if (!selectedPatientId) return;
-    if (labState.player.heldSample) return; // Can only hold one sample
+    if (labState.player.heldItem) return; // Can only hold one item
     
     const patient = labState.patients.find(p => p.id === selectedPatientId);
     if (!patient) return;
@@ -187,7 +192,7 @@
     };
     
     // Add sample to player's hand
-    labState.player.heldSample = newSample;
+    labState.player.heldItem = { kind: 'sample', sample: newSample };
     labState.samples = [...labState.samples, newSample];
     
     // Mark sample as collected on patient
@@ -240,7 +245,7 @@
   }
 
   function handleSamplePickup(sampleId: string) {
-    if (labState.player.heldSample) return;
+    if (labState.player.heldItem) return;
 
     const sample = labState.samples.find(s => s.id === sampleId);
     if (!sample) return;
@@ -249,7 +254,7 @@
     if (loc.type === 'instrument') {
       const instrument = labState.instruments.find(i => i.id === loc.instrumentId);
       if (instrument && isAdjacent(labState.player.position, instrument.position)) {
-        labState.player.heldSample = { ...sample };
+        labState.player.heldItem = { kind: 'sample', sample: { ...sample } };
         
         const inst = labState.instruments.find(i => i.id === loc.instrumentId);
         if (inst) {
@@ -265,7 +270,7 @@
   }
 
   function handleSampleDrop(instrumentId: string) {
-    if (!labState.player.heldSample) return;
+    if (!labState.player.heldItem || labState.player.heldItem.kind !== 'sample') return;
 
     const instrument = labState.instruments.find(i => i.id === instrumentId);
     if (!instrument) return;
@@ -275,7 +280,7 @@
     const emptySlot = instrument.slots.find(s => s.sampleId === null);
     if (!emptySlot) return;
 
-    const sampleId = labState.player.heldSample.id;
+    const sampleId = labState.player.heldItem.sample.id;
 
     emptySlot.sampleId = sampleId;
 
@@ -285,7 +290,58 @@
         : s
     );
 
-    labState.player.heldSample = null;
+    labState.player.heldItem = null;
+  }
+
+  function handleCollectPlate(mediaType: MediaType) {
+    if (labState.player.heldItem) return;
+    
+    const MEDIA_LABELS: Record<MediaType, string> = {
+      'blood-agar': 'Blood Agar',
+      'macconkey': 'MacConkey',
+      'nutrient-agar': 'Nutrient Agar',
+    };
+    
+    plateCounter++;
+    const plate: CulturePlate = {
+      id: `plate-${plateCounter}`,
+      mediaType,
+      label: MEDIA_LABELS[mediaType],
+    };
+    
+    labState.player.heldItem = { kind: 'plate', plate };
+    supplyShelfOpen = false;
+  }
+
+  function handleSupplyShelfClick() {
+    // Find the supply shelf tile
+    for (let y = 0; y < labState.height; y++) {
+      for (let x = 0; x < labState.width; x++) {
+        if (labState.grid[y][x].type === 'supply-shelf') {
+          if (isAdjacent(labState.player.position, { x, y })) {
+            if (labState.player.heldItem) return; // hands full
+            supplyShelfOpen = true;
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  function handleItemDrop(instrumentId: string) {
+    if (!labState.player.heldItem) return;
+    if (labState.player.heldItem.kind === 'sample') {
+      handleSampleDrop(instrumentId);
+    } else if (labState.player.heldItem.kind === 'plate') {
+      // Drop plate into culture workbench
+      const instrument = labState.instruments.find(i => i.id === instrumentId);
+      if (!instrument || instrument.type !== 'culture-incubator') return;
+      if (!isAdjacent(labState.player.position, instrument.position)) return;
+      if (loadedPlates[instrumentId]) return; // already has a plate
+      
+      loadedPlates = { ...loadedPlates, [instrumentId]: labState.player.heldItem.plate };
+      labState.player.heldItem = null;
+    }
   }
 
   let observationCounter = 0;
@@ -404,10 +460,13 @@
   {#if viewingInstrument}
     <InstrumentDetailView
       instrument={viewingInstrument}
-      samples={labState.samples.filter(s => 
+      samples={labState.samples.filter(s =>
         s.location.type === 'instrument' && s.location.instrumentId === viewingInstrument.id
       )}
       observations={labState.observations}
+      patients={labState.patients}
+      currentTick={labState.currentTick}
+      loadedPlate={loadedPlates[viewingInstrument.id] ?? null}
       onClose={handleCloseInstrumentView}
       onRecordObservation={handleRecordObservation}
     />
@@ -422,7 +481,7 @@
 
     <div class="main-content">
       <div class="lab-viewport">
-        <SampleHUD sample={labState.player.heldSample} />
+        <SampleHUD heldItem={labState.player.heldItem} />
         
         <NotebookPanel 
           observations={labState.observations}
@@ -438,8 +497,9 @@
           onCameraChange={handleCameraChange}
           onTileClick={handleTileClick}
           onSamplePickup={handleSamplePickup}
-          onSampleDrop={handleSampleDrop}
+          onSampleDrop={handleItemDrop}
           onPatientClick={handlePatientClick}
+          onSupplyShelfClick={handleSupplyShelfClick}
         />
       </div>
 
@@ -453,7 +513,7 @@
       {:else if selectedPatient}
         <PatientPanel
           patient={selectedPatient}
-          playerHasSample={labState.player.heldSample !== null}
+          playerHasItem={labState.player.heldItem !== null}
           hasObservations={selectedPatientHasObservations}
           onCollectSample={handleCollectSample}
           onSubmitDiagnosis={handleOpenDiagnosis}
@@ -463,10 +523,36 @@
           instrument={selectedInstrument}
           samples={labState.samples}
           playerPosition={labState.player.position}
-          heldSample={labState.player.heldSample}
-          onDrop={() => selectedInstrument && handleSampleDrop(selectedInstrument.id)}
+          heldItem={labState.player.heldItem}
+          onDrop={() => selectedInstrument && handleItemDrop(selectedInstrument.id)}
           onOpen={() => selectedInstrument && (viewingInstrumentId = selectedInstrument.id)}
         />
+      {/if}
+
+      {#if supplyShelfOpen}
+        <div class="overlay" onclick={() => supplyShelfOpen = false}>
+          <div class="card" onclick={(e) => e.stopPropagation()}>
+            <div class="card-header">
+              <span class="icon-lg">🗄️</span>
+              <h2>Supply Shelf</h2>
+            </div>
+            <p class="mb-md" style="color: var(--parchment-aged)">Select a prepared plate:</p>
+            <div class="flex flex-col gap-sm">
+              <button class="btn" onclick={() => handleCollectPlate('blood-agar')}>
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#8b3a3a;margin-right:8px"></span>
+                Blood Agar
+              </button>
+              <button class="btn" onclick={() => handleCollectPlate('macconkey')}>
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c97b8b;margin-right:8px"></span>
+                MacConkey
+              </button>
+              <button class="btn" onclick={() => handleCollectPlate('nutrient-agar')}>
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c9b896;margin-right:8px"></span>
+                Nutrient Agar
+              </button>
+            </div>
+          </div>
+        </div>
       {/if}
     </div>
   {/if}

@@ -391,7 +391,7 @@
 
   .field-label {
     margin-top: var(--space-sm);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--parchment-aged);
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -405,7 +405,7 @@
   }
 
   .focus-label {
-    font-size: 0.65rem;
+    font-size: 0.8rem;
     color: var(--parchment-aged);
     text-transform: uppercase;
   }
@@ -429,7 +429,7 @@
     border-radius: 4px;
     color: var(--parchment);
     cursor: pointer;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
   }
 
   .focus-btn:hover { border-color: var(--brass); }
@@ -455,7 +455,7 @@
   }
 
   .focus-value {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: var(--brass);
     font-family: var(--font-mono);
   }
@@ -479,7 +479,7 @@
 
   .btn-sm { 
     padding: var(--space-xs) var(--space-sm); 
-    font-size: 0.7rem; 
+    font-size: 0.8rem; 
     flex: 1;
   }
 
@@ -495,7 +495,7 @@
 
   .obs-label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: var(--brass);
     margin-bottom: var(--space-xs);
     text-transform: uppercase;
@@ -509,7 +509,7 @@
 
   .obs-btn {
     padding: 4px 8px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     background: var(--bg-dark);
     border: 1px solid var(--brass-dark);
     border-radius: 4px;

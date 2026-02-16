@@ -1,17 +1,21 @@
 <script lang="ts">
-  import type { Instrument, Sample, Observation } from '../../shared/types';
+  import type { Instrument, Sample, Observation, Patient, CulturePlate } from '../../shared/types';
   import { INSTRUMENT_ICONS, STATUS_COLORS } from '../../shared/types';
   import MicroscopeStage from './instruments/MicroscopeStage.svelte';
+  import CultureStation from './instruments/CultureStation.svelte';
 
   interface Props {
     instrument: Instrument;
     samples: Sample[];
     observations: Observation[];
+    patients: Patient[];
+    currentTick: number;
+    loadedPlate: CulturePlate | null;
     onClose: () => void;
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
   }
 
-  let { instrument, samples, observations, onClose, onRecordObservation }: Props = $props();
+  let { instrument, samples, observations, patients, currentTick, loadedPlate, onClose, onRecordObservation }: Props = $props();
 
   const icon = $derived(INSTRUMENT_ICONS[instrument.type]);
   const statusColor = $derived(STATUS_COLORS[instrument.status]);
@@ -42,6 +46,8 @@
   <main class="fullscreen-content">
     {#if instrument.type === 'microscope'}
       <MicroscopeStage {instrument} {samples} {observations} {onRecordObservation} />
+    {:else if instrument.type === 'culture-incubator'}
+      <CultureStation {instrument} {samples} {observations} {patients} {currentTick} {loadedPlate} {onRecordObservation} />
     {:else}
       <div class="text-center text-muted">
         <p class="icon-xl mb-md">{icon}</p>

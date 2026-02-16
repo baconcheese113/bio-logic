@@ -233,7 +233,7 @@
   .patient-status {
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
   }
 
@@ -262,7 +262,7 @@
     background: var(--bg-medium);
     padding: 4px 8px;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 
   .obs-field {
@@ -305,6 +305,6 @@
 
   .btn-sm {
     padding: var(--space-xs) var(--space-sm);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
   }
 </style>

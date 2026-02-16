@@ -1,17 +1,17 @@
 <script lang="ts">
-  import type { Instrument, Sample, GridPosition } from '../../shared/types';
+  import type { Instrument, Sample, GridPosition, HeldItem } from '../../shared/types';
   import { INSTRUMENT_ICONS, SAMPLE_COLORS, CONDITION_OPACITY } from '../../shared/types';
 
   interface Props {
     instrument: Instrument | null;
     samples: Sample[];
     playerPosition: GridPosition;
-    heldSample: Sample | null;
+    heldItem: HeldItem | null;
     onDrop: () => void;
     onOpen: () => void;
   }
 
-  let { instrument, samples, playerPosition, heldSample, onDrop, onOpen }: Props = $props();
+  let { instrument, samples, playerPosition, heldItem, onDrop, onOpen }: Props = $props();
 
   const instrumentSamples = $derived(
     instrument
@@ -29,7 +29,7 @@
   });
 
   const hasEmptySlot = $derived(instrument?.slots.some(s => s.sampleId === null) ?? false);
-  const canDrop = $derived(heldSample !== null && isAdjacent() && hasEmptySlot);
+  const canDrop = $derived(heldItem !== null && isAdjacent() && hasEmptySlot);
 </script>
 
 <aside class="sidebar" class:visible={instrument !== null} data-ref="instrument-panel">
@@ -83,7 +83,7 @@
         <div class="flex flex-col gap-sm">
           {#if canDrop}
             <button class="btn drop-btn" onclick={onDrop} data-ref="btn-drop-sample">
-              Drop Sample Here
+              {heldItem?.kind === 'plate' ? 'Place Plate Here' : 'Drop Sample Here'}
             </button>
           {/if}
           <button 
@@ -120,7 +120,7 @@
     background: var(--status-ready);
     color: white;
     border-radius: 4px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
   }
 

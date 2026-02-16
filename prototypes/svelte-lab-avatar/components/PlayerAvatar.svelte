@@ -39,13 +39,18 @@
     <div class="avatar-direction"></div>
   </div>
 
-  {#if player.heldSample}
+  {#if player.heldItem?.kind === 'sample'}
     <div
       class="held-sample"
-      style:background={SAMPLE_COLORS[player.heldSample.type]}
-      style:opacity={CONDITION_OPACITY[player.heldSample.condition]}
-      aria-label="Carrying {player.heldSample.label}"
+      style:background={SAMPLE_COLORS[player.heldItem.sample.type]}
+      style:opacity={CONDITION_OPACITY[player.heldItem.sample.condition]}
+      aria-label="Carrying {player.heldItem.sample.label}"
     ></div>
+  {:else if player.heldItem?.kind === 'plate'}
+    <div
+      class="held-plate"
+      aria-label="Carrying {player.heldItem.plate.label}"
+    >🧫</div>
   {/if}
 </div>
 
@@ -59,5 +64,6 @@
   .avatar-direction { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid #ffc107; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
 
   .held-sample { position: absolute; bottom: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4); animation: glow 1s ease-in-out infinite alternate; }
+  .held-plate { position: absolute; bottom: -4px; right: -4px; font-size: 0.9rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); animation: glow 1s ease-in-out infinite alternate; }
   @keyframes glow { 0% { box-shadow: 0 2px 4px rgba(0,0,0,0.4); } 100% { box-shadow: 0 2px 8px rgba(255,255,255,0.3); } }
 </style>
