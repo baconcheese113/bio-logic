@@ -6,6 +6,9 @@
 /* === Fonts (Google Fonts - loaded in HTML) === */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
+/* === Tailwind CSS === */
+@import "tailwindcss";
+
 :root {
   /* === Text Size Floor === */
   --font-size-min: 0.8rem;

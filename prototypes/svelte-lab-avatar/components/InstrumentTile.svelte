@@ -58,15 +58,15 @@
   ondblclick={(e) => { e.stopPropagation(); onDoubleClick(); }}
   data-ref="furniture-{furniture.id}"
 >
-  <span class="icon">{icon}</span>
+  <span class="text-[1.75rem]">{icon}</span>
 
   {#if mode}
     <span class="mode-tag">{mode}</span>
   {/if}
 
-  <div class="contents">
+  <div class="absolute bottom-[6px] flex gap-[2px] items-center">
     {#each equipmentIcons as eqIcon}
-      <span class="eq-dot">{eqIcon}</span>
+      <span class="text-[0.7rem]">{eqIcon}</span>
     {/each}
     {#if canDrop}<span class="drop-slot">+</span>{/if}
   </div>
@@ -94,8 +94,6 @@
 
   @keyframes pulse-drop { 0% { box-shadow: 0 0 4px rgba(74, 124, 89, 0.5); } 100% { box-shadow: 0 0 12px rgba(74, 124, 89, 0.8); } }
 
-  .icon { font-size: 1.75rem; }
-
   .mode-tag {
     position: absolute;
     top: 2px;
@@ -110,8 +108,16 @@
     opacity: 0.8;
   }
 
-  .contents { position: absolute; bottom: 6px; display: flex; gap: 2px; align-items: center; }
-  .eq-dot { font-size: 0.7rem; }
-
-  .drop-slot { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--status-idle); border-radius: 50%; color: var(--status-idle); font-size: 0.8rem; font-weight: bold; }
+  .drop-slot { 
+    width: 14px; 
+    height: 14px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    border: 2px dashed var(--status-idle); 
+    border-radius: 50%; 
+    color: var(--status-idle); 
+    font-size: 0.8rem; 
+    font-weight: bold; 
+  }
 </style>

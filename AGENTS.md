@@ -8,6 +8,8 @@ Ask for clarity if any requirements or specifications are ambiguous or unclear b
 
 Types should almost always live with the data they describe. This helps maintain coherence and makes it easier to manage types as the codebase evolves. Even better if we can infer types directly from the data structures themselves.
 
+**Never serve the app yourself, it's already running or I will start it for you**
+
 ## Svelte 5 Runes: $effect vs $derived
 
 **CRITICAL:** Do NOT use `$effect` to synchronize state. This is the #1 cause of infinite loops in Svelte 5.

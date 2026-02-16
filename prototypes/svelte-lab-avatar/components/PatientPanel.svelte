@@ -52,23 +52,23 @@
 
       <section class="control-section">
         <h4>Complaint</h4>
-        <p class="synopsis">{patient.synopsis}</p>
+        <p class="text-sm text-parchment-aged leading-tight">{patient.synopsis}</p>
       </section>
 
       <section class="control-section">
         <h4>Available Samples</h4>
         {#if playerHasItem}
-          <p class="warning-text">
-            <span class="warning-icon">⚠️</span>
+          <p class="flex items-center gap-xs text-sm" style="color: var(--status-busy);">
+            <span>⚠️</span>
             Deposit your current item first
           </p>
         {:else if availableSamples.length === 0}
           <p class="empty-text">All samples collected</p>
         {:else}
-          <div class="sample-buttons">
+          <div class="flex flex-col gap-xs">
             {#each availableSamples as sampleType}
               <button
-                class="btn sample-btn"
+                class="btn flex items-center gap-sm"
                 onclick={() => onCollectSample(sampleType)}
                 style:--sample-color={SAMPLE_COLORS[sampleType]}
               >
@@ -83,7 +83,7 @@
       {#if patient.collectedSamples.length > 0}
         <section class="control-section">
           <h4>Already Collected</h4>
-          <div class="collected-list">
+          <div class="flex flex-wrap gap-xs">
             {#each patient.collectedSamples as sampleType}
               <span class="collected-tag" style:background={SAMPLE_COLORS[sampleType]}>
                 {formatSampleType(sampleType)}
@@ -119,45 +119,6 @@
 
   .sidebar.visible {
     transform: translateX(0);
-  }
-
-  .synopsis {
-    font-size: 0.875rem;
-    color: var(--parchment-aged);
-    line-height: 1.4;
-  }
-
-  .sample-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  .sample-btn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-
-  .sample-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .warning-text {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    color: var(--status-busy);
-    font-size: 0.875rem;
-  }
-
-  .collected-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
   }
 
   .collected-tag {

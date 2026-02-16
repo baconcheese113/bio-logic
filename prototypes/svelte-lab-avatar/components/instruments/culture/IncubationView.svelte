@@ -21,16 +21,16 @@
   const totalHours = $derived(Math.floor(incubationDuration / 36000));
 </script>
 
-<div class="incubation-view">
-  <div class="incubator-visual">
+<div class="flex gap-xl items-center justify-center">
+  <div class="flex flex-col items-center">
     <div class="incubator-box">
-      <div class="incubator-door">
-        <div class="plate-inside">
+      <div class="w-full h-full bg-bg-dark border border-brass-dark rounded flex flex-col items-center justify-center gap-md">
+        <div class="flex items-center justify-center">
           <div class="plate-circle" style:background={MEDIA_COLORS[mediaType].base}></div>
         </div>
-        <div class="temperature">
-          <span class="temp-value">37°C</span>
-          <div class="temp-icon">
+        <div class="flex items-center gap-sm">
+          <span class="text-sm font-mono" style="color: #e8a060;">37°C</span>
+          <div>
             <svg viewBox="0 0 16 40" width="16" height="40">
               <rect x="6" y="2" width="4" height="28" rx="2" fill="none" stroke="#c45a20" stroke-width="1" />
               <circle cx="8" cy="34" r="5" fill="#c45a20" />
@@ -42,17 +42,17 @@
     </div>
   </div>
 
-  <div class="incubation-info">
-    <h3>Incubating</h3>
-    <p class="time-display">
+  <div class="flex flex-col gap-sm min-w-[200px]">
+    <h3 class="m-0 text-brass-light font-heading">Incubating</h3>
+    <p class="text-2xl font-mono text-parchment m-0">
       {hoursElapsed}h / {totalHours}h
     </p>
 
-    <div class="progress-bar">
+    <div class="h-[10px] bg-bg-dark border border-brass-dark rounded-[5px] overflow-hidden">
       <div class="progress-fill" style:width="{progress}%"></div>
     </div>
 
-    <p class="status-text">
+    <p class="text-xs text-parchment-aged m-0">
       {#if isComplete}
         Incubation complete! Colonies have grown.
       {:else}
@@ -65,7 +65,7 @@
     </button>
 
     {#if !isComplete}
-      <p class="hint-text">
+      <p class="text-xs text-parchment-aged italic m-0">
         Or use the speed controls to fast-forward time.
       </p>
     {/if}
@@ -73,19 +73,6 @@
 </div>
 
 <style>
-  .incubation-view {
-    display: flex;
-    gap: var(--space-xl);
-    align-items: center;
-    justify-content: center;
-  }
-
-  .incubator-visual {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
   .incubator-box {
     width: 200px;
     height: 220px;
@@ -94,25 +81,6 @@
     border-radius: 8px;
     padding: var(--space-md);
     box-shadow: var(--shadow-lg);
-  }
-
-  .incubator-door {
-    width: 100%;
-    height: 100%;
-    background: var(--bg-dark);
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-md);
-  }
-
-  .plate-inside {
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .plate-circle {
@@ -129,63 +97,10 @@
     50% { box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3), 0 0 8px rgba(196, 90, 32, 0.15); }
   }
 
-  .temperature {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-
-  .temp-value {
-    font-size: 0.85rem;
-    color: #e8a060;
-    font-family: var(--font-mono);
-  }
-
-  .incubation-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    min-width: 200px;
-  }
-
-  .incubation-info h3 {
-    margin: 0;
-    color: var(--brass-light);
-    font-family: var(--font-heading);
-  }
-
-  .time-display {
-    font-size: 1.5rem;
-    font-family: var(--font-mono);
-    color: var(--parchment);
-    margin: 0;
-  }
-
-  .progress-bar {
-    height: 10px;
-    background: var(--bg-dark);
-    border: 1px solid var(--brass-dark);
-    border-radius: 5px;
-    overflow: hidden;
-  }
-
   .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #c45a20, #e8a060);
     transition: width 0.3s;
     border-radius: 5px;
-  }
-
-  .status-text {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    margin: 0;
-  }
-
-  .hint-text {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    font-style: italic;
-    margin: 0;
   }
 </style>

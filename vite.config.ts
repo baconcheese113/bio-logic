@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [svelte({ inspector: false })],
+  plugins: [
+    svelte({ inspector: false }),
+    tailwindcss(),
+  ],
   server: {
     port: 3000,
     open: true,
