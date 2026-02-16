@@ -32,7 +32,7 @@
 </script>
 
 <button
-  class="patient-tile"
+  class="patient-tile relative flex flex-col items-center justify-center cursor-default border-none bg-transparent p-0"
   class:adjacent={isAdjacent}
   style:width="{TILE_SIZE}px"
   style:height="{TILE_SIZE}px"
@@ -104,15 +104,6 @@
 
 <style>
   .patient-tile {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: default;
-    border: none;
-    background: transparent;
-    padding: 0;
     transition: filter 0.15s ease;
   }
 

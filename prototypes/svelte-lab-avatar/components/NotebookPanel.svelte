@@ -53,22 +53,22 @@
   {#if isOpen}
     <aside class="notebook-panel">
       <header class="notebook-header">
-        <h3>📓 Lab Notebook</h3>
+        <h3 class="m-0 text-sm text-brass-light">📓 Lab Notebook</h3>
       </header>
       
       <div class="notebook-body">
         {#if groupedObservations().length === 0}
           <p class="empty-text">No observations recorded yet.</p>
-          <p class="empty-text text-sm">Use instruments to examine samples and record what you see.</p>
+          <p class="empty-text text-xs mt-xs">Use instruments to examine samples and record what you see.</p>
         {:else}
           {#each groupedObservations() as group}
-            <section class="patient-group">
-              <h4 class="patient-name">🧑‍⚕️ {group.patientName}</h4>
-              <ul class="obs-list">
+            <section class="mb-md">
+              <h4 class="text-xs text-brass m-0 mb-sm border-b border-brass-dark pb-xs">🧑‍⚕️ {group.patientName}</h4>
+              <ul class="list-none m-0 p-0">
                 {#each group.observations as obs}
-                  <li class="obs-item">
-                    <span class="obs-icon">{OBSERVATION_ICONS[obs.source]}</span>
-                    <span class="obs-text">{formatObservation(obs)}</span>
+                  <li class="flex items-center gap-sm py-xs text-xs text-parchment">
+                    <span class="text-sm flex-shrink-0">{OBSERVATION_ICONS[obs.source]}</span>
+                    <span class="flex-1">{formatObservation(obs)}</span>
                   </li>
                 {/each}
               </ul>
@@ -126,56 +126,9 @@
     border-bottom: var(--border-thin);
   }
 
-  .notebook-header h3 {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--brass-light);
-  }
-
   .notebook-body {
     flex: 1;
     padding: var(--space-md);
     overflow-y: auto;
-  }
-
-  .patient-group {
-    margin-bottom: var(--space-md);
-  }
-
-  .patient-name {
-    font-size: 0.8rem;
-    color: var(--brass);
-    margin: 0 0 var(--space-sm) 0;
-    border-bottom: 1px solid var(--brass-dark);
-    padding-bottom: var(--space-xs);
-  }
-
-  .obs-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .obs-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-xs) 0;
-    font-size: 0.8rem;
-    color: var(--parchment);
-  }
-
-  .obs-icon {
-    font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .obs-text {
-    flex: 1;
-  }
-
-  .text-sm {
-    font-size: 0.8rem;
-    margin-top: var(--space-xs);
   }
 </style>

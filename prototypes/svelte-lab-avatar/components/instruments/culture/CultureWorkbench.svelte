@@ -504,7 +504,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="workbench-layout">
+<div class="flex flex-col gap-sm">
   <div
     class="workbench"
     bind:this={workbenchEl}
@@ -646,29 +646,29 @@
     </div>
 
     <!-- Status bar -->
-    <div class="workbench-status">
-      <div class="status-item">
+    <div class="flex items-center gap-sm p-xs flex-wrap workbench-status">
+      <div class="flex items-center gap-[4px] text-xs capitalize text-parchment-aged">
         <span class="status-dot status-{loopStatus}"></span>
         <span>{loopStatus}</span>
       </div>
 
       {#if loopTemp > 0.05}
-        <div class="bar-group">
-          <span class="bar-label">Temp</span>
+        <div class="flex items-center gap-[3px]">
+          <span class="text-xs text-parchment-aged uppercase">Temp</span>
           <div class="mini-bar"><div class="bar-fill temp-fill" style:width="{loopTemp * 100}%"></div></div>
         </div>
       {/if}
 
       {#if isLoaded}
-        <div class="bar-group">
-          <span class="bar-label">Load</span>
+        <div class="flex items-center gap-[3px]">
+          <span class="text-xs text-parchment-aged uppercase">Load</span>
           <div class="mini-bar"><div class="bar-fill load-fill" style:width="{inoculumLevel * 100}%"></div></div>
         </div>
       {/if}
 
       {#if lidExposure > 0}
-        <div class="bar-group">
-          <span class="bar-label">Lid</span>
+        <div class="flex items-center gap-[3px]">
+          <span class="text-xs text-parchment-aged uppercase">Lid</span>
           <div class="mini-bar"><div class="bar-fill lid-fill" style:width="{lidExposure * 100}%"></div></div>
         </div>
       {/if}
@@ -686,7 +686,7 @@
         <span class="badge contam-badge">{contaminationEvents} contam.</span>
       {/if}
 
-      <div class="status-actions">
+      <div class="ml-auto flex gap-xs">
         <button class="btn-sm" onclick={handleReset} disabled={isStreaking}>New Plate</button>
         <button class="btn-sm btn-primary" onclick={handleDone} disabled={!hasPlate || !hasAnyDeposit || isStreaking}>
           Done Streaking
@@ -695,16 +695,10 @@
     </div>
   </div>
 
-  <p class="hint-text">{hintText}</p>
+  <p class="text-xs text-parchment-aged italic m-0">{hintText}</p>
 </div>
 
 <style>
-  .workbench-layout {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
   .workbench {
     position: relative;
     width: 100%;
@@ -879,19 +873,10 @@
 
   /* --- Status bar --- */
   .workbench-status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-sm);
     background: linear-gradient(180deg, #2a2218 0%, #1e1a12 100%);
     border: 1px solid rgba(180, 140, 60, 0.2);
     border-top: 1px solid rgba(180, 140, 60, 0.3);
     border-radius: 0 0 6px 6px;
-    flex-wrap: wrap;
-  }
-  .status-item {
-    display: flex; align-items: center; gap: 4px;
-    font-size: 0.8rem; text-transform: capitalize; color: var(--parchment-aged);
   }
   .status-dot { width: 6px; height: 6px; border-radius: 50%; }
   .status-dot.status-sterile { background: #6cba6c; }
@@ -899,8 +884,6 @@
   .status-dot.status-loaded { background: #6ca8d0; }
   .status-dot.status-dirty { background: #d06c6c; }
 
-  .bar-group { display: flex; align-items: center; gap: 3px; }
-  .bar-label { font-size: 0.8rem; color: var(--parchment-aged); text-transform: uppercase; }
   .mini-bar { width: 42px; height: 4px; background: var(--bg-medium); border-radius: 2px; overflow: hidden; }
   .bar-fill { height: 100%; transition: width 0.1s; }
   .temp-fill { background: linear-gradient(90deg, #ff6600, #ff3300); }
@@ -919,11 +902,6 @@
   .loop-badge { background: #2a4a2a; color: #88dd88; }
   .contam-badge { background: #4a2a2a; color: #d06c6c; }
 
-  .status-actions {
-    margin-left: auto;
-    display: flex;
-    gap: var(--space-xs);
-  }
   .btn-sm {
     padding: 2px 10px;
     font-size: 0.8rem;
@@ -941,11 +919,4 @@
     border-color: var(--brass);
   }
   .btn-sm.btn-primary:hover:not(:disabled) { background: var(--brass); }
-
-  .hint-text {
-    font-size: 0.8rem;
-    color: var(--parchment-aged);
-    font-style: italic;
-    margin: 0;
-  }
 </style>

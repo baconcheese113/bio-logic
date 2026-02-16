@@ -52,9 +52,9 @@
       <section class="control-section">
         <h4>Contents ({furniture.contents.length}/{def.contentCapacity})</h4>
         {#if furniture.contents.length > 0}
-          <ul class="sample-list">
+          <ul class="list-none">
             {#each furniture.contents as item, i}
-              <li class="sample-item">
+              <li class="flex items-center gap-sm p-sm bg-medium rounded mb-xs">
                 <span>{getItemIcon(item)}</span>
                 <span class="text-sm">{getItemLabel(item)}</span>
                 {#if item.kind !== 'equipment' && canPickup}
@@ -120,20 +120,6 @@
     border-radius: 4px;
     font-size: 0.8rem;
     text-transform: uppercase;
-  }
-
-  .sample-list {
-    list-style: none;
-  }
-
-  .sample-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm);
-    background: var(--bg-medium);
-    border-radius: 4px;
-    margin-bottom: var(--space-xs);
   }
 
   .pickup-btn {

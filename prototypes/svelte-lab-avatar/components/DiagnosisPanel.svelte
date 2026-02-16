@@ -70,29 +70,29 @@
 
 <div class="overlay">
   <div class="diagnosis-panel">
-    <header class="panel-header">
-      <h2>Submit Diagnosis</h2>
+    <header class="flex items-center justify-between p-md panel-header">
+      <h2 class="m-0 text-lg text-brass-light">Submit Diagnosis</h2>
       <button class="btn-close" onclick={onCancel}>✕</button>
     </header>
 
-    <div class="panel-body">
+    <div class="flex-1 p-md overflow-y-auto">
       <!-- Patient info -->
-      <section class="section patient-info">
-        <h3>Patient</h3>
-        <div class="patient-details">
-          <span class="patient-name">🧑‍⚕️ {patient.name}</span>
+      <section class="mb-lg patient-info">
+        <h3 class="section-title">Patient</h3>
+        <div class="flex items-center gap-md mb-sm">
+          <span class="text-base font-semibold text-parchment">🧑‍⚕️ {patient.name}</span>
           <span class="patient-status {patient.status}">{patient.status}</span>
         </div>
-        <p class="synopsis">{patient.synopsis}</p>
+        <p class="text-sm text-parchment-aged italic m-0">{patient.synopsis}</p>
       </section>
 
       <!-- Your observations -->
-      <section class="section">
-        <h3>Your Observations</h3>
+      <section class="mb-lg">
+        <h3 class="section-title">Your Observations</h3>
         {#if patientObservations.length === 0}
           <p class="empty-text">No observations recorded for this patient.</p>
         {:else}
-          <ul class="obs-list">
+          <ul class="list-none m-0 p-0 flex flex-wrap gap-sm">
             {#each patientObservations as obs}
               <li class="obs-item">
                 <span class="obs-field">{obs.field}:</span>
@@ -104,8 +104,8 @@
       </section>
 
       <!-- Organism selection -->
-      <section class="section">
-        <h3>Identified Organism</h3>
+      <section class="mb-lg">
+        <h3 class="section-title">Identified Organism</h3>
         <select class="select" bind:value={selectedOrganism}>
           <option value={null}>-- Select organism --</option>
           {#each ORGANISMS as org}
@@ -115,9 +115,9 @@
       </section>
 
       <!-- Category selection -->
-      <section class="section">
-        <h3>Category</h3>
-        <div class="btn-group">
+      <section class="mb-lg">
+        <h3 class="section-title">Category</h3>
+        <div class="flex flex-wrap gap-xs">
           {#each CATEGORIES as cat}
             <button 
               class="btn btn-sm {selectedCategory === cat.id ? 'active' : ''}"
@@ -130,8 +130,8 @@
       </section>
 
       <!-- Treatment selection -->
-      <section class="section">
-        <h3>Recommended Treatment</h3>
+      <section class="mb-lg">
+        <h3 class="section-title">Recommended Treatment</h3>
         <select class="select" bind:value={selectedTreatment}>
           <option value={null}>-- Select treatment --</option>
           {#each TREATMENTS as treat}
@@ -141,7 +141,7 @@
       </section>
     </div>
 
-    <footer class="panel-footer">
+    <footer class="flex gap-md justify-end p-md panel-footer">
       <button class="btn" onclick={onCancel}>Cancel</button>
       <button 
         class="btn btn-primary" 
@@ -168,40 +168,16 @@
   }
 
   .panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-md) var(--space-lg);
     background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
     border-bottom: var(--border-thin);
   }
 
-  .panel-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: var(--brass-light);
-  }
-
-  .panel-body {
-    flex: 1;
-    padding: var(--space-md) var(--space-lg);
-    overflow-y: auto;
-  }
-
   .panel-footer {
-    display: flex;
-    gap: var(--space-md);
-    justify-content: flex-end;
-    padding: var(--space-md) var(--space-lg);
     background: var(--bg-medium);
     border-top: var(--border-thin);
   }
 
-  .section {
-    margin-bottom: var(--space-lg);
-  }
-
-  .section h3 {
+  .section-title {
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -217,19 +193,6 @@
     border-radius: 6px;
   }
 
-  .patient-details {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    margin-bottom: var(--space-sm);
-  }
-
-  .patient-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--parchment);
-  }
-
   .patient-status {
     padding: 2px 8px;
     border-radius: 4px;
@@ -241,22 +204,6 @@
   .patient-status.guarded { background: var(--patient-guarded); color: var(--bg-darkest); }
   .patient-status.declining { background: var(--patient-declining); color: white; }
   .patient-status.critical { background: var(--patient-critical); color: white; }
-
-  .synopsis {
-    font-size: 0.85rem;
-    color: var(--parchment-aged);
-    font-style: italic;
-    margin: 0;
-  }
-
-  .obs-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
-  }
 
   .obs-item {
     background: var(--bg-medium);
@@ -295,12 +242,6 @@
   .select option {
     background: var(--bg-dark);
     color: var(--parchment);
-  }
-
-  .btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
   }
 
   .btn-sm {
