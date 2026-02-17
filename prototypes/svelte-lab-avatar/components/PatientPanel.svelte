@@ -58,7 +58,7 @@
       <section class="control-section">
         <h4>Available Samples</h4>
         {#if playerHasItem}
-          <p class="flex items-center gap-xs text-sm" style="color: var(--status-busy);">
+          <p class="flex items-center gap-xs text-sm text-status-busy">
             <span>⚠️</span>
             Deposit your current item first
           </p>

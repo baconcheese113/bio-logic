@@ -79,8 +79,8 @@
   ];
 </script>
 
-<div class="p-md rounded-md" style:background="var(--bg-medium)">
-  <h4 class="m-0 mb-sm text-xs" style:color="var(--brass)">What do you observe?</h4>
+<div class="p-md rounded-md bg-bg-medium">
+  <h4 class="m-0 mb-sm text-xs text-brass">What do you observe?</h4>
 
   <div class="obs-group">
     <span class="obs-label">Growth:</span>

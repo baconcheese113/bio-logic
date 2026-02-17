@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Furniture, Sample, GridPosition, Item } from '../../shared/types';
-  import { FURNITURE_DEFS, detectWorkbenchMode, getItemIcon, getItemLabel, getCarryingLoad } from '../../shared/types';
+  import type { Fixture, Sample, GridPosition, Item } from '../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, getItemLabel, getCarryingLoad, isPortable } from '../../shared/types';
 
   interface Props {
-    furniture: Furniture | null;
+    furniture: Fixture | null;
     samples: Sample[];
     playerPosition: GridPosition;
     carrying: Item[];
@@ -18,7 +18,7 @@
   const furnitureSamples = $derived(
     furniture
       ? samples.filter(s =>
-          s.location.type === 'furniture' && s.location.furnitureId === furniture.id
+          s.location.type === 'fixture' && s.location.fixtureId === furniture.id
         )
       : []
   );
@@ -30,10 +30,10 @@
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
   });
 
-  const def = $derived(furniture ? FURNITURE_DEFS[furniture.type] : null);
-  const hasCapacity = $derived(furniture ? furniture.contents.length < (def?.contentCapacity ?? 0) : false);
+  const def = $derived(furniture ? FIXTURE_DEFS[furniture.type] : null);
+  const hasCapacity = $derived(furniture ? furniture.items.length < (def?.capacity ?? 0) : false);
   const canDrop = $derived(carrying.length > 0 && isAdjacent() && hasCapacity);
-  const mode = $derived(furniture?.type === 'workbench' ? detectWorkbenchMode(furniture.contents) : null);
+  const mode = $derived(furniture?.type === 'workbench' ? detectWorkbenchMode(furniture.items) : null);
   const playerLoad = $derived(getCarryingLoad(carrying));
   const canPickup = $derived(isAdjacent() && playerLoad < carryCapacity);
 </script>
@@ -50,14 +50,14 @@
 
     <div class="sidebar-body">
       <section class="control-section">
-        <h4>Contents ({furniture.contents.length}/{def.contentCapacity})</h4>
-        {#if furniture.contents.length > 0}
+        <h4>Contents ({furniture.items.length}/{def.capacity})</h4>
+        {#if furniture.items.length > 0}
           <ul class="list-none">
-            {#each furniture.contents as item, i}
+            {#each furniture.items as item, i}
               <li class="flex items-center gap-sm p-sm bg-medium rounded mb-xs">
                 <span>{getItemIcon(item)}</span>
                 <span class="text-sm">{getItemLabel(item)}</span>
-                {#if item.kind !== 'equipment' && canPickup}
+                {#if isPortable(item) && canPickup}
                   <button
                     class="pickup-btn"
                     onclick={() => onPickup(i)}
@@ -73,7 +73,7 @@
       </section>
 
       {#if isAdjacent()}
-        <span class="status-tag" style:background="var(--status-ready)">Within reach</span>
+        <span class="status-tag bg-status-ready">Within reach</span>
       {/if}
 
       <section class="control-section">

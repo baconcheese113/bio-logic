@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Furniture, Sample, MicroscopeFindings, Observation } from '../../../shared/types';
+  import type { Fixture, Sample, MicroscopeFindings, Observation } from '../../../shared/types';
   import { SAMPLE_COLORS, CONDITION_OPACITY } from '../../../shared/types';
   import { getCaseTemplate } from '../../../shared/mock-data';
 
   interface Props {
-    furniture: Furniture;
+    furniture: Fixture;
     samples: Sample[];
     observations: Observation[];
     onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
@@ -195,7 +195,7 @@
           <div class="empty-field">No slide loaded</div>
         {/if}
       </div>
-      <div class="mt-sm text-xs uppercase tracking-widest" style:color="var(--parchment-aged)">View through eyepiece</div>
+      <div class="mt-sm text-xs uppercase tracking-widest text-parchment-aged">View through eyepiece</div>
     </div>
     
     <!-- Focus wheel -->
@@ -211,12 +211,12 @@
         </div>
         <button class="focus-btn" onclick={() => adjustFocus(-10)}>▼</button>
       </div>
-      <div class="text-xs font-mono" style:color="var(--brass)">{focusLevel}%</div>
+      <div class="text-xs font-mono text-brass">{focusLevel}%</div>
     </div>
   </div>
 
   <!-- Right: Controls and observation selection -->
-  <aside class="flex-1 min-w-[280px] max-w-[320px] p-md rounded-lg border-thin overflow-y-auto max-h-[400px]" style:background="var(--bg-dark)">
+  <aside class="flex-1 min-w-[280px] max-w-[320px] p-md rounded-lg border-thin overflow-y-auto max-h-[400px] bg-bg-dark">
     <!-- Objective selection -->
     <section class="control-section">
       <h4>Objective Lens</h4>
@@ -232,7 +232,7 @@
 
     <!-- Sample info -->
     <section class="control-section">
-      <h4 class="mb-sm text-xs uppercase tracking-wider" style:color="var(--brass)">Stage</h4>
+      <h4 class="mb-sm text-xs uppercase tracking-wider text-brass">Stage</h4>
       {#if loadedSample}
         <div class="flex items-center gap-sm mb-sm flex-wrap">
           <span class="sample-dot" style:background={SAMPLE_COLORS[loadedSample.type]}></span>
@@ -240,14 +240,14 @@
         </div>
         <span class="condition-badge {loadedSample.condition}">{loadedSample.condition}</span>
       {:else}
-        <p class="text-sm italic" style:color="var(--parchment-aged)">Load a stained slide to observe</p>
+        <p class="text-sm italic text-parchment-aged">Load a stained slide to observe</p>
       {/if}
     </section>
 
     <!-- Observation selection (only visible when in focus with sample) -->
     {#if loadedSample && isInFocus}
       <section class="observation-section control-section">
-        <h4 class="mb-sm text-xs uppercase tracking-wider" style:color="var(--brass)">What do you see?</h4>
+        <h4 class="mb-sm text-xs uppercase tracking-wider text-brass">What do you see?</h4>
         
         <div class="obs-group">
           <span class="obs-label">Gram Stain:</span>
@@ -319,7 +319,7 @@
       </section>
     {:else if loadedSample}
       <section class="control-section">
-        <p class="text-sm italic" style:color="var(--parchment-aged)">Adjust focus to observe sample</p>
+        <p class="text-sm italic text-parchment-aged">Adjust focus to observe sample</p>
       </section>
     {/if}
   </aside>

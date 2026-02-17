@@ -109,7 +109,7 @@
 
   function getSamplesForFurniture(furnitureId: string): Sample[] {
     return labState.samples.filter(s =>
-      s.location.type === 'furniture' && s.location.furnitureId === furnitureId
+      s.location.type === 'fixture' && s.location.fixtureId === furnitureId
     );
   }
 
@@ -182,8 +182,8 @@
       {/each}
     {/each}
 
-    <!-- Furniture -->
-    {#each labState.furniture as furn}
+    <!-- Fixtures -->
+    {#each labState.fixtures as furn}
       <InstrumentTile
         furniture={furn}
         tileSize={TILE_SIZE}
@@ -204,12 +204,12 @@
   </div>
 
   <!-- Zoom indicator -->
-  <div class="absolute bottom-md right-md py-xs px-sm rounded border-thin font-mono text-xs" style:background="var(--bg-dark)" style:color="var(--parchment-aged)" data-ref="zoom-indicator">
+  <div class="absolute bottom-md right-md py-xs px-sm rounded border-thin font-mono text-xs bg-bg-dark text-parchment-aged" data-ref="zoom-indicator">
     {Math.round(labState.camera.zoom * 100)}%
   </div>
 
   <!-- Instructions -->
-  <div class="absolute bottom-md left-1/2 -translate-x-1/2 text-center text-sm opacity-60" style:color="var(--parchment-aged)">
+  <div class="absolute bottom-md left-1/2 -translate-x-1/2 text-center text-sm opacity-60 text-parchment-aged">
     <p>Left-click tile to move • Right-drag to pan • Scroll to zoom</p>
     <p>Click sample to pick up • Click instrument slot to drop</p>
   </div>

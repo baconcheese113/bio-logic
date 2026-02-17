@@ -5,11 +5,11 @@
   the preparation process: combine ingredients → sterilize → pour → culture plate.
 -->
 <script lang="ts">
-  import type { Furniture, ActivePrep, MediaType } from '../../../shared/types';
-  import { MEDIA_RECIPES, getAvailableRecipes, getItemIcon, getItemLabel } from '../../../shared/types';
+  import type { Fixture, ActivePrep, MediaType } from '../../../shared/types';
+  import { MEDIA_RECIPES, getAvailableRecipes, getItemIcon, getItemLabel, ITEM_DEFS, getCulturePlate } from '../../../shared/types';
 
   interface Props {
-    furniture: Furniture;
+    furniture: Fixture;
     currentTick: number;
     activePrep: ActivePrep | null;
     onPrepStart: (mediaType: MediaType) => void;
@@ -17,16 +17,16 @@
 
   let { furniture, currentTick, activePrep, onPrepStart }: Props = $props();
 
-  // Supplies currently on the bench (exclude equipment)
+  // Supplies currently on the bench (consumable items)
   const supplies = $derived(
-    furniture.contents.filter(i => i.kind === 'supply')
+    furniture.items.filter(i => ITEM_DEFS[i.type].consumable)
   );
 
   const plates = $derived(
-    furniture.contents.filter(i => i.kind === 'culture-plate')
+    furniture.items.filter(i => getCulturePlate(i) !== null)
   );
 
-  const availableRecipes = $derived(getAvailableRecipes(furniture.contents));
+  const availableRecipes = $derived(getAvailableRecipes(furniture.items));
 
   // Derive prep progress from App-level activePrep
   const prepRecipe = $derived(
@@ -52,7 +52,7 @@
 </script>
 
 <div class="flex flex-col gap-md p-md w-full max-w-[600px]">
-  <h3 class="m-0 pb-sm font-heading border-b-thin" style:color="var(--brass-light)">Media Preparation</h3>
+  <h3 class="m-0 pb-sm font-heading border-b-thin text-brass-light">Media Preparation</h3>
 
   {#if activePrep && prepRecipe}
     <!-- Preparation in progress -->
@@ -69,41 +69,41 @@
   {:else}
     <!-- Supplies on bench -->
     <section class="flex flex-col gap-sm">
-      <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Supplies on Bench</h4>
+      <h4 class="m-0 font-heading text-xs uppercase tracking-wider text-brass">Supplies on Bench</h4>
       {#if supplies.length > 0}
         <div class="flex flex-col gap-xs">
           {#each supplies as item}
-            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm" style:background="var(--bg-medium)">
+            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm bg-bg-medium">
               <span>{getItemIcon(item)}</span>
               <span>{getItemLabel(item)}</span>
             </div>
           {/each}
         </div>
       {:else}
-        <p class="text-sm italic" style:color="var(--parchment-aged)">No supplies. Bring ingredients from the cabinet.</p>
+        <p class="text-sm italic text-parchment-aged">No supplies. Bring ingredients from the cabinet.</p>
       {/if}
     </section>
 
     <!-- Finished plates on bench -->
     {#if plates.length > 0}
       <section class="flex flex-col gap-sm">
-        <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Prepared Plates</h4>
+        <h4 class="m-0 font-heading text-xs uppercase tracking-wider text-brass">Prepared Plates</h4>
         <div class="flex flex-col gap-xs">
           {#each plates as item}
-            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm border" style:background="var(--bg-medium)" style:border-color="var(--status-idle)">
+            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm border bg-bg-medium border-status-idle">
               <span>🧫</span>
               <span>{getItemLabel(item)}</span>
               <span class="phase-tag ready">Ready</span>
             </div>
           {/each}
         </div>
-        <p class="text-sm italic" style:color="var(--parchment-aged)">Pick up plates and bring them to the culture bench.</p>
+        <p class="text-sm italic text-parchment-aged">Pick up plates and bring them to the culture bench.</p>
       </section>
     {/if}
 
     <!-- Available recipes -->
     <section class="flex flex-col gap-sm">
-      <h4 class="m-0 font-heading text-xs uppercase tracking-wider" style:color="var(--brass)">Available Recipes</h4>
+      <h4 class="m-0 font-heading text-xs uppercase tracking-wider text-brass">Available Recipes</h4>
       {#if availableRecipes.length > 0}
         <div class="flex flex-col gap-sm">
           {#each availableRecipes as mediaType}
@@ -111,20 +111,20 @@
             <button class="recipe-btn" onclick={() => onPrepStart(mediaType)}>
               <span class="text-2xl">🧫</span>
               <div class="flex-1 flex flex-col items-start">
-                <span class="font-heading text-sm" style:color="var(--brass-light)">{recipe.label}</span>
-                <span class="text-xs" style:color="var(--parchment-aged)">~{Math.round(recipe.prepTicks / 10)}s</span>
+                <span class="font-heading text-sm text-brass-light">{recipe.label}</span>
+                <span class="text-xs text-parchment-aged">~{Math.round(recipe.prepTicks / 10)}s</span>
               </div>
-              <span class="text-sm uppercase tracking-wider" style:color="var(--status-idle)">Prepare →</span>
+              <span class="text-sm uppercase tracking-wider text-status-idle">Prepare →</span>
             </button>
           {/each}
         </div>
       {:else}
-        <div class="text-sm" style:color="var(--parchment-aged)">
+        <div class="text-sm text-parchment-aged">
           <p class="mb-sm">Bring supplies from the reagent cabinet:</p>
           <ul class="list-none flex flex-col gap-xs">
             {#each Object.entries(MEDIA_RECIPES) as [, recipe]}
-              <li class="py-xs px-sm rounded text-xs" style:background="var(--bg-medium)">
-                <strong style:color="var(--brass-light)">{recipe.label}:</strong>
+              <li class="py-xs px-sm rounded text-xs bg-bg-medium">
+                <strong class="text-brass-light">{recipe.label}:</strong>
                 {recipe.ingredients.join(' + ')}
               </li>
             {/each}

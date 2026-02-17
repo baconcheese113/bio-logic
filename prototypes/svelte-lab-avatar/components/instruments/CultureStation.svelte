@@ -1,15 +1,16 @@
 <script lang="ts">
-  import type { Furniture, Sample, Observation, CultureFindings, Patient, CulturePlateState } from '../../../shared/types';
+  import type { Fixture, Sample, Observation, CultureFindings, Patient, CulturePlateState } from '../../../shared/types';
   import type { MediaType, DensityGrid, Colony, StreakQuality } from './culture/streak-types';
   import { MEDIA_COLORS } from './culture/streak-types';
   import { generateColoniesFromGrid, computeGridQuality } from './culture/colony-generator';
+  import { getCulturePlate } from '../../../shared/types';
   import CultureWorkbench from './culture/CultureWorkbench.svelte';
   import IncubationView from './culture/IncubationView.svelte';
   import ColonyPlateView from './culture/ColonyPlateView.svelte';
   import CultureObservations from './culture/CultureObservations.svelte';
 
   interface Props {
-    furniture: Furniture;
+    furniture: Fixture;
     samples: Sample[];
     observations: Observation[];
     patients: Patient[];
@@ -19,10 +20,14 @@
 
   let { furniture, samples, observations, patients, currentTick, onRecordObservation }: Props = $props();
 
-  // --- Derived from furniture contents ---
-  const loadedPlate = $derived(
-    furniture.contents.find((i): i is Extract<typeof i, { kind: 'culture-plate' }> => i.kind === 'culture-plate')?.plate ?? null
-  );
+  // --- Derived from fixture items ---
+  const loadedPlate = $derived.by(() => {
+    for (const item of furniture.items) {
+      const plate = getCulturePlate(item);
+      if (plate) return plate;
+    }
+    return null;
+  });
   const loadedSample = $derived(samples[0] ?? null);
   const patient = $derived(
     loadedSample ? patients.find(p => p.id === loadedSample.patientId) ?? null : null
@@ -103,7 +108,7 @@
 <div class="w-full max-w-[900px] p-md flex flex-col gap-md">
   {#if phase === 'workbench'}
     {#if loadedPlate}
-      <div class="flex items-center gap-sm py-xs px-sm text-sm" style:color="var(--parchment-aged)">
+      <div class="flex items-center gap-sm py-xs px-sm text-sm text-parchment-aged">
         <span class="sample-dot" style:background={MEDIA_COLORS[selectedMedia].base}></span>
         <span>{MEDIA_COLORS[selectedMedia].label} plate</span>
       </div>
@@ -129,7 +134,7 @@
 
   {:else if phase === 'reading'}
     <div class="flex items-center gap-md border-b-thin pb-sm">
-      <h3 class="m-0 font-heading" style:color="var(--brass-light)">Read Colony Growth</h3>
+      <h3 class="m-0 font-heading text-brass-light">Read Colony Growth</h3>
       {#if quality}
         <span class="quality-badge quality-{quality.overallGrade}">
           {quality.overallGrade} ({quality.score}/100)

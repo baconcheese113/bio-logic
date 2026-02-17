@@ -6,7 +6,7 @@
 import type {
   LabState,
   LabTile,
-  Furniture,
+  Fixture,
   Sample,
   Player,
   Patient,
@@ -31,7 +31,7 @@ function createTile(type: LabTile['type']): LabTile {
   return {
     type,
     walkable: type !== 'wall' && type !== 'waiting-bench',
-    furnitureId: null,
+    fixtureId: null,
     patientId: null,
   };
 }
@@ -233,17 +233,23 @@ export function generatePatient(benchPosition: { x: number; y: number }, current
   };
 }
 
-// === Furniture (replaces old Instrument system) ===
+// === Fixtures (replaces old Furniture/Instrument system) ===
 
-function createFurniture(): Furniture[] {
+let itemCounter = 0;
+function makeItem(type: Item['type'], quantity = 1): Item {
+  itemCounter++;
+  return { id: `item-${itemCounter}`, type, quantity };
+}
+
+function createFixtures(): Fixture[] {
   return [
     {
       id: 'workbench-microscope',
       type: 'workbench',
       name: 'Microscope Bench',
       position: { x: 5, y: 1 },
-      contents: [
-        { kind: 'equipment', equipmentType: 'microscope' },
+      items: [
+        makeItem('microscope'),
       ],
     },
     {
@@ -251,8 +257,8 @@ function createFurniture(): Furniture[] {
       type: 'workbench',
       name: 'Staining Bench',
       position: { x: 7, y: 1 },
-      contents: [
-        { kind: 'equipment', equipmentType: 'staining-rack' },
+      items: [
+        makeItem('staining-rack'),
       ],
     },
     {
@@ -260,9 +266,9 @@ function createFurniture(): Furniture[] {
       type: 'workbench',
       name: 'Culture Bench',
       position: { x: 9, y: 2 },
-      contents: [
-        { kind: 'equipment', equipmentType: 'bunsen-burner' },
-        { kind: 'equipment', equipmentType: 'inoculation-loop' },
+      items: [
+        makeItem('bunsen-burner'),
+        makeItem('inoculation-loop'),
       ],
     },
     {
@@ -270,15 +276,15 @@ function createFurniture(): Furniture[] {
       type: 'workbench',
       name: 'Serology Bench',
       position: { x: 9, y: 4 },
-      contents: [],
+      items: [],
     },
     {
       id: 'workbench-centrifuge',
       type: 'workbench',
       name: 'Centrifuge Bench',
       position: { x: 5, y: 3 },
-      contents: [
-        { kind: 'equipment', equipmentType: 'hand-centrifuge' },
+      items: [
+        makeItem('hand-centrifuge'),
       ],
     },
     {
@@ -286,9 +292,9 @@ function createFurniture(): Furniture[] {
       type: 'workbench',
       name: 'Preparation Bench',
       position: { x: 6, y: 5 },
-      contents: [
-        { kind: 'equipment', equipmentType: 'flask' },
-        { kind: 'equipment', equipmentType: 'steam-sterilizer' },
+      items: [
+        makeItem('flask'),
+        makeItem('steam-sterilizer'),
       ],
     },
     {
@@ -296,14 +302,14 @@ function createFurniture(): Furniture[] {
       type: 'cabinet',
       name: 'Reagent Cabinet',
       position: { x: 7, y: 0 },
-      contents: [
-        { kind: 'supply', supplyType: 'empty-dish', quantity: 99 },
-        { kind: 'supply', supplyType: 'agar-powder', quantity: 99 },
-        { kind: 'supply', supplyType: 'gelatin-powder', quantity: 99 },
-        { kind: 'supply', supplyType: 'beef-extract', quantity: 99 },
-        { kind: 'supply', supplyType: 'peptone', quantity: 99 },
-        { kind: 'supply', supplyType: 'defibrinated-blood', quantity: 99 },
-        { kind: 'supply', supplyType: 'distilled-water', quantity: 99 },
+      items: [
+        makeItem('empty-dish', 99),
+        makeItem('agar-powder', 99),
+        makeItem('gelatin-powder', 99),
+        makeItem('beef-extract', 99),
+        makeItem('peptone', 99),
+        makeItem('defibrinated-blood', 99),
+        makeItem('distilled-water', 99),
       ],
     },
     {
@@ -311,7 +317,7 @@ function createFurniture(): Furniture[] {
       type: 'ice-box',
       name: 'Ice Box',
       position: { x: 4, y: 5 },
-      contents: [],
+      items: [],
     },
   ];
 }
@@ -340,13 +346,13 @@ const WAITING_BENCHES = [
 
 export function createInitialLabState(): LabState {
   const grid = createGrid();
-  const furniture = createFurniture();
+  const fixtures = createFixtures();
   
-  // Mark furniture positions in grid
-  for (const furn of furniture) {
-    const { x, y } = furn.position;
+  // Mark fixture positions in grid
+  for (const fix of fixtures) {
+    const { x, y } = fix.position;
     if (grid[y] && grid[y][x]) {
-      grid[y][x].furnitureId = furn.id;
+      grid[y][x].fixtureId = fix.id;
       grid[y][x].walkable = false;
     }
   }
@@ -359,7 +365,7 @@ export function createInitialLabState(): LabState {
     width: GRID_WIDTH,
     height: GRID_HEIGHT,
     grid,
-    furniture,
+    fixtures,
     samples: [],
     player: createPlayer(),
     camera: {

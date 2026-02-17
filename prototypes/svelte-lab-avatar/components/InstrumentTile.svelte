@@ -1,13 +1,13 @@
 <!--
-  FurnitureTile — renders a piece of furniture on the lab grid.
-  Shows icon from FURNITURE_DEFS + equipment icons from contents.
+  FixtureTile — renders a fixture on the lab grid.
+  Shows icon from FIXTURE_DEFS + equipment icons from items.
 -->
 <script lang="ts">
-  import type { Furniture, GridPosition, Item } from '../../shared/types';
-  import { FURNITURE_DEFS, detectWorkbenchMode, getItemIcon } from '../../shared/types';
+  import type { Fixture, GridPosition, Item } from '../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, isPortable } from '../../shared/types';
 
   interface Props {
-    furniture: Furniture;
+    furniture: Fixture;
     tileSize: number;
     isSelected: boolean;
     playerPosition: GridPosition;
@@ -19,9 +19,9 @@
 
   let { furniture, tileSize, isSelected, playerPosition, playerHasItem, onClick, onDoubleClick, onItemDrop }: Props = $props();
 
-  const def = $derived(FURNITURE_DEFS[furniture.type]);
+  const def = $derived(FIXTURE_DEFS[furniture.type]);
   const icon = $derived(def.icon);
-  const mode = $derived(furniture.type === 'workbench' ? detectWorkbenchMode(furniture.contents) : null);
+  const mode = $derived(furniture.type === 'workbench' ? detectWorkbenchMode(furniture.items) : null);
 
   const isAdjacent = $derived(() => {
     const dx = Math.abs(playerPosition.x - furniture.position.x);
@@ -29,12 +29,12 @@
     return dx <= 1 && dy <= 1 && (dx + dy > 0 || dx === dy);
   });
 
-  const hasCapacity = $derived(furniture.contents.length < def.contentCapacity);
+  const hasCapacity = $derived(furniture.items.length < def.capacity);
   const canDrop = $derived(playerHasItem && isAdjacent() && hasCapacity && furniture.type !== 'cabinet');
 
   const equipmentIcons = $derived(
-    furniture.contents
-      .filter((i): i is Item & { kind: 'equipment' } => i.kind === 'equipment')
+    furniture.items
+      .filter(i => !isPortable(i))
       .map(i => getItemIcon(i))
       .slice(0, 3)
   );

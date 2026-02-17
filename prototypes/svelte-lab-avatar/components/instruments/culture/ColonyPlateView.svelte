@@ -254,10 +254,10 @@
       {/if}
     </div>
   {:else if pickingEnabled}
-    <p class="text-sm italic m-0" style:color="var(--parchment-aged)">Click a colony to pick it for subculture or staining.</p>
+    <p class="text-sm italic m-0 text-parchment-aged">Click a colony to pick it for subculture or staining.</p>
   {/if}
 
-  <div class="text-xs uppercase tracking-widest" style:color="var(--parchment-aged)">{MEDIA_COLORS[mediaType].label} — After Incubation</div>
+  <div class="text-xs uppercase tracking-widest text-parchment-aged">{MEDIA_COLORS[mediaType].label} — After Incubation</div>
 </div>
 
 <style>

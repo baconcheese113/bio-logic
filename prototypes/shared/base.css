@@ -9,6 +9,51 @@
 /* === Tailwind CSS === */
 @import "tailwindcss";
 
+/* === Tailwind v4 Theme (makes all colors available as utilities) === */
+@theme {
+  /* Background Colors */
+  --color-bg-darkest: #0f0e0d;
+  --color-bg-dark: #1a1815;
+  --color-bg-medium: #2a2520;
+  --color-bg-light: #3a352e;
+
+  /* Accent Colors */
+  --color-brass: #b8956e;
+  --color-brass-light: #d4b896;
+  --color-brass-dark: #8b7355;
+  --color-copper: #b87333;
+  --color-bronze: #cd7f32;
+
+  /* Parchment/Paper */
+  --color-parchment: #f5f0e6;
+  --color-parchment-dark: #e8dcc8;
+  --color-parchment-aged: #d4c4a8;
+
+  /* Status Colors */
+  --color-status-idle: #4a7c59;
+  --color-status-busy: #c9a227;
+  --color-status-ready: #5b8fa8;
+  --color-status-error: #a84432;
+
+  /* Patient Status */
+  --color-patient-stable: #4a7c59;
+  --color-patient-guarded: #c9a227;
+  --color-patient-declining: #d4742c;
+  --color-patient-critical: #a84432;
+
+  /* Sample Colors */
+  --color-sample-blood: #8b0000;
+  --color-sample-sputum: #c9a227;
+  --color-sample-swab: #e8dcc8;
+  --color-sample-urine: #d4b896;
+  --color-sample-csf: #a8c5d4;
+
+  /* Typography */
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Crimson Text', Georgia, serif;
+  --font-mono: 'Courier New', monospace;
+}
+
 :root {
   /* === Background Colors === */
   --bg-darkest: #0f0e0d;

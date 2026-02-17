@@ -1,6 +1,8 @@
 /**
  * Shared types for BioLogic Lab View prototypes
- * Both Svelte-only and Phaser approaches use these identical types
+ *
+ * Taxonomy: Structure > Fixture > Equipment > Consumable
+ * See docs/taxonomy.md for full reference.
  */
 
 // === Grid & Position ===
@@ -38,34 +40,34 @@ export interface Patient {
   status: PatientStatus;
   synopsis: string;
   availableSamples: SampleType[];
-  /** Samples already collected from this patient */
+/** Samples already collected from this patient */
   collectedSamples: SampleType[];
-  /** Ticks remaining before patient leaves */
+/** Ticks remaining before patient leaves */
   patienceTicks: number;
-  /** Max patience for calculating bar fill */
+/** Max patience for calculating bar fill */
   maxPatienceTicks: number;
-  /** Which bench tile the patient occupies */
+/** Which bench tile the patient occupies */
   benchPosition: GridPosition;
-  /** Tick when patient arrived */
+/** Tick when patient arrived */
   arrivedAtTick: number;
-  /** The correct diagnosis for this case */
+/** The correct diagnosis for this case */
   correctDiagnosis: Diagnosis;
-  /** The correct organism for this case */
+/** The correct organism for this case */
   correctOrganism: string;
-  /** Expected findings when performing tests */
+/** Expected findings when performing tests */
   findings: CaseFindings;
-  /** Result of player's diagnosis attempt */
+/** Result of player's diagnosis attempt */
   diagnosisResult?: DiagnosisResult;
 }
 
 // === Samples ===
 
-export type SampleType = 
-  | 'blood' 
-  | 'sputum' 
-  | 'wound-swab' 
-  | 'throat-swab' 
-  | 'urine' 
+export type SampleType =
+  | 'blood'
+  | 'sputum'
+  | 'wound-swab'
+  | 'throat-swab'
+  | 'urine'
   | 'stool'
   | 'csf'
   | 'slide';
@@ -102,9 +104,9 @@ export interface CaseFindings {
   culture: CultureFindings;
 }
 
-export type TreatmentOption = 
+export type TreatmentOption =
   | 'carbolic-wash'
-  | 'surgical-debridement' 
+  | 'surgical-debridement'
   | 'isolate-patient'
   | 'supportive-care'
   | 'mercury-treatment'
@@ -157,99 +159,118 @@ export interface Sample {
   id: string;
   type: SampleType;
   caseId: string;
-  /** The patient this sample came from */
+/** The patient this sample came from */
   patientId: string;
   condition: SampleCondition;
   collectedAtTick: number;
-  /** Where the sample currently is */
+/** Where the sample currently is */
   location: SampleLocation;
-  /** For display purposes */
+/** For display purposes */
   label: string;
 }
 
-export type SampleLocation = 
-  | { type: 'furniture'; furnitureId: string }
+export type SampleLocation =
+  | { type: 'fixture'; fixtureId: string }
   | { type: 'player' }
   | { type: 'storage'; storageId: string };
 
-// === Media Types & Recipes ===
 
-export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
+// ============================================================
+//  SUBSTANCE & CONTAINER SYSTEM
+// ============================================================
 
-export const MEDIA_RECIPES = {
-  'nutrient-agar': {
-    label: 'Nutrient Agar Plate',
-    ingredients: ['empty-dish', 'agar-powder', 'peptone'] as SupplyType[],
-    prepTicks: 300,
-  },
-  'blood-agar': {
-    label: 'Blood Agar Plate',
-    ingredients: ['empty-dish', 'agar-powder', 'defibrinated-blood'] as SupplyType[],
-    prepTicks: 400,
-  },
-  'gelatin': {
-    label: 'Gelatin Plate',
-    ingredients: ['empty-dish', 'gelatin-powder', 'peptone'] as SupplyType[],
-    prepTicks: 250,
-  },
-} as const satisfies Record<MediaType, { label: string; ingredients: SupplyType[]; prepTicks: number }>;
+export type SubstanceType =
+  | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool'
+  | 'nutrient-agar' | 'blood-agar' | 'gelatin'
+  | 'agar-powder' | 'gelatin-powder' | 'peptone'
+  | 'defibrinated-blood' | 'distilled-water'
+  | 'bacteria-culture';
 
-/** Check which recipes can be made from the supplies on a workbench */
-export function getAvailableRecipes(contents: Item[]): MediaType[] {
-  const supplies = contents.filter((i): i is Item & { kind: 'supply' } => i.kind === 'supply');
-  const supplyTypes = supplies.map(s => s.supplyType);
-  return (Object.entries(MEDIA_RECIPES) as [MediaType, typeof MEDIA_RECIPES[MediaType]][])
-    .filter(([, recipe]) => recipe.ingredients.every(ing => supplyTypes.includes(ing)))
-    .map(([type]) => type);
+export interface ContainerDef {
+  capacity: number;
+  acceptedSubstances: SubstanceType[];
+  sealable: boolean;
 }
 
-/** Remove recipe ingredients from a contents array, returning new array */
-export function consumeRecipeIngredients(contents: Item[], mediaType: MediaType): Item[] {
-  const recipe = MEDIA_RECIPES[mediaType];
-  const remaining = [...contents];
-  for (const ingredient of recipe.ingredients) {
-    const idx = remaining.findIndex(i => i.kind === 'supply' && i.supplyType === ingredient);
-    if (idx >= 0) remaining.splice(idx, 1);
-  }
-  return remaining;
+export interface SubstanceContents {
+  substance: SubstanceType;
+  volume: number;
+  sealed: boolean;
+  meta?: SubstanceMeta;
 }
 
-// === Active Prep (background processing) ===
+export type SubstanceMeta =
+  | { kind: 'culture'; organismId: string; phase: PlatePhase; densityGrid?: number[][] }
+  | { kind: 'sample'; patientId: string; collectedAtTick: number; condition: SampleCondition }
+  | { kind: 'prepared-media'; cooledAtTick: number };
 
-export interface ActivePrep {
-  furnitureId: string;
-  mediaType: MediaType;
-  startTick: number;
-  duration: number;
+
+// ============================================================
+//  ITEM DEFINITION REGISTRY
+// ============================================================
+
+export interface ItemDef {
+  label: string;
+  icon: string;
+  gridSize: [number, number];
+  placement: 'benchtop' | 'freeStanding';
+  maxStack: number;
+  consumable: boolean;
+  portable: boolean;
+  container?: ContainerDef;
 }
 
-// === Supplies & Equipment (data-driven, types inferred) ===
+export const ITEM_DEFS = {
+  // Equipment — reusable, stays on benches
+  'bunsen-burner':    { label: 'Bunsen Burner',    icon: '🔥', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'inoculation-loop': { label: 'Inoculation Loop', icon: '〰️', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'microscope':       { label: 'Brass Microscope',  icon: '🔬', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'hand-centrifuge':  { label: 'Hand Centrifuge',   icon: '🔄', gridSize: [2, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'staining-rack':    { label: 'Staining Rack',     icon: '🧪', gridSize: [2, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'steam-sterilizer': { label: 'Steam Sterilizer',  icon: '♨️', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'flask':            { label: 'Laboratory Flask',   icon: '⚗️', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: true,
+                        container: { capacity: 5, acceptedSubstances: ['distilled-water', 'nutrient-agar', 'blood-agar', 'gelatin'] as SubstanceType[], sealable: true } },
 
-export const SUPPLIES = {
-  'agar-powder': { label: 'Agar Powder', icon: '🫙', size: 1 },
-  'gelatin-powder': { label: 'Gelatin Powder', icon: '🫙', size: 1 },
-  'beef-extract': { label: 'Beef Extract', icon: '🫙', size: 1 },
-  'peptone': { label: 'Peptone', icon: '🫙', size: 1 },
-  'defibrinated-blood': { label: 'Defibrinated Blood', icon: '🩸', size: 1 },
-  'empty-dish': { label: 'Empty Petri Dish', icon: '🧫', size: 1 },
-  'distilled-water': { label: 'Distilled Water', icon: '💧', size: 1 },
-} as const;
+  // Containers — hold substances, portable
+  'empty-dish':       { label: 'Petri Dish',         icon: '🧫', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 5, consumable: false, portable: true,
+                        container: { capacity: 1, acceptedSubstances: ['nutrient-agar', 'blood-agar', 'gelatin', 'bacteria-culture'] as SubstanceType[], sealable: true } },
+  'sample-vial':      { label: 'Sample Vial',        icon: '🧪', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: true,
+                        container: { capacity: 1, acceptedSubstances: ['blood', 'sputum', 'csf', 'urine', 'stool'] as SubstanceType[], sealable: true } },
 
-export type SupplyType = keyof typeof SUPPLIES;
+  // Consumables — depletable supplies, portable
+  'agar-powder':        { label: 'Agar Powder',        icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+  'gelatin-powder':     { label: 'Gelatin Powder',      icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+  'beef-extract':       { label: 'Beef Extract',        icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+  'peptone':            { label: 'Peptone',              icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+  'defibrinated-blood': { label: 'Defibrinated Blood',  icon: '🩸', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+  'distilled-water':    { label: 'Distilled Water',      icon: '💧', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
+} as const satisfies Record<string, ItemDef>;
 
-export const EQUIPMENT = {
-  'bunsen-burner': { label: 'Bunsen Burner', icon: '🔥', size: 1 },
-  'inoculation-loop': { label: 'Inoculation Loop', icon: '〰️', size: 1 },
-  'steam-sterilizer': { label: 'Steam Sterilizer', icon: '♨️', size: 2 },
-  'flask': { label: 'Laboratory Flask', icon: '⚗️', size: 1 },
-  'staining-rack': { label: 'Staining Rack', icon: '🧪', size: 1 },
-  'microscope': { label: 'Brass Microscope', icon: '🔬', size: 2 },
-  'hand-centrifuge': { label: 'Hand Centrifuge', icon: '🔄', size: 2 },
-} as const;
+export type ItemType = keyof typeof ITEM_DEFS;
 
-export type EquipmentType = keyof typeof EQUIPMENT;
 
-// === Culture Plate State ===
+// ============================================================
+//  RUNTIME ITEM INSTANCES
+// ============================================================
+
+export interface Item {
+  id: string;
+  type: ItemType;
+  quantity: number;
+  state?: ItemState;
+  contents?: SubstanceContents;
+}
+
+export type ItemState =
+  | { kind: 'microscope'; loadedSlideId: string | null; focusLevel: number }
+  | { kind: 'bunsen-burner'; lit: boolean }
+  | { kind: 'staining-rack'; loadedSlides: string[]; currentStain: string | null }
+  | { kind: 'centrifuge'; loadedVials: string[]; spinning: boolean; rpm: number };
+
+
+// ============================================================
+//  CULTURE PLATE STATE (backward compat, derivable from Item)
+// ============================================================
 
 export type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
 
@@ -260,69 +281,123 @@ export interface CulturePlateState {
   label: string;
 }
 
-// === Items (discriminated union — anything the player can carry or place) ===
-
-export type Item =
-  | { kind: 'sample'; sampleId: string }
-  | { kind: 'supply'; supplyType: SupplyType; quantity: number }
-  | { kind: 'equipment'; equipmentType: EquipmentType }
-  | { kind: 'culture-plate'; plate: CulturePlateState };
-
-export function getItemSize(item: Item): number {
-  switch (item.kind) {
-    case 'sample': return 1;
-    case 'supply': return SUPPLIES[item.supplyType].size;
-    case 'equipment': return EQUIPMENT[item.equipmentType].size;
-    case 'culture-plate': return 1;
+/** Extract CulturePlateState from an Item, or null if not a culture plate */
+export function getCulturePlate(item: Item): CulturePlateState | null {
+  if (item.type !== 'empty-dish' || !item.contents) return null;
+  const meta = item.contents.meta;
+  if (meta?.kind === 'culture') {
+    const mediaType = (['blood-agar', 'nutrient-agar', 'gelatin'] as MediaType[]).includes(item.contents.substance as MediaType)
+      ? item.contents.substance as MediaType
+      : null;
+    return { id: item.id, mediaType, phase: meta.phase, label: MEDIA_RECIPES[mediaType ?? 'nutrient-agar'].label };
   }
-}
-
-export function getItemLabel(item: Item): string {
-  switch (item.kind) {
-    case 'sample': return 'Sample';
-    case 'supply': return `${SUPPLIES[item.supplyType].label}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`;
-    case 'equipment': return EQUIPMENT[item.equipmentType].label;
-    case 'culture-plate': return item.plate.label;
+  if (meta?.kind === 'prepared-media') {
+    const mediaType = item.contents.substance as MediaType;
+    return { id: item.id, mediaType, phase: 'ready', label: MEDIA_RECIPES[mediaType].label };
   }
+  return null;
 }
 
-export function getItemIcon(item: Item): string {
-  switch (item.kind) {
-    case 'sample': return '🧪';
-    case 'supply': return SUPPLIES[item.supplyType].icon;
-    case 'equipment': return EQUIPMENT[item.equipmentType].icon;
-    case 'culture-plate': return '🧫';
+
+// ============================================================
+//  MEDIA TYPES & RECIPES
+// ============================================================
+
+export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
+
+export const MEDIA_RECIPES = {
+  'nutrient-agar': {
+    label: 'Nutrient Agar Plate',
+    ingredients: ['empty-dish', 'agar-powder', 'peptone'] as ItemType[],
+    prepTicks: 300,
+  },
+  'blood-agar': {
+    label: 'Blood Agar Plate',
+    ingredients: ['empty-dish', 'agar-powder', 'defibrinated-blood'] as ItemType[],
+    prepTicks: 400,
+  },
+  'gelatin': {
+    label: 'Gelatin Plate',
+    ingredients: ['empty-dish', 'gelatin-powder', 'peptone'] as ItemType[],
+    prepTicks: 250,
+  },
+} as const satisfies Record<MediaType, { label: string; ingredients: ItemType[]; prepTicks: number }>;
+
+/** Check which recipes can be made from the items on a fixture */
+export function getAvailableRecipes(items: Item[]): MediaType[] {
+  const typeSet = new Set(items.filter(i => ITEM_DEFS[i.type].consumable || i.type === 'empty-dish').map(i => i.type));
+  return (Object.entries(MEDIA_RECIPES) as [MediaType, typeof MEDIA_RECIPES[MediaType]][])
+    .filter(([, recipe]) => recipe.ingredients.every(ing => typeSet.has(ing)))
+    .map(([type]) => type);
+}
+
+/** Remove recipe ingredients from an items array, returning new array */
+export function consumeRecipeIngredients(items: Item[], mediaType: MediaType): Item[] {
+  const recipe = MEDIA_RECIPES[mediaType];
+  const remaining = [...items];
+  for (const ingredient of recipe.ingredients) {
+    const idx = remaining.findIndex(i => i.type === ingredient);
+    if (idx >= 0) remaining.splice(idx, 1);
   }
+  return remaining;
 }
 
-export function getCarryingLoad(items: Item[]): number {
-  return items.reduce((sum, item) => sum + getItemSize(item), 0);
+// === Active Prep (background processing) ===
+
+export interface ActivePrep {
+  fixtureId: string;
+  mediaType: MediaType;
+  startTick: number;
+  duration: number;
 }
 
-// === Furniture (world objects that items go on/in) ===
 
-export const FURNITURE_DEFS = {
-  'workbench': { label: 'Workbench', icon: '🪵', contentCapacity: 8 },
-  'cabinet': { label: 'Reagent Cabinet', icon: '🗄️', contentCapacity: 20 },
-  'ice-box': { label: 'Ice Box', icon: '🧊', contentCapacity: 6 },
-} as const;
+// ============================================================
+//  FIXTURE DEFINITIONS (replaces FURNITURE_DEFS)
+// ============================================================
 
-export type FurnitureType = keyof typeof FURNITURE_DEFS;
+export interface FixtureDef {
+  label: string;
+  icon: string;
+  gridSize: [number, number];
+  capacity: number;
+  surfaceGrid?: [number, number];
+  storageGrid?: [number, number];
+  requiresGas?: boolean;
+  requiresWater?: boolean;
+}
 
-export interface Furniture {
+export const FIXTURE_DEFS = {
+  'workbench': { label: 'Workbench',       icon: '🪵', gridSize: [2, 1] as [number, number], capacity: 8,  surfaceGrid: [4, 2] as [number, number] },
+  'cabinet':   { label: 'Reagent Cabinet', icon: '🗄️', gridSize: [2, 1] as [number, number], capacity: 20, storageGrid: [3, 4] as [number, number] },
+  'ice-box':   { label: 'Ice Box',         icon: '🧊', gridSize: [2, 2] as [number, number], capacity: 6,  storageGrid: [2, 2] as [number, number] },
+} as const satisfies Record<string, FixtureDef>;
+
+export type FixtureType = keyof typeof FIXTURE_DEFS;
+
+export interface Fixture {
   id: string;
-  type: FurnitureType;
+  type: FixtureType;
   name: string;
   position: GridPosition;
-  contents: Item[];
+  items: Item[];
 }
 
-// === Workbench Mode Detection ===
+// Backward-compat aliases (will be removed after all refs migrate)
+/** @deprecated Use Fixture instead */
+export type Furniture = Fixture;
+/** @deprecated Use FIXTURE_DEFS instead */
+export const FURNITURE_DEFS = FIXTURE_DEFS;
+
+
+// ============================================================
+//  WORKBENCH MODE DETECTION (temporary — removed in Phase 5)
+// ============================================================
 
 export type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'prep' | 'general';
 
-export function detectWorkbenchMode(contents: Item[]): WorkbenchMode {
-  const has = (t: EquipmentType) => contents.some(i => i.kind === 'equipment' && i.equipmentType === t);
+export function detectWorkbenchMode(items: Item[]): WorkbenchMode {
+  const has = (t: ItemType) => items.some(i => i.type === t);
   if (has('microscope')) return 'microscope';
   if (has('bunsen-burner') || has('inoculation-loop')) return 'culture';
   if (has('staining-rack')) return 'staining';
@@ -330,28 +405,31 @@ export function detectWorkbenchMode(contents: Item[]): WorkbenchMode {
   return 'general';
 }
 
-// === Player ===
+
+// ============================================================
+//  PLAYER
+// ============================================================
 
 export interface Player {
   position: GridPosition;
   carrying: Item[];
   carryCapacity: number;
   facing: Direction;
-  /** For movement animation */
   isMoving: boolean;
   targetPosition: GridPosition | null;
 }
 
-// === Lab Grid ===
+
+// ============================================================
+//  LAB GRID
+// ============================================================
 
 export type TileType = 'floor' | 'wall' | 'door' | 'gas-lamp' | 'window' | 'drain' | 'waiting-bench';
 
 export interface LabTile {
   type: TileType;
   walkable: boolean;
-  /** If a piece of furniture occupies this tile */
-  furnitureId: string | null;
-  /** If a patient is sitting on this bench */
+  fixtureId: string | null;
   patientId: string | null;
 }
 
@@ -365,35 +443,25 @@ export interface CameraState {
   maxZoom: number;
 }
 
-// === Lab State (main state container) ===
+
+// ============================================================
+//  LAB STATE (main state container)
+// ============================================================
 
 export interface LabState {
-  /** Grid dimensions */
   width: number;
   height: number;
-  /** 2D array of tiles [y][x] */
   grid: LabTile[][];
-  /** All furniture in the lab */
-  furniture: Furniture[];
-  /** All samples in the lab */
+  fixtures: Fixture[];
   samples: Sample[];
-  /** Player avatar state */
   player: Player;
-  /** Camera position/zoom */
   camera: CameraState;
-  /** Current game tick */
   currentTick: number;
-  /** Is game paused */
   isPaused: boolean;
-  /** Game speed multiplier */
   speed: number;
-  /** Patients waiting in the waiting room */
   patients: Patient[];
-  /** Active cases (patient has had at least one sample collected) */
   activeCases: Case[];
-  /** Player's collected observations (notebook) */
   observations: Observation[];
-  /** Player stats */
   stats: PlayerStats;
 }
 
@@ -404,17 +472,23 @@ export interface PlayerStats {
   funds: number;
 }
 
-// === Events (for Phaser↔Svelte communication) ===
 
-export type LabEvent = 
-  | { type: 'furniture-clicked'; furnitureId: string }
+// ============================================================
+//  EVENTS
+// ============================================================
+
+export type LabEvent =
+  | { type: 'fixture-clicked'; fixtureId: string }
   | { type: 'tile-clicked'; position: GridPosition }
   | { type: 'item-picked-up'; itemIndex: number }
-  | { type: 'item-placed'; furnitureId: string }
+  | { type: 'item-placed'; fixtureId: string }
   | { type: 'speed-changed'; speed: number }
   | { type: 'pause-toggled'; isPaused: boolean };
 
-// === UI Helpers ===
+
+// ============================================================
+//  UI HELPERS
+// ============================================================
 
 export const SAMPLE_COLORS: Record<SampleType, string> = {
   'blood': '#c62828',
@@ -453,3 +527,44 @@ export const PATIENCE_BY_STATUS: Record<PatientStatus, number> = {
 
 export const SKIN_TONES = ['#ffe0bd', '#e5c298', '#c68642', '#8d5524', '#5c3317'];
 export const HAIR_COLORS = ['#090806', '#2c222b', '#71635a', '#b7a69e', '#d6c4c2', '#cabfb1'];
+
+
+// ============================================================
+//  ITEM HELPER FUNCTIONS
+// ============================================================
+
+export function getItemDef(item: Item): ItemDef {
+  return ITEM_DEFS[item.type];
+}
+
+export function getItemIcon(item: Item): string {
+  return ITEM_DEFS[item.type].icon;
+}
+
+export function getItemLabel(item: Item): string {
+  const def = ITEM_DEFS[item.type];
+  const plate = getCulturePlate(item);
+  if (plate) return plate.label;
+  if (item.quantity > 1) return `${def.label} ×${item.quantity}`;
+  return def.label;
+}
+
+export function getItemSize(item: Item): number {
+  return ITEM_DEFS[item.type].gridSize[0];
+}
+
+export function getCarryingLoad(items: Item[]): number {
+  return items.reduce((sum, item) => sum + getItemSize(item), 0);
+}
+
+export function isPortable(item: Item): boolean {
+  return ITEM_DEFS[item.type].portable;
+}
+
+export function isContainer(item: Item): boolean {
+  return !!(ITEM_DEFS[item.type] as ItemDef).container;
+}
+
+export function isCulturePlate(item: Item): boolean {
+  return item.type === 'empty-dish' && !!item.contents;
+}

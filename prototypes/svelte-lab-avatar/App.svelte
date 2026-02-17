@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createInitialLabState, generatePatient, WAITING_BENCHES, TILE_SIZE } from '../shared/mock-data';
-  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, Furniture, Item, CulturePlateState, MediaType, ActivePrep } from '../shared/types';
-  import { getCarryingLoad, getItemSize, getItemIcon, getItemLabel, FURNITURE_DEFS, detectWorkbenchMode, MEDIA_RECIPES, consumeRecipeIngredients } from '../shared/types';
+  import type { LabState, Sample, GridPosition, SampleType, Patient, Observation, Fixture, Item, CulturePlateState, MediaType, ActivePrep } from '../shared/types';
+  import { getCarryingLoad, getItemSize, getItemIcon, getItemLabel, FIXTURE_DEFS, ITEM_DEFS, detectWorkbenchMode, MEDIA_RECIPES, consumeRecipeIngredients, isPortable } from '../shared/types';
   import LabGrid from './components/LabGrid.svelte';
   import ClockBar from './components/ClockBar.svelte';
   import InstrumentPanel from './components/InstrumentPanel.svelte';
@@ -13,10 +13,10 @@
   import type { Diagnosis } from '../shared/types';
 
   let labState = $state<LabState>(createInitialLabState());
-  let selectedFurnitureId = $state<string | null>(null);
+  let selectedFixtureId = $state<string | null>(null);
   let selectedPatientId = $state<string | null>(null);
-  /** When set, shows full-screen furniture detail view */
-  let viewingFurnitureId = $state<string | null>(null);
+  /** When set, shows full-screen fixture detail view */
+  let viewingFixtureId = $state<string | null>(null);
   /** Whether the notebook panel is open */
   let notebookOpen = $state(false);
   /** When set, shows diagnosis panel for this patient */
@@ -26,9 +26,10 @@
   /** Background media preparations in progress */
   let activePreps = $state<ActivePrep[]>([]);
 
-  // Counter for generating unique sample IDs
+  // Counters for generating unique IDs
   let sampleCounter = 0;
   let plateCounter = 0;
+  let itemCounter = 100; // offset from mock-data's counter
 
   // Tick simulation for degradation and patience
   let tickInterval: ReturnType<typeof setInterval> | null = null;
@@ -111,8 +112,8 @@
       // Check if in ice box (slows degradation significantly)
       let isInColdStorage = false;
       const loc = sample.location;
-      if (loc.type === 'furniture') {
-        const furn = labState.furniture.find(f => f.id === loc.furnitureId);
+      if (loc.type === 'fixture') {
+        const furn = labState.fixtures.find(f => f.id === loc.fixtureId);
         isInColdStorage = furn?.type === 'ice-box';
       }
       
@@ -140,12 +141,12 @@
   }
 
   function handleInstrumentClick(furnitureId: string) {
-    selectedFurnitureId = selectedFurnitureId === furnitureId ? null : furnitureId;
+    selectedFixtureId = selectedFixtureId === furnitureId ? null : furnitureId;
     selectedPatientId = null;
   }
 
   function handleInstrumentDoubleClick(furnitureId: string) {
-    const furn = labState.furniture.find(f => f.id === furnitureId);
+    const furn = labState.fixtures.find(f => f.id === furnitureId);
     if (!furn) return;
     if (!isAdjacent(labState.player.position, furn.position)) return;
     
@@ -154,11 +155,11 @@
       cabinetOpenId = furnitureId;
       return;
     }
-    viewingFurnitureId = furnitureId;
+    viewingFixtureId = furnitureId;
   }
 
   function handleCloseInstrumentView() {
-    viewingFurnitureId = null;
+    viewingFixtureId = null;
   }
 
   function handlePatientClick(patientId: string) {
@@ -169,7 +170,7 @@
     if (!isAdjacent(labState.player.position, patient.benchPosition)) return;
     
     selectedPatientId = patientId;
-    selectedFurnitureId = null; // Deselect furniture when selecting patient
+    selectedFixtureId = null; // Deselect fixture when selecting patient
   }
 
   function handleCollectSample(sampleType: SampleType) {
@@ -202,8 +203,8 @@
       label: `${sampleType.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')} - ${patient.name}`,
     };
     
-    // Add sample item to player's carrying
-    labState.player.carrying = [...labState.player.carrying, { kind: 'sample', sampleId: newSample.id }];
+    // Add sample-vial item to player's carrying (id matches sample for cross-reference)
+    labState.player.carrying = [...labState.player.carrying, { id: newSample.id, type: 'sample-vial' as const, quantity: 1 }];
     labState.samples = [...labState.samples, newSample];
     
     // Mark sample as collected on patient
@@ -264,13 +265,15 @@
     if (!sample) return;
 
     const loc = sample.location;
-    if (loc.type === 'furniture') {
-      const furn = labState.furniture.find(f => f.id === loc.furnitureId);
+    if (loc.type === 'fixture') {
+      const furn = labState.fixtures.find(f => f.id === loc.fixtureId);
       if (furn && isAdjacent(labState.player.position, furn.position)) {
-        // Remove sample item from furniture contents
-        furn.contents = furn.contents.filter(i => !(i.kind === 'sample' && i.sampleId === sampleId));
+        // Find and remove the sample-vial item (id matches sample id)
+        const vialItem = furn.items.find(i => i.id === sampleId);
+        if (!vialItem) return;
+        furn.items = furn.items.filter(i => i.id !== sampleId);
         
-        labState.player.carrying = [...labState.player.carrying, { kind: 'sample', sampleId }];
+        labState.player.carrying = [...labState.player.carrying, vialItem];
         labState.samples = labState.samples.map(s =>
           s.id === sampleId ? { ...s, location: { type: 'player' as const } } : s
         );
@@ -281,44 +284,44 @@
   function handleItemDrop(furnitureId: string) {
     if (labState.player.carrying.length === 0) return;
 
-    const furn = labState.furniture.find(f => f.id === furnitureId);
+    const furn = labState.fixtures.find(f => f.id === furnitureId);
     if (!furn) return;
     if (!isAdjacent(labState.player.position, furn.position)) return;
 
-    const def = FURNITURE_DEFS[furn.type];
-    if (furn.contents.length >= def.contentCapacity) return;
+    const def = FIXTURE_DEFS[furn.type];
+    if (furn.items.length >= def.capacity) return;
 
     // Drop the first item from carrying
     const [dropped, ...rest] = labState.player.carrying;
     
-    // Add to furniture contents
-    furn.contents = [...furn.contents, dropped];
+    // Add to fixture items
+    furn.items = [...furn.items, dropped];
     labState.player.carrying = rest;
 
-    // If item is a sample, update sample location
-    if (dropped.kind === 'sample') {
+    // If item is a sample vial, update sample location
+    if (dropped.type === 'sample-vial') {
       labState.samples = labState.samples.map(s =>
-        s.id === dropped.sampleId
-          ? { ...s, location: { type: 'furniture' as const, furnitureId } }
+        s.id === dropped.id
+          ? { ...s, location: { type: 'fixture' as const, fixtureId: furnitureId } }
           : s
       );
     }
   }
 
   function handlePrepMedia(furnitureId: string, mediaType: MediaType) {
-    const furn = labState.furniture.find(f => f.id === furnitureId);
+    const furn = labState.fixtures.find(f => f.id === furnitureId);
     if (!furn) return;
 
     // Don't start if already prepping on this bench
-    if (activePreps.some(p => p.furnitureId === furnitureId)) return;
+    if (activePreps.some(p => p.fixtureId === furnitureId)) return;
 
     // Consume ingredients immediately
-    furn.contents = consumeRecipeIngredients(furn.contents, mediaType);
+    furn.items = consumeRecipeIngredients(furn.items, mediaType);
 
     // Start background prep timer
     const recipe = MEDIA_RECIPES[mediaType];
     activePreps = [...activePreps, {
-      furnitureId,
+      fixtureId: furnitureId,
       mediaType,
       startTick: labState.currentTick,
       duration: recipe.prepTicks,
@@ -333,18 +336,23 @@
     if (completed.length === 0) return;
 
     for (const prep of completed) {
-      const furn = labState.furniture.find(f => f.id === prep.furnitureId);
+      const furn = labState.fixtures.find(f => f.id === prep.fixtureId);
       if (!furn) continue;
 
       plateCounter++;
-      const recipe = MEDIA_RECIPES[prep.mediaType];
-      const newPlate: CulturePlateState = {
-        id: `plate-${plateCounter}`,
-        mediaType: prep.mediaType,
-        phase: 'ready',
-        label: recipe.label,
+      const plateId = `plate-${plateCounter}`;
+      const plateItem: Item = {
+        id: plateId,
+        type: 'empty-dish',
+        quantity: 1,
+        contents: {
+          substance: prep.mediaType,
+          volume: 1,
+          sealed: false,
+          meta: { kind: 'prepared-media' as const, cooledAtTick: labState.currentTick },
+        },
       };
-      furn.contents = [...furn.contents, { kind: 'culture-plate', plate: newPlate }];
+      furn.items = [...furn.items, plateItem];
     }
 
     activePreps = activePreps.filter(p =>
@@ -357,57 +365,55 @@
     const load = getCarryingLoad(player.carrying);
     if (load + getItemSize(item) > player.carryCapacity) return;
     
-    // Decrement supply quantity in cabinet
-    if (cabinetOpenId && item.kind === 'supply') {
-      const cabinet = labState.furniture.find(f => f.id === cabinetOpenId);
+    if (cabinetOpenId) {
+      const cabinet = labState.fixtures.find(f => f.id === cabinetOpenId);
       if (cabinet) {
-        const supplyIdx = cabinet.contents.findIndex(
-          i => i.kind === 'supply' && i.supplyType === item.supplyType
-        );
-        if (supplyIdx >= 0) {
-          const existing = cabinet.contents[supplyIdx];
-          if (existing.kind === 'supply' && existing.quantity > 1) {
-            cabinet.contents = cabinet.contents.map((c, i) =>
-              i === supplyIdx && c.kind === 'supply'
-                ? { ...c, quantity: c.quantity - 1 }
-                : c
+        const idx = cabinet.items.findIndex(i => i.type === item.type);
+        if (idx >= 0) {
+          const existing = cabinet.items[idx];
+          if (existing.quantity > 1) {
+            cabinet.items = cabinet.items.map((c, i) =>
+              i === idx ? { ...c, quantity: c.quantity - 1 } : c
             );
           } else {
-            cabinet.contents = cabinet.contents.filter((_, i) => i !== supplyIdx);
+            cabinet.items = cabinet.items.filter((_, i) => i !== idx);
           }
         }
       }
     }
     
-    labState.player.carrying = [...labState.player.carrying, item];
+    // Create a new single-quantity item for the player
+    itemCounter++;
+    const newItem: Item = { id: `item-${itemCounter}`, type: item.type, quantity: 1 };
+    labState.player.carrying = [...labState.player.carrying, newItem];
     cabinetOpenId = null;
   }
 
   function handlePickupFromFurniture(furnitureId: string, itemIndex: number) {
     const player = labState.player;
-    const furn = labState.furniture.find(f => f.id === furnitureId);
+    const furn = labState.fixtures.find(f => f.id === furnitureId);
     if (!furn) return;
     if (!isAdjacent(player.position, furn.position)) return;
     
-    const item = furn.contents[itemIndex];
+    const item = furn.items[itemIndex];
     if (!item) return;
     
-    // Don't pick up equipment (it's part of the bench)
-    if (item.kind === 'equipment') return;
+    // Don't pick up non-portable items (equipment fixed to the bench)
+    if (!isPortable(item)) return;
     
     const load = getCarryingLoad(player.carrying);
     if (load + getItemSize(item) > player.carryCapacity) return;
     
-    // Remove from furniture
-    furn.contents = furn.contents.filter((_, i) => i !== itemIndex);
+    // Remove from fixture
+    furn.items = furn.items.filter((_, i) => i !== itemIndex);
     
     // Add to carrying
     labState.player.carrying = [...labState.player.carrying, item];
     
     // Update sample location if applicable
-    if (item.kind === 'sample') {
+    if (item.type === 'sample-vial') {
       labState.samples = labState.samples.map(s =>
-        s.id === item.sampleId
+        s.id === item.id
           ? { ...s, location: { type: 'player' as const } }
           : s
       );
@@ -449,15 +455,15 @@
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
   }
 
-  const selectedFurniture = $derived(
-    selectedFurnitureId
-      ? labState.furniture.find(f => f.id === selectedFurnitureId) ?? null
+  const selectedFixture = $derived(
+    selectedFixtureId
+      ? labState.fixtures.find(f => f.id === selectedFixtureId) ?? null
       : null
   );
 
-  const viewingFurniture = $derived(
-    viewingFurnitureId
-      ? labState.furniture.find(f => f.id === viewingFurnitureId) ?? null
+  const viewingFixture = $derived(
+    viewingFixtureId
+      ? labState.fixtures.find(f => f.id === viewingFixtureId) ?? null
       : null
   );
 
@@ -527,16 +533,16 @@
 </script>
 
 <div class="app-container">
-  {#if viewingFurniture}
+  {#if viewingFixture}
     <InstrumentDetailView
-      furniture={viewingFurniture}
+      furniture={viewingFixture}
       samples={labState.samples.filter(s =>
-        s.location.type === 'furniture' && s.location.furnitureId === viewingFurniture.id
+        s.location.type === 'fixture' && s.location.fixtureId === viewingFixture.id
       )}
       observations={labState.observations}
       patients={labState.patients}
       currentTick={labState.currentTick}
-      activePrep={activePreps.find(p => p.furnitureId === viewingFurniture.id) ?? null}
+      activePrep={activePreps.find(p => p.fixtureId === viewingFixture.id) ?? null}
       onClose={handleCloseInstrumentView}
       onRecordObservation={handleRecordObservation}
       onPrepMedia={handlePrepMedia}
@@ -562,7 +568,7 @@
 
         <LabGrid
           {labState}
-          selectedFurnitureId={selectedFurnitureId}
+          selectedFurnitureId={selectedFixtureId}
           onFurnitureClick={handleInstrumentClick}
           onFurnitureDoubleClick={handleInstrumentDoubleClick}
           onCameraChange={handleCameraChange}
@@ -589,19 +595,19 @@
         />
       {:else}
         <InstrumentPanel
-          furniture={selectedFurniture}
+          furniture={selectedFixture}
           samples={labState.samples}
           playerPosition={labState.player.position}
           carrying={labState.player.carrying}
           carryCapacity={labState.player.carryCapacity}
-          onDrop={() => selectedFurniture && handleItemDrop(selectedFurniture.id)}
-          onPickup={(idx) => selectedFurniture && handlePickupFromFurniture(selectedFurniture.id, idx)}
-          onOpen={() => selectedFurniture && (viewingFurnitureId = selectedFurniture.id)}
+          onDrop={() => selectedFixture && handleItemDrop(selectedFixture.id)}
+          onPickup={(idx) => selectedFixture && handlePickupFromFurniture(selectedFixture.id, idx)}
+          onOpen={() => selectedFixture && (viewingFixtureId = selectedFixture.id)}
         />
       {/if}
 
       {#if cabinetOpenId}
-        {@const cabinet = labState.furniture.find(f => f.id === cabinetOpenId)}
+        {@const cabinet = labState.fixtures.find(f => f.id === cabinetOpenId)}
         {#if cabinet}
           <div class="overlay" onclick={() => cabinetOpenId = null}>
             <div class="card" onclick={(e) => e.stopPropagation()}>
@@ -609,10 +615,10 @@
                 <span class="icon-lg">🗄️</span>
                 <h2>{cabinet.name}</h2>
               </div>
-              <p class="mb-md" style="color: var(--parchment-aged)">Take a supply:</p>
+              <p class="mb-md text-parchment-aged">Take a supply:</p>
               <div class="flex flex-col gap-sm">
-                {#each cabinet.contents as item}
-                  <button class="btn" onclick={() => handleCabinetTake({ ...item, ...(item.kind === 'supply' ? { quantity: 1 } : {}) })}>
+                {#each cabinet.items as item}
+                  <button class="btn" onclick={() => handleCabinetTake(item)}>
                     {getItemIcon(item)} {getItemLabel(item)}
                   </button>
                 {/each}
