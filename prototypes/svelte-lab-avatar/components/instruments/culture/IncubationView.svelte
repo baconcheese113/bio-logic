@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { MediaType } from './streak-types';
   import { MEDIA_COLORS } from './streak-types';
+  import ProgressBar from '../../ui/ProgressBar.svelte';
 
   interface Props {
     mediaType: MediaType;
@@ -48,8 +49,8 @@
       {hoursElapsed}h / {totalHours}h
     </p>
 
-    <div class="h-[10px] bg-bg-dark border border-brass-dark rounded-[5px] overflow-hidden">
-      <div class="progress-fill" style:width="{progress}%" style:background="linear-gradient(90deg, #c45a20, #e8a060)"></div>
+    <div class="h-[10px]">
+      <ProgressBar value={progress / 100} gradient="linear-gradient(90deg, #c45a20, #e8a060)" />
     </div>
 
     <p class="text-xs text-parchment-aged m-0">

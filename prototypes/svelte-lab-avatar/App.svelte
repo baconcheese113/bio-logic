@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createInitialLabState, TILE_SIZE } from '../shared/mock-data';
   import type { LabState, GridPosition, SampleType, Item, MediaType, ActivePrep } from '../shared/types';
-  import { getItemIcon, getItemLabel, FIXTURE_DEFS } from '../shared/types';
+  import { FIXTURE_DEFS } from '../shared/types';
   import {
     isAdjacent, movePlayerTo,
     collectSample, pickupSample, placeItem, pickupFromFixture, takeFromCabinet,
@@ -19,6 +19,8 @@
   import PatientPanel from './components/PatientPanel.svelte';
   import NotebookPanel from './components/NotebookPanel.svelte';
   import DiagnosisPanel from './components/DiagnosisPanel.svelte';
+  import ModalOverlay from './components/ui/ModalOverlay.svelte';
+  import ItemSlot from './components/ui/ItemSlot.svelte';
 
   // ── Reactive state ──
 
@@ -178,7 +180,7 @@
           selectedFurnitureId={selectedFixtureId}
           onFurnitureClick={handleFixtureClick}
           onFurnitureDoubleClick={handleFixtureDoubleClick}
-          onCameraChange={(c) => labState.camera = c}
+          onCameraChange={(c) => { labState.camera = { ...c }; }}
           onTileClick={handleTileClick}
           onItemDrop={handleItemDrop}
           onPatientClick={handlePatientClick}
@@ -218,22 +220,18 @@
       {#if cabinetOpenId}
         {@const cabinet = labState.fixtures.find(f => f.id === cabinetOpenId)}
         {#if cabinet}
-          <div class="overlay" onclick={() => cabinetOpenId = null}>
-            <div class="card" onclick={(e) => e.stopPropagation()}>
-              <div class="card-header">
-                <span class="icon-lg">🗄️</span>
-                <h2>{cabinet.name}</h2>
-              </div>
-              <p class="mb-md text-parchment-aged">Take a supply:</p>
-              <div class="flex flex-col gap-sm">
-                {#each cabinet.items as item}
-                  <button class="btn" onclick={() => handleCabinetTake(item)}>
-                    {getItemIcon(item)} {getItemLabel(item)}
-                  </button>
-                {/each}
-              </div>
+          <ModalOverlay onClose={() => cabinetOpenId = null}>
+            <div class="card-header">
+              <span class="icon-lg">🗄️</span>
+              <h2>{cabinet.name}</h2>
             </div>
-          </div>
+            <p class="mb-md text-parchment-aged">Take a supply:</p>
+            <div class="flex flex-col gap-sm">
+              {#each cabinet.items as item}
+                <ItemSlot {item} onClick={() => handleCabinetTake(item)} />
+              {/each}
+            </div>
+          </ModalOverlay>
         {/if}
       {/if}
     </div>

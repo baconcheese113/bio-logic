@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Fixture, Sample, GridPosition, Item } from '../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, getItemLabel, getCarryingLoad, isPortable } from '../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode, getCarryingLoad, isPortable } from '../../shared/types';
+  import ItemSlot from './ui/ItemSlot.svelte';
 
   interface Props {
     furniture: Fixture | null;
@@ -54,16 +55,12 @@
         {#if furniture.items.length > 0}
           <ul class="list-none">
             {#each furniture.items as item, i}
-              <li class="flex items-center gap-sm p-sm bg-medium rounded mb-xs">
-                <span>{getItemIcon(item)}</span>
-                <span class="text-sm">{getItemLabel(item)}</span>
-                {#if isPortable(item) && canPickup}
-                  <button
-                    class="pickup-btn"
-                    onclick={() => onPickup(i)}
-                    title="Pick up"
-                  >↑</button>
-                {/if}
+              <li class="mb-xs">
+                <ItemSlot
+                  {item}
+                  canPickup={isPortable(item) && canPickup}
+                  onPickup={() => onPickup(i)}
+                />
               </li>
             {/each}
           </ul>
@@ -110,30 +107,6 @@
 
   .sidebar.visible {
     transform: translateX(0);
-  }
-
-  .pickup-btn {
-    margin-left: auto;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-dark);
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    color: var(--brass-light);
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: bold;
-    transition: all 0.15s;
-    padding: 0;
-  }
-
-  .pickup-btn:hover {
-    background: var(--brass-dark);
-    border-color: var(--brass);
-    color: var(--parchment);
   }
 
   .drop-btn {

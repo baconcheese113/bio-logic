@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Patient, SampleType } from '../../shared/types';
   import { SAMPLE_COLORS } from '../../shared/types';
+  import StatusBadge from './ui/StatusBadge.svelte';
 
   interface Props {
     patient: Patient | null;
@@ -25,18 +26,18 @@
   }
 
   // Status badge styling
-  const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
-    stable: { bg: 'var(--status-idle)', text: 'Stable' },
-    guarded: { bg: 'var(--status-ready)', text: 'Guarded' },
-    declining: { bg: 'var(--status-busy)', text: 'Declining' },
-    critical: { bg: 'var(--status-error)', text: 'Critical' },
+  const STATUS_BADGE: Record<string, { variant: 'idle' | 'busy' | 'ready' | 'error'; text: string }> = {
+    stable: { variant: 'idle', text: 'Stable' },
+    guarded: { variant: 'ready', text: 'Guarded' },
+    declining: { variant: 'busy', text: 'Declining' },
+    critical: { variant: 'error', text: 'Critical' },
   };
 
-  let statusBadge = $derived(patient ? STATUS_BADGE[patient.status] : null);
+  let statusInfo = $derived(patient ? STATUS_BADGE[patient.status] : null);
 </script>
 
 <aside class="sidebar" class:visible={patient !== null} data-ref="patient-panel">
-  {#if patient && statusBadge}
+  {#if patient && statusInfo}
     <div class="sidebar-header">
       <span class="icon-md">🧑‍⚕️</span>
       <span class="text-brass">{patient.name}</span>
@@ -45,9 +46,7 @@
     <div class="sidebar-body">
       <section class="control-section">
         <h4>Status</h4>
-        <span class="badge" style:background={statusBadge.bg}>
-          {statusBadge.text}
-        </span>
+        <StatusBadge label={statusInfo.text} variant={statusInfo.variant} />
       </section>
 
       <section class="control-section">

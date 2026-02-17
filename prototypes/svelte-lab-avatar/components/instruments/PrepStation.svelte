@@ -6,7 +6,9 @@
 -->
 <script lang="ts">
   import type { Fixture, ActivePrep, MediaType } from '../../../shared/types';
-  import { MEDIA_RECIPES, getAvailableRecipes, getItemIcon, getItemLabel, ITEM_DEFS, getCulturePlate } from '../../../shared/types';
+  import { MEDIA_RECIPES, getAvailableRecipes, ITEM_DEFS, getCulturePlate } from '../../../shared/types';
+  import ProgressBar from '../ui/ProgressBar.svelte';
+  import ItemSlot from '../ui/ItemSlot.svelte';
 
   interface Props {
     furniture: Fixture;
@@ -59,9 +61,7 @@
     <div class="prep-progress-section">
       <div class="prep-recipe-name">{prepRecipe.label}</div>
       <div class="prep-phase">{phaseLabel}</div>
-      <div class="progress-track" style:max-width="300px">
-        <div class="progress-fill" style:width="{prepProgress * 100}%" style:background="linear-gradient(90deg, var(--brass-dark), var(--brass-light))"></div>
-      </div>
+      <ProgressBar value={prepProgress} maxWidth="300px" />
       <div class="prep-time">
         {Math.round(prepElapsed / 10)}s / {Math.round(activePrep.duration / 10)}s
       </div>
@@ -73,10 +73,7 @@
       {#if supplies.length > 0}
         <div class="flex flex-col gap-xs">
           {#each supplies as item}
-            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm bg-bg-medium">
-              <span>{getItemIcon(item)}</span>
-              <span>{getItemLabel(item)}</span>
-            </div>
+            <ItemSlot {item} />
           {/each}
         </div>
       {:else}
@@ -90,11 +87,7 @@
         <h4 class="m-0 font-heading text-xs uppercase tracking-wider text-brass">Prepared Plates</h4>
         <div class="flex flex-col gap-xs">
           {#each plates as item}
-            <div class="flex items-center gap-sm py-xs px-sm rounded text-sm border bg-bg-medium border-status-idle">
-              <span>🧫</span>
-              <span>{getItemLabel(item)}</span>
-              <span class="phase-tag ready">Ready</span>
-            </div>
+            <ItemSlot {item} tag="Ready" tagColor="#2a4a2a" />
           {/each}
         </div>
         <p class="text-sm italic text-parchment-aged">Pick up plates and bring them to the culture bench.</p>
@@ -136,20 +129,6 @@
 </div>
 
 <style>
-  .phase-tag {
-    margin-left: auto;
-    font-size: 0.75rem;
-    padding: 1px 6px;
-    border-radius: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .phase-tag.ready {
-    background: #2a4a2a;
-    color: #6cba6c;
-  }
-
   .recipe-btn {
     display: flex;
     align-items: center;
