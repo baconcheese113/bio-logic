@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Fixture, Sample, GridPosition, Item } from '../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode, getCarryingLoad, isPortable } from '../../shared/types';
-  import ItemSlot from './ui/ItemSlot.svelte';
+  import type { Fixture, Sample, GridPosition, Item } from '../../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode, getCarryingLoad, isPortable } from '../../../shared/types';
+  import ItemSlot from '../ui/ItemSlot.svelte';
 
   interface Props {
     furniture: Fixture | null;

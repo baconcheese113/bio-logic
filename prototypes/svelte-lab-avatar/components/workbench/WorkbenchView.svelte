@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Fixture, Sample, Observation, Patient, MediaType, ActivePrep } from '../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode } from '../../shared/types';
-  import DetailView from './ui/DetailView.svelte';
-  import MicroscopeStage from './instruments/MicroscopeStage.svelte';
-  import CultureStation from './instruments/CultureStation.svelte';
-  import PrepStation from './instruments/PrepStation.svelte';
+  import type { Fixture, Sample, Observation, Patient, MediaType, ActivePrep } from '../../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode } from '../../../shared/types';
+  import DetailView from '../ui/DetailView.svelte';
+  import MicroscopeStage from './MicroscopeStage.svelte';
+  import CultureStation from './CultureStation.svelte';
+  import PrepStation from './PrepStation.svelte';
 
   interface Props {
     furniture: Fixture;

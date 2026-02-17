@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { LabState, GridPosition, Sample, Patient } from '../../shared/types';
-  import { TILE_SIZE } from '../../shared/mock-data';
-  import InstrumentTile from './InstrumentTile.svelte';
+  import type { LabState, GridPosition, Sample, Patient } from '../../../shared/types';
+  import { TILE_SIZE } from '../../../shared/mock-data';
+  import FixtureTile from './FixtureTile.svelte';
   import PlayerAvatar from './PlayerAvatar.svelte';
   import PatientTile from './PatientTile.svelte';
 
@@ -184,7 +184,7 @@
 
     <!-- Fixtures -->
     {#each labState.fixtures as furn}
-      <InstrumentTile
+      <FixtureTile
         furniture={furn}
         tileSize={TILE_SIZE}
         isSelected={selectedFurnitureId === furn.id}

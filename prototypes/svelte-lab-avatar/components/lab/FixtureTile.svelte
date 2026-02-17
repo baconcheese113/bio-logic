@@ -3,8 +3,8 @@
   Shows icon from FIXTURE_DEFS + equipment icons from items.
 -->
 <script lang="ts">
-  import type { Fixture, GridPosition, Item } from '../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, isPortable } from '../../shared/types';
+  import type { Fixture, GridPosition, Item } from '../../../shared/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, isPortable } from '../../../shared/types';
 
   interface Props {
     furniture: Fixture;

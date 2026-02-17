@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Patient, SampleType } from '../../shared/types';
-  import { SAMPLE_COLORS } from '../../shared/types';
-  import StatusBadge from './ui/StatusBadge.svelte';
+  import type { Patient, SampleType } from '../../../shared/types';
+  import { SAMPLE_COLORS } from '../../../shared/types';
+  import StatusBadge from '../ui/StatusBadge.svelte';
 
   interface Props {
     patient: Patient | null;

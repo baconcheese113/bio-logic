@@ -11,14 +11,14 @@
   } from '../shared/game-actions';
   import type { Diagnosis } from '../shared/types';
 
-  import LabGrid from './components/LabGrid.svelte';
-  import ClockBar from './components/ClockBar.svelte';
-  import InstrumentPanel from './components/InstrumentPanel.svelte';
-  import SampleHUD from './components/SampleHUD.svelte';
-  import InstrumentDetailView from './components/InstrumentDetailView.svelte';
-  import PatientPanel from './components/PatientPanel.svelte';
-  import NotebookPanel from './components/NotebookPanel.svelte';
-  import DiagnosisPanel from './components/DiagnosisPanel.svelte';
+  import LabGrid from './components/lab/LabGrid.svelte';
+  import ClockBar from './components/hud/ClockBar.svelte';
+  import FixturePanel from './components/panels/FixturePanel.svelte';
+  import SampleHUD from './components/hud/SampleHUD.svelte';
+  import WorkbenchView from './components/workbench/WorkbenchView.svelte';
+  import PatientPanel from './components/panels/PatientPanel.svelte';
+  import NotebookPanel from './components/panels/NotebookPanel.svelte';
+  import DiagnosisPanel from './components/panels/DiagnosisPanel.svelte';
   import ModalOverlay from './components/ui/ModalOverlay.svelte';
   import ItemSlot from './components/ui/ItemSlot.svelte';
 
@@ -143,7 +143,7 @@
 
 <div class="app-container">
   {#if viewingFixture}
-    <InstrumentDetailView
+    <WorkbenchView
       furniture={viewingFixture}
       samples={labState.samples.filter(s =>
         s.location.type === 'fixture' && s.location.fixtureId === viewingFixture.id
@@ -205,7 +205,7 @@
           }}
         />
       {:else}
-        <InstrumentPanel
+        <FixturePanel
           furniture={selectedFixture}
           samples={labState.samples}
           playerPosition={labState.player.position}

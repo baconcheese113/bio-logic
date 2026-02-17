@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Patient } from '../../shared/types';
-  import { TILE_SIZE } from '../../shared/mock-data';
+  import type { Patient } from '../../../shared/types';
+  import { TILE_SIZE } from '../../../shared/mock-data';
 
   interface Props {
     patient: Patient;

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Item } from '../../shared/types';
-  import { getItemIcon, getItemLabel, getCarryingLoad } from '../../shared/types';
+  import type { Item } from '../../../shared/types';
+  import { getItemIcon, getItemLabel, getCarryingLoad } from '../../../shared/types';
 
   interface Props {
     carrying: Item[];
