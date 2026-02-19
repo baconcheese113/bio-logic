@@ -1,11 +1,10 @@
 <script lang="ts">
-  import type { Fixture, Sample, GridPosition, Item } from '../../../shared/types';
+  import type { Fixture, GridPosition, Item } from '../../../shared/types';
   import { FIXTURE_DEFS, detectWorkbenchMode, getCarryingLoad, isPortable } from '../../../shared/types';
   import ItemSlot from '../ui/ItemSlot.svelte';
 
   interface Props {
-    furniture: Fixture | null;
-    samples: Sample[];
+    fixture: Fixture | null;
     playerPosition: GridPosition;
     carrying: Item[];
     carryCapacity: number;
@@ -14,36 +13,28 @@
     onOpen: () => void;
   }
 
-  let { furniture, samples, playerPosition, carrying, carryCapacity, onDrop, onPickup, onOpen }: Props = $props();
-
-  const furnitureSamples = $derived(
-    furniture
-      ? samples.filter(s =>
-          s.location.type === 'fixture' && s.location.fixtureId === furniture.id
-        )
-      : []
-  );
+  let { fixture, playerPosition, carrying, carryCapacity, onDrop, onPickup, onOpen }: Props = $props();
 
   const isAdjacent = $derived(() => {
-    if (!furniture) return false;
-    const dx = Math.abs(playerPosition.x - furniture.position.x);
-    const dy = Math.abs(playerPosition.y - furniture.position.y);
+    if (!fixture) return false;
+    const dx = Math.abs(playerPosition.x - fixture.position.x);
+    const dy = Math.abs(playerPosition.y - fixture.position.y);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
   });
 
-  const def = $derived(furniture ? FIXTURE_DEFS[furniture.type] : null);
-  const hasCapacity = $derived(furniture ? furniture.items.length < (def?.capacity ?? 0) : false);
+  const def = $derived(fixture ? FIXTURE_DEFS[fixture.type] : null);
+  const hasCapacity = $derived(fixture ? fixture.items.length < (def?.capacity ?? 0) : false);
   const canDrop = $derived(carrying.length > 0 && isAdjacent() && hasCapacity);
-  const mode = $derived(furniture?.type === 'workbench' ? detectWorkbenchMode(furniture.items) : null);
+  const mode = $derived(fixture?.type === 'workbench' ? detectWorkbenchMode(fixture.items) : null);
   const playerLoad = $derived(getCarryingLoad(carrying));
   const canPickup = $derived(isAdjacent() && playerLoad < carryCapacity);
 </script>
 
-<aside class="sidebar" class:visible={furniture !== null} data-ref="furniture-panel">
-  {#if furniture && def}
+<aside class="sidebar" class:visible={fixture !== null} data-ref="fixture-panel">
+  {#if fixture && def}
     <div class="sidebar-header">
       <span class="icon-md">{def.icon}</span>
-      <span class="text-brass">{furniture.name}</span>
+      <span class="text-brass">{fixture.name}</span>
       {#if mode}
         <span class="mode-badge">{mode}</span>
       {/if}
@@ -51,10 +42,10 @@
 
     <div class="sidebar-body">
       <section class="control-section">
-        <h4>Contents ({furniture.items.length}/{def.capacity})</h4>
-        {#if furniture.items.length > 0}
+        <h4>Contents ({fixture.items.length}/{def.capacity})</h4>
+        {#if fixture.items.length > 0}
           <ul class="list-none">
-            {#each furniture.items as item, i}
+            {#each fixture.items as item, i}
               <li class="mb-xs">
                 <ItemSlot
                   {item}
@@ -81,20 +72,22 @@
               Place Item Here
             </button>
           {/if}
-          <button 
-            class="btn" 
-            disabled={!isAdjacent()} 
-            onclick={onOpen}
-            data-ref="btn-open-furniture"
-          >
-            Open {furniture.type === 'workbench' ? 'Workbench' : furniture.name}
-          </button>
+          {#if fixture.type === 'workbench'}
+            <button 
+              class="btn" 
+              disabled={!isAdjacent()} 
+              onclick={onOpen}
+              data-ref="btn-open-fixture"
+            >
+              Open Workbench
+            </button>
+          {/if}
         </div>
       </section>
     </div>
   {:else}
     <div class="flex items-center justify-center flex-1 p-lg text-center text-muted">
-      <p>Select furniture to view details</p>
+      <p>Select a fixture to view details</p>
     </div>
   {/if}
 </aside>

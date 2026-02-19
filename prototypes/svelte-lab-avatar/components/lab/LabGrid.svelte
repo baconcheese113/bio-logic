@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LabState, GridPosition, Sample, Patient } from '../../../shared/types';
+  import type { LabState, GridPosition, Patient } from '../../../shared/types';
   import { TILE_SIZE } from '../../../shared/mock-data';
   import FixtureTile from './FixtureTile.svelte';
   import PlayerAvatar from './PlayerAvatar.svelte';
@@ -7,20 +7,20 @@
 
   interface Props {
     labState: LabState;
-    selectedFurnitureId: string | null;
-    onFurnitureClick: (furnitureId: string) => void;
-    onFurnitureDoubleClick: (furnitureId: string) => void;
+    selectedFixtureId: string | null;
+    onFixtureClick: (fixtureId: string) => void;
+    onFixtureDoubleClick: (fixtureId: string) => void;
     onCameraChange: (camera: LabState['camera']) => void;
     onTileClick: (position: GridPosition) => void;
-    onItemDrop: (furnitureId: string) => void;
+    onItemDrop: (fixtureId: string) => void;
     onPatientClick: (patientId: string) => void;
   }
 
   let {
     labState,
-    selectedFurnitureId,
-    onFurnitureClick,
-    onFurnitureDoubleClick,
+    selectedFixtureId,
+    onFixtureClick,
+    onFixtureDoubleClick,
     onCameraChange,
     onTileClick,
     onItemDrop,
@@ -107,12 +107,6 @@
     return `tile tile-${tile.type}`;
   }
 
-  function getSamplesForFurniture(furnitureId: string): Sample[] {
-    return labState.samples.filter(s =>
-      s.location.type === 'fixture' && s.location.fixtureId === furnitureId
-    );
-  }
-
   function isAdjacent(pos1: GridPosition, pos2: GridPosition): boolean {
     const dx = Math.abs(pos1.x - pos2.x);
     const dy = Math.abs(pos1.y - pos2.y);
@@ -128,7 +122,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="lab-grid-container"
+  class="lab-grid-container no-select"
   onwheel={handleWheel}
   onmousedown={handleMouseDown}
   onmousemove={handleMouseMove}
@@ -185,13 +179,13 @@
     <!-- Fixtures -->
     {#each labState.fixtures as furn}
       <FixtureTile
-        furniture={furn}
+        fixture={furn}
         tileSize={TILE_SIZE}
-        isSelected={selectedFurnitureId === furn.id}
+        isSelected={selectedFixtureId === furn.id}
         playerPosition={labState.player.position}
         playerHasItem={labState.player.carrying.length > 0}
-        onClick={() => onFurnitureClick(furn.id)}
-        onDoubleClick={() => onFurnitureDoubleClick(furn.id)}
+        onClick={() => onFixtureClick(furn.id)}
+        onDoubleClick={() => onFixtureDoubleClick(furn.id)}
         onItemDrop={() => onItemDrop(furn.id)}
       />
     {/each}

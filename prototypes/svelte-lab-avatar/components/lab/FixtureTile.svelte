@@ -3,11 +3,11 @@
   Shows icon from FIXTURE_DEFS + equipment icons from items.
 -->
 <script lang="ts">
-  import type { Fixture, GridPosition, Item } from '../../../shared/types';
+  import type { Fixture, GridPosition } from '../../../shared/types';
   import { FIXTURE_DEFS, detectWorkbenchMode, getItemIcon, isPortable } from '../../../shared/types';
 
   interface Props {
-    furniture: Fixture;
+    fixture: Fixture;
     tileSize: number;
     isSelected: boolean;
     playerPosition: GridPosition;
@@ -17,23 +17,23 @@
     onItemDrop: () => void;
   }
 
-  let { furniture, tileSize, isSelected, playerPosition, playerHasItem, onClick, onDoubleClick, onItemDrop }: Props = $props();
+  let { fixture, tileSize, isSelected, playerPosition, playerHasItem, onClick, onDoubleClick, onItemDrop }: Props = $props();
 
-  const def = $derived(FIXTURE_DEFS[furniture.type]);
+  const def = $derived(FIXTURE_DEFS[fixture.type]);
   const icon = $derived(def.icon);
-  const mode = $derived(furniture.type === 'workbench' ? detectWorkbenchMode(furniture.items) : null);
+  const mode = $derived(fixture.type === 'workbench' ? detectWorkbenchMode(fixture.items) : null);
 
   const isAdjacent = $derived(() => {
-    const dx = Math.abs(playerPosition.x - furniture.position.x);
-    const dy = Math.abs(playerPosition.y - furniture.position.y);
+    const dx = Math.abs(playerPosition.x - fixture.position.x);
+    const dy = Math.abs(playerPosition.y - fixture.position.y);
     return dx <= 1 && dy <= 1 && (dx + dy > 0 || dx === dy);
   });
 
-  const hasCapacity = $derived(furniture.items.length < def.capacity);
-  const canDrop = $derived(playerHasItem && isAdjacent() && hasCapacity && furniture.type !== 'cabinet');
+  const hasCapacity = $derived(fixture.items.length < def.capacity);
+  const canDrop = $derived(playerHasItem && isAdjacent() && hasCapacity && fixture.type !== 'cabinet');
 
   const equipmentIcons = $derived(
-    furniture.items
+    fixture.items
       .filter(i => !isPortable(i))
       .map(i => getItemIcon(i))
       .slice(0, 3)
@@ -50,13 +50,13 @@
   class:selected={isSelected}
   class:adjacent={isAdjacent()}
   class:can-drop={canDrop}
-  style:left="{furniture.position.x * tileSize}px"
-  style:top="{furniture.position.y * tileSize}px"
+  style:left="{fixture.position.x * tileSize}px"
+  style:top="{fixture.position.y * tileSize}px"
   style:width="{tileSize}px"
   style:height="{tileSize}px"
   onclick={handleClick}
   ondblclick={(e) => { e.stopPropagation(); onDoubleClick(); }}
-  data-ref="furniture-{furniture.id}"
+  data-ref="fixture-{fixture.id}"
 >
   <span class="text-[1.75rem]">{icon}</span>
 
