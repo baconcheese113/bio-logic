@@ -7,13 +7,11 @@ import type {
   LabState,
   LabTile,
   Fixture,
-  Sample,
   Player,
   Patient,
   PatientAppearance,
   PatientStatus,
   SampleType,
-  Case,
   CaseFindings,
   Diagnosis,
   TreatmentOutcome,
@@ -233,7 +231,7 @@ export function generatePatient(benchPosition: { x: number; y: number }, current
   };
 }
 
-// === Fixtures (replaces old Furniture/Instrument system) ===
+// === Fixtures ===
 
 let itemCounter = 0;
 function makeItem(type: Item['type'], quantity = 1): Item {
@@ -267,8 +265,9 @@ function createFixtures(): Fixture[] {
       name: 'Culture Bench',
       position: { x: 9, y: 2 },
       items: [
-        makeItem('bunsen-burner'),
-        makeItem('inoculation-loop'),
+        { ...makeItem('bunsen-burner'), state: { kind: 'bunsen-burner' as const, lit: true } },
+        { ...makeItem('inoculation-loop'), state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false } },
+        { ...makeItem('empty-dish'), contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
       ],
     },
     {
@@ -285,6 +284,10 @@ function createFixtures(): Fixture[] {
       position: { x: 5, y: 3 },
       items: [
         makeItem('hand-centrifuge'),
+        { ...makeItem('bunsen-burner'), state: { kind: 'bunsen-burner' as const, lit: true } },
+        { ...makeItem('inoculation-loop'), state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false } },
+        { ...makeItem('empty-dish'), contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
+        { ...makeItem('sample-vial'), contents: { substance: 'blood' as const, volume: 0.5, sealed: false, meta: { kind: 'sample' as const, patientId: 'mock-patient', collectedAtTick: 0, condition: 'fresh' as const } } },
       ],
     },
     {
@@ -390,14 +393,8 @@ export function createInitialLabState(): LabState {
   };
 }
 
-/** Get case template by organism ID */
-export function getCaseTemplate(organismId: string): CaseTemplate | undefined {
-  return CASE_TEMPLATES.find(t => t.correctOrganism === organismId);
-}
-
 export { WAITING_BENCHES };
 
 // === Tile Size Constants ===
 
 export const TILE_SIZE = 64;
-export const HALF_TILE = TILE_SIZE / 2;

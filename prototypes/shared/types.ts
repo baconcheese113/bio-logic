@@ -74,9 +74,9 @@ export type SampleType =
 
 // === Observations ===
 
-export type GramResult = 'positive' | 'negative';
-export type MorphologyShape = 'cocci' | 'bacilli' | 'spirilla' | 'coccobacilli';
-export type MorphologyArrangement = 'singles' | 'pairs' | 'chains' | 'clusters' | 'tetrads';
+type GramResult = 'positive' | 'negative';
+type MorphologyShape = 'cocci' | 'bacilli' | 'spirilla' | 'coccobacilli';
+type MorphologyArrangement = 'singles' | 'pairs' | 'chains' | 'clusters' | 'tetrads';
 export type HemolysisType = 'alpha' | 'beta' | 'gamma';
 export type ColonyColor = 'golden' | 'white' | 'gray' | 'green' | 'cream' | 'mucoid';
 
@@ -141,7 +141,7 @@ export interface Observation {
 
 // === Cases ===
 
-export type CaseStatus = 'available' | 'active' | 'submitted' | 'completed';
+type CaseStatus = 'available' | 'active' | 'submitted' | 'completed';
 
 export interface Case {
   id: string;
@@ -179,14 +179,14 @@ export type SampleLocation =
 //  SUBSTANCE & CONTAINER SYSTEM
 // ============================================================
 
-export type SubstanceType =
+type SubstanceType =
   | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool'
   | 'nutrient-agar' | 'blood-agar' | 'gelatin'
   | 'agar-powder' | 'gelatin-powder' | 'peptone'
   | 'defibrinated-blood' | 'distilled-water'
   | 'bacteria-culture';
 
-export interface ContainerDef {
+interface ContainerDef {
   capacity: number;
   acceptedSubstances: SubstanceType[];
   sealable: boolean;
@@ -199,7 +199,7 @@ export interface SubstanceContents {
   meta?: SubstanceMeta;
 }
 
-export type SubstanceMeta =
+type SubstanceMeta =
   | { kind: 'culture'; organismId: string; phase: PlatePhase; densityGrid?: number[][] }
   | { kind: 'sample'; patientId: string; collectedAtTick: number; condition: SampleCondition }
   | { kind: 'prepared-media'; cooledAtTick: number };
@@ -209,7 +209,7 @@ export type SubstanceMeta =
 //  ITEM DEFINITION REGISTRY
 // ============================================================
 
-export interface ItemDef {
+interface ItemDef {
   label: string;
   icon: string;
   gridSize: [number, number];
@@ -222,7 +222,7 @@ export interface ItemDef {
 
 export const ITEM_DEFS = {
   // Equipment — reusable, stays on benches
-  'bunsen-burner':    { label: 'Bunsen Burner',    icon: '🔥', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
+  'bunsen-burner':    { label: 'Bunsen Burner',    icon: '🔥', gridSize: [1, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
   'inoculation-loop': { label: 'Inoculation Loop', icon: '〰️', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
   'microscope':       { label: 'Brass Microscope',  icon: '🔬', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
   'hand-centrifuge':  { label: 'Hand Centrifuge',   icon: '🔄', gridSize: [2, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
@@ -232,7 +232,7 @@ export const ITEM_DEFS = {
                         container: { capacity: 5, acceptedSubstances: ['distilled-water', 'nutrient-agar', 'blood-agar', 'gelatin'] as SubstanceType[], sealable: true } },
 
   // Containers — hold substances, portable
-  'empty-dish':       { label: 'Petri Dish',         icon: '🧫', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 5, consumable: false, portable: true,
+  'empty-dish':       { label: 'Petri Dish',         icon: '🧫', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 5, consumable: false, portable: true,
                         container: { capacity: 1, acceptedSubstances: ['nutrient-agar', 'blood-agar', 'gelatin', 'bacteria-culture'] as SubstanceType[], sealable: true } },
   'sample-vial':      { label: 'Sample Vial',        icon: '🧪', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: true,
                         container: { capacity: 1, acceptedSubstances: ['blood', 'sputum', 'csf', 'urine', 'stool'] as SubstanceType[], sealable: true } },
@@ -257,6 +257,7 @@ export interface Item {
   id: string;
   type: ItemType;
   quantity: number;
+  gridPosition?: { col: number; row: number };
   state?: ItemState;
   contents?: SubstanceContents;
 }
@@ -264,6 +265,7 @@ export interface Item {
 export type ItemState =
   | { kind: 'microscope'; loadedSlideId: string | null; focusLevel: number }
   | { kind: 'bunsen-burner'; lit: boolean }
+  | { kind: 'inoculation-loop'; volume: number; concentration: number; temperature: number; isSterile: boolean }
   | { kind: 'staining-rack'; loadedSlides: string[]; currentStain: string | null }
   | { kind: 'centrifuge'; loadedVials: string[]; spinning: boolean; rpm: number };
 
@@ -272,9 +274,9 @@ export type ItemState =
 //  CULTURE PLATE STATE (backward compat, derivable from Item)
 // ============================================================
 
-export type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
+type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
 
-export interface CulturePlateState {
+interface CulturePlateState {
   id: string;
   mediaType: MediaType | null;
   phase: PlatePhase;
@@ -305,7 +307,7 @@ export function getCulturePlate(item: Item): CulturePlateState | null {
 
 export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
 
-export const MEDIA_RECIPES = {
+const MEDIA_RECIPES = {
   'nutrient-agar': {
     label: 'Nutrient Agar Plate',
     ingredients: ['empty-dish', 'agar-powder', 'peptone'] as ItemType[],
@@ -323,25 +325,6 @@ export const MEDIA_RECIPES = {
   },
 } as const satisfies Record<MediaType, { label: string; ingredients: ItemType[]; prepTicks: number }>;
 
-/** Check which recipes can be made from the items on a fixture */
-export function getAvailableRecipes(items: Item[]): MediaType[] {
-  const typeSet = new Set(items.filter(i => ITEM_DEFS[i.type].consumable || i.type === 'empty-dish').map(i => i.type));
-  return (Object.entries(MEDIA_RECIPES) as [MediaType, typeof MEDIA_RECIPES[MediaType]][])
-    .filter(([, recipe]) => recipe.ingredients.every(ing => typeSet.has(ing)))
-    .map(([type]) => type);
-}
-
-/** Remove recipe ingredients from an items array, returning new array */
-export function consumeRecipeIngredients(items: Item[], mediaType: MediaType): Item[] {
-  const recipe = MEDIA_RECIPES[mediaType];
-  const remaining = [...items];
-  for (const ingredient of recipe.ingredients) {
-    const idx = remaining.findIndex(i => i.type === ingredient);
-    if (idx >= 0) remaining.splice(idx, 1);
-  }
-  return remaining;
-}
-
 // === Active Prep (background processing) ===
 
 export interface ActivePrep {
@@ -353,10 +336,10 @@ export interface ActivePrep {
 
 
 // ============================================================
-//  FIXTURE DEFINITIONS (replaces FURNITURE_DEFS)
+//  FIXTURE DEFINITIONS
 // ============================================================
 
-export interface FixtureDef {
+interface FixtureDef {
   label: string;
   icon: string;
   gridSize: [number, number];
@@ -368,7 +351,7 @@ export interface FixtureDef {
 }
 
 export const FIXTURE_DEFS = {
-  'workbench': { label: 'Workbench',       icon: '🪵', gridSize: [2, 1] as [number, number], capacity: 8,  surfaceGrid: [4, 2] as [number, number] },
+  'workbench': { label: 'Workbench',       icon: '🪵', gridSize: [2, 1] as [number, number], capacity: 8,  surfaceGrid: [4, 3] as [number, number] },
   'cabinet':   { label: 'Reagent Cabinet', icon: '🗄️', gridSize: [2, 1] as [number, number], capacity: 20, storageGrid: [3, 4] as [number, number] },
   'ice-box':   { label: 'Ice Box',         icon: '🧊', gridSize: [2, 2] as [number, number], capacity: 6,  storageGrid: [2, 2] as [number, number] },
 } as const satisfies Record<string, FixtureDef>;
@@ -383,23 +366,18 @@ export interface Fixture {
   items: Item[];
 }
 
-// Backward-compat aliases (will be removed after all refs migrate)
-/** @deprecated Use Fixture instead */
-export type Furniture = Fixture;
-/** @deprecated Use FIXTURE_DEFS instead */
-export const FURNITURE_DEFS = FIXTURE_DEFS;
 
 
 // ============================================================
 //  WORKBENCH MODE DETECTION (temporary — removed in Phase 5)
 // ============================================================
 
-export type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'prep' | 'general';
+type WorkbenchMode = 'culture' | 'microscope' | 'staining' | 'prep' | 'general';
 
 export function detectWorkbenchMode(items: Item[]): WorkbenchMode {
   const has = (t: ItemType) => items.some(i => i.type === t);
   if (has('microscope')) return 'microscope';
-  if (has('bunsen-burner') || has('inoculation-loop')) return 'culture';
+  if (has('bunsen-burner') && has('inoculation-loop')) return 'culture';
   if (has('staining-rack')) return 'staining';
   if (has('flask') || has('steam-sterilizer')) return 'prep';
   return 'general';
@@ -477,15 +455,6 @@ export interface PlayerStats {
 //  EVENTS
 // ============================================================
 
-export type LabEvent =
-  | { type: 'fixture-clicked'; fixtureId: string }
-  | { type: 'tile-clicked'; position: GridPosition }
-  | { type: 'item-picked-up'; itemIndex: number }
-  | { type: 'item-placed'; fixtureId: string }
-  | { type: 'speed-changed'; speed: number }
-  | { type: 'pause-toggled'; isPaused: boolean };
-
-
 // ============================================================
 //  UI HELPERS
 // ============================================================
@@ -499,12 +468,6 @@ export const SAMPLE_COLORS: Record<SampleType, string> = {
   'stool': '#795548',
   'csf': '#b3e5fc',
   'slide': '#c8a2c8',
-};
-
-export const CONDITION_OPACITY: Record<SampleCondition, number> = {
-  'fresh': 1.0,
-  'degraded': 0.6,
-  'spoiled': 0.3,
 };
 
 export const OBSERVATION_ICONS: Record<ObservationSource, string> = {
@@ -533,10 +496,6 @@ export const HAIR_COLORS = ['#090806', '#2c222b', '#71635a', '#b7a69e', '#d6c4c2
 //  ITEM HELPER FUNCTIONS
 // ============================================================
 
-export function getItemDef(item: Item): ItemDef {
-  return ITEM_DEFS[item.type];
-}
-
 export function getItemIcon(item: Item): string {
   return ITEM_DEFS[item.type].icon;
 }
@@ -561,10 +520,4 @@ export function isPortable(item: Item): boolean {
   return ITEM_DEFS[item.type].portable;
 }
 
-export function isContainer(item: Item): boolean {
-  return !!(ITEM_DEFS[item.type] as ItemDef).container;
-}
 
-export function isCulturePlate(item: Item): boolean {
-  return item.type === 'empty-dish' && !!item.contents;
-}

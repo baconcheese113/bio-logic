@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { createInitialLabState, TILE_SIZE } from '../shared/mock-data';
-  import type { LabState, GridPosition, SampleType, Item, MediaType, ActivePrep } from '../shared/types';
-  import { FIXTURE_DEFS } from '../shared/types';
+  import { createInitialLabState } from '../shared/mock-data';
+  import type { LabState, GridPosition, SampleType, Item, ActivePrep } from '../shared/types';
   import {
     isAdjacent, movePlayerTo,
-    collectSample, pickupSample, placeItem, pickupFromFixture, takeFromCabinet,
-    startPrep, checkPrepCompletion,
-    recordObservation, submitDiagnosis,
+    collectSample, placeItem, pickupFromFixture, takeFromCabinet,
+    checkPrepCompletion,
+    submitDiagnosis,
     updateSampleDegradation, updatePatientPatience, maybeSpawnNewPatient,
   } from '../shared/game-actions';
   import type { Diagnosis } from '../shared/types';
@@ -129,32 +128,25 @@
     }
   }
 
-  function handlePrepMedia(fixtureId: string, mediaType: MediaType) {
-    activePreps = startPrep(labState, activePreps, fixtureId, mediaType);
-  }
-
   function handleSubmitDiagnosis(diagnosis: Diagnosis) {
     if (diagnosisPatientId) {
       submitDiagnosis(labState, diagnosisPatientId, diagnosis);
       diagnosisPatientId = null;
     }
   }
+  const viewingSamples = $derived(
+    viewingFixture
+      ? labState.samples.filter(s => s.location.type === 'fixture' && s.location.fixtureId === viewingFixture.id)
+      : [],
+  );
 </script>
 
 <div class="app-container">
   {#if viewingFixture}
     <WorkbenchView
-      furniture={viewingFixture}
-      samples={labState.samples.filter(s =>
-        s.location.type === 'fixture' && s.location.fixtureId === viewingFixture.id
-      )}
-      observations={labState.observations}
-      patients={labState.patients}
-      currentTick={labState.currentTick}
-      activePrep={activePreps.find(p => p.fixtureId === viewingFixture.id) ?? null}
+      fixture={viewingFixture}
+      samples={viewingSamples}
       onClose={() => viewingFixtureId = null}
-      onRecordObservation={(obs) => recordObservation(labState, obs)}
-      onPrepMedia={handlePrepMedia}
     />
   {:else}
     <ClockBar
@@ -177,9 +169,9 @@
 
         <LabGrid
           {labState}
-          selectedFurnitureId={selectedFixtureId}
-          onFurnitureClick={handleFixtureClick}
-          onFurnitureDoubleClick={handleFixtureDoubleClick}
+          selectedFixtureId={selectedFixtureId}
+          onFixtureClick={handleFixtureClick}
+          onFixtureDoubleClick={handleFixtureDoubleClick}
           onCameraChange={(c) => { labState.camera = { ...c }; }}
           onTileClick={handleTileClick}
           onItemDrop={handleItemDrop}
@@ -206,8 +198,7 @@
         />
       {:else}
         <FixturePanel
-          furniture={selectedFixture}
-          samples={labState.samples}
+          fixture={selectedFixture}
           playerPosition={labState.player.position}
           carrying={labState.player.carrying}
           carryCapacity={labState.player.carryCapacity}

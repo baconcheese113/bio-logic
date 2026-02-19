@@ -11,9 +11,7 @@ import type {
   GridPosition,
   SampleType,
   Item,
-  Observation,
   Diagnosis,
-  MediaType,
   ActivePrep,
   Direction,
 } from './types';
@@ -21,8 +19,6 @@ import {
   getCarryingLoad,
   getItemSize,
   FIXTURE_DEFS,
-  MEDIA_RECIPES,
-  consumeRecipeIngredients,
   isPortable,
 } from './types';
 import { generatePatient, WAITING_BENCHES } from './mock-data';
@@ -34,9 +30,8 @@ import { generatePatient, WAITING_BENCHES } from './mock-data';
 let sampleCounter = 0;
 let plateCounter = 0;
 let itemCounter = 100; // offset from mock-data
-let observationCounter = 0;
 
-export function nextItemId(): string {
+function nextItemId(): string {
   return `item-${++itemCounter}`;
 }
 
@@ -50,7 +45,7 @@ export function isAdjacent(a: GridPosition, b: GridPosition): boolean {
   return (dx === 1 && dy === 0) || (dx === 0 && dy === 1) || (dx === 1 && dy === 1);
 }
 
-export function getDirection(from: GridPosition, to: GridPosition): Direction {
+function getDirection(from: GridPosition, to: GridPosition): Direction {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
@@ -116,29 +111,6 @@ export function collectSample(
   return sampleId;
 }
 
-/** Pick up a sample-vial from a fixture by sample ID. */
-export function pickupSample(state: LabState, sampleId: string): boolean {
-  if (getCarryingLoad(state.player.carrying) >= state.player.carryCapacity) return false;
-
-  const sample = state.samples.find(s => s.id === sampleId);
-  if (!sample) return false;
-  if (sample.location.type !== 'fixture') return false;
-
-  const furn = state.fixtures.find(f => f.id === sample.location.fixtureId);
-  if (!furn) return false;
-  if (!isAdjacent(state.player.position, furn.position)) return false;
-
-  const vialItem = furn.items.find(i => i.id === sampleId);
-  if (!vialItem) return false;
-
-  furn.items = furn.items.filter(i => i.id !== sampleId);
-  state.player.carrying = [...state.player.carrying, vialItem];
-  state.samples = state.samples.map(s =>
-    s.id === sampleId ? { ...s, location: { type: 'player' as const } } : s
-  );
-  return true;
-}
-
 // ============================================================
 //  ITEM PLACEMENT / PICKUP
 // ============================================================
@@ -153,6 +125,8 @@ export function placeItem(state: LabState, fixtureId: string): boolean {
   if (furn.items.length >= FIXTURE_DEFS[furn.type].capacity) return false;
 
   const [dropped, ...rest] = state.player.carrying;
+  // Clear grid position so it auto-places on the new bench
+  delete dropped.gridPosition;
   furn.items = [...furn.items, dropped];
   state.player.carrying = rest;
 
@@ -218,27 +192,6 @@ export function takeFromCabinet(state: LabState, cabinetId: string, item: Item):
 //  MEDIA PREPARATION
 // ============================================================
 
-/** Start media preparation on a fixture. Returns the updated activePreps. */
-export function startPrep(
-  state: LabState,
-  activePreps: ActivePrep[],
-  fixtureId: string,
-  mediaType: MediaType,
-): ActivePrep[] {
-  const furn = state.fixtures.find(f => f.id === fixtureId);
-  if (!furn) return activePreps;
-  if (activePreps.some(p => p.fixtureId === fixtureId)) return activePreps;
-
-  furn.items = consumeRecipeIngredients(furn.items, mediaType);
-
-  return [...activePreps, {
-    fixtureId,
-    mediaType,
-    startTick: state.currentTick,
-    duration: MEDIA_RECIPES[mediaType].prepTicks,
-  }];
-}
-
 /** Check completed preps, create plates, return remaining activePreps. */
 export function checkPrepCompletion(state: LabState, activePreps: ActivePrep[]): ActivePrep[] {
   const completed = activePreps.filter(p => state.currentTick - p.startTick >= p.duration);
@@ -268,26 +221,6 @@ export function checkPrepCompletion(state: LabState, activePreps: ActivePrep[]):
 // ============================================================
 //  OBSERVATIONS & DIAGNOSIS
 // ============================================================
-
-/** Record or update an observation. */
-export function recordObservation(state: LabState, obs: Omit<Observation, 'id' | 'timestamp'>): void {
-  const existingIndex = state.observations.findIndex(
-    o => o.patientId === obs.patientId && o.source === obs.source && o.field === obs.field
-  );
-
-  if (existingIndex >= 0) {
-    state.observations = state.observations.map((o, i) =>
-      i === existingIndex ? { ...o, value: obs.value, timestamp: state.currentTick } : o
-    );
-  } else {
-    observationCounter++;
-    state.observations = [...state.observations, {
-      ...obs,
-      id: `obs-${observationCounter}`,
-      timestamp: state.currentTick,
-    }];
-  }
-}
 
 /** Submit a diagnosis for a patient. Returns whether it was correct, or null if patient not found. */
 export function submitDiagnosis(state: LabState, patientId: string, diagnosis: Diagnosis): boolean | null {
