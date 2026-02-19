@@ -7,9 +7,11 @@ import type { DensityGrid, Colony, StreakQuality, MediaType } from './streak-typ
 import type { CultureFindings } from '../../../../shared/types';
 import { GRID_SIZE, SIM, COLONY_COLORS, CONTAMINANT_COLORS } from './streak-types';
 
+export type { StreakQuality };
+
 // === Colony Generation from Density Grid ===
 
-export interface ColonyGenParams {
+interface ColonyGenParams {
   grid: DensityGrid;
   findings: CultureFindings;
   mediaType: MediaType;
@@ -28,9 +30,8 @@ export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
 
   if (targetGrows) {
     // Scan density grid and place colonies based on density thresholds
-    // Use a sampling approach to avoid placing colonies at every single cell
-    for (let gy = 0; gy < GRID_SIZE; gy += 2) {
-      for (let gx = 0; gx < GRID_SIZE; gx += 2) {
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      for (let gx = 0; gx < GRID_SIZE; gx++) {
         const idx = gy * GRID_SIZE + gx;
         const density = grid.cells[idx];
         const damage = grid.damage[idx];
@@ -51,18 +52,16 @@ export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
         if (dx * dx + dy * dy > 0.24) continue; // slightly inside rim
 
         if (density >= SIM.DENSITY_CONFLUENT) {
-          // Confluent growth: many overlapping colonies
-          if (Math.random() < 0.4) {
+          // Confluent: place almost every qualifying cell (thin slightly to avoid overlap)
+          if (Math.random() < 0.35) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'confluent'));
           }
         } else if (density >= SIM.DENSITY_DENSE) {
-          // Dense growth: crowded individual colonies
-          if (Math.random() < density * 2) {
+          if (Math.random() < 0.25) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'dense'));
           }
         } else if (density >= SIM.DENSITY_ISOLATED) {
-          // Isolated colonies: the goal!
-          if (Math.random() < density * 4) {
+          if (Math.random() < 0.12) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'isolated'));
           }
         }
@@ -95,21 +94,26 @@ export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
   // Mark isolation status based on proximity
   markIsolation(colonies);
 
+  const confluent = colonies.filter(c => c.densityLevel === 'confluent').length;
+  const dense = colonies.filter(c => c.densityLevel === 'dense').length;
+  const isolated = colonies.filter(c => c.densityLevel === 'isolated').length;
+  const maxDensity = Math.max(...Array.from(grid.cells));
+  const cellsAboveConfluent = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_CONFLUENT).length;
+  const cellsAboveDense = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_DENSE).length;
+  const cellsAboveIsolated = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_ISOLATED).length;
+  console.log(`[colonies] gridMax=${maxDensity.toFixed(4)} | cells≥confluent:${cellsAboveConfluent} ≥dense:${cellsAboveDense} ≥isolated:${cellsAboveIsolated} | colonies: confluent=${confluent} dense=${dense} isolated=${isolated}`);
+
   return colonies;
 }
 
-function canGrowOnMedia(findings: CultureFindings, mediaType: MediaType): boolean {
-  // MacConkey agar inhibits gram-positive organisms
-  if (mediaType === 'macconkey' && findings.gramType === 'positive') {
-    return false;
-  }
+function canGrowOnMedia(findings: CultureFindings, _mediaType: MediaType): boolean {
   return findings.growth;
 }
 
 function createColony(
   nx: number,
   ny: number,
-  density: number,
+  _density: number,
   color: string,
   findings: CultureFindings,
   level: Colony['densityLevel'],
@@ -117,14 +121,16 @@ function createColony(
   const jitterX = (Math.random() - 0.5) * 0.02;
   const jitterY = (Math.random() - 0.5) * 0.02;
 
-  // Size scales with density level
+  // Size scales with density level.
+  // Values are in plate-fraction units; multiply by PLATE_RADIUS*2 (~360px) for canvas px.
+  // Real S. aureus: ~1-2mm on 90mm plate ≈ 4-8px at 360px canvas diameter.
   let baseRadius: number;
   if (level === 'confluent') {
-    baseRadius = 0.008 + Math.random() * 0.012;
+    baseRadius = 0.010 + Math.random() * 0.005;  // 3.6–5.4px canvas — merge into carpet
   } else if (level === 'dense') {
-    baseRadius = 0.005 + Math.random() * 0.008;
+    baseRadius = 0.007 + Math.random() * 0.004;  // 2.5–3.9px canvas
   } else {
-    baseRadius = 0.003 + Math.random() * 0.005;
+    baseRadius = 0.008 + Math.random() * 0.005;  // 2.9–4.7px canvas — clearly individual
   }
 
   const hemolysisRadius = findings.hemolysis === 'gamma'

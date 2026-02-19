@@ -1,15 +1,18 @@
 <script lang="ts">
-  import type { Colony, MediaType } from './streak-types';
-  import { MEDIA_COLORS } from './streak-types';
+  import type { Colony, MediaType, DensityGrid } from './streak-types';
+  import type { CultureFindings } from '../../../../shared/types';
+  import { MEDIA_COLORS, COLONY_COLORS, GRID_SIZE, SIM } from './streak-types';
 
   interface Props {
     colonies: Colony[];
     mediaType: MediaType;
+    grid?: DensityGrid;
+    findings?: CultureFindings;
     pickingEnabled?: boolean;
     onColonyPicked?: (colony: Colony) => void;
   }
 
-  let { colonies, mediaType, pickingEnabled = false, onColonyPicked }: Props = $props();
+  let { colonies, mediaType, grid, findings, pickingEnabled = false, onColonyPicked }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let selectedColonyIndex = $state<number | null>(null);
@@ -27,7 +30,7 @@
     return {
       cx: colony.x * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
       cy: colony.y * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
-      r: Math.max(1.5, colony.radius * PLATE_RADIUS * 2),
+      r: Math.max(3, colony.radius * PLATE_RADIUS * 2),
     };
   }
 
@@ -107,8 +110,34 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
 
+    // Grid-based confluent carpet — renders a true solid lawn from density data
+    if (grid && findings) {
+      const baseColor = COLONY_COLORS[findings.colonyColor] ?? COLONY_COLORS['cream'];
+      const cellPx = (PLATE_RADIUS * 2) / GRID_SIZE;
+      const plateLeft = PLATE_CENTER - PLATE_RADIUS;
+      const plateTop = PLATE_CENTER - PLATE_RADIUS;
+      ctx.filter = 'blur(10px)';
+      ctx.fillStyle = baseColor;
+      ctx.globalAlpha = 0.92;
+      for (let gy = 0; gy < GRID_SIZE; gy++) {
+        for (let gx = 0; gx < GRID_SIZE; gx++) {
+          const density = grid.cells[gy * GRID_SIZE + gx];
+          if (density < SIM.DENSITY_CONFLUENT) continue;
+          ctx.fillRect(
+            plateLeft + gx * cellPx,
+            plateTop + gy * cellPx,
+            Math.ceil(cellPx) + 1,
+            Math.ceil(cellPx) + 1
+          );
+        }
+      }
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+    }
+
     // Draw hemolysis zones first
     for (const colony of colonies) {
+      if (colony.densityLevel === 'confluent' && grid) continue; // confluent hemolysis shown via carpet
       const { cx, cy } = colonyToCanvas(colony);
       if (colony.hemolysisType !== 'gamma' && colony.hemolysisRadius > 0) {
         const hr = colony.hemolysisRadius * PLATE_RADIUS * 2;
@@ -121,42 +150,30 @@
       }
     }
 
-    // Draw confluent zones as filled regions
-    for (const colony of colonies) {
-      if (colony.densityLevel !== 'confluent') continue;
-      const { cx, cy, r } = colonyToCanvas(colony);
-      ctx.beginPath();
-      ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = colony.color;
-      ctx.globalAlpha = 0.6;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    // Draw colony bodies on top
+    // Draw colony bodies
     for (let i = 0; i < colonies.length; i++) {
       const colony = colonies[i];
+      if (colony.densityLevel === 'confluent' && grid) continue; // rendered as pixel carpet above
       const { cx, cy, r } = colonyToCanvas(colony);
 
-      // Colony body with gradient for 3D effect
-      const colGrad = ctx.createRadialGradient(
-        cx - r * 0.3, cy - r * 0.3, 0,
-        cx, cy, r
-      );
-      colGrad.addColorStop(0, lightenColor(colony.color, 30));
-      colGrad.addColorStop(0.7, colony.color);
-      colGrad.addColorStop(1, darkenColor(colony.color, 20));
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = colGrad;
-      ctx.fill();
-
-      // Contaminant border
-      if (colony.isContaminant) {
-        ctx.strokeStyle = 'rgba(255, 100, 100, 0.4)';
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+      if (colony.densityLevel === 'confluent') {
+        // Flat matte fill fallback when no grid
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = colony.color;
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      } else {
+        // Soft organic blob — radial gradient fading to transparent, no hard edge
+        const blobR = r * 2.2;
+        const blobGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, blobR);
+        const peakAlpha = colony.densityLevel === 'isolated' ? 0.95 : 0.80;
+        blobGrad.addColorStop(0,   hexToRgba(colony.color, peakAlpha));
+        blobGrad.addColorStop(0.45, hexToRgba(colony.color, peakAlpha * 0.75));
+        blobGrad.addColorStop(1,   hexToRgba(colony.color, 0));
+        ctx.fillStyle = blobGrad;
+        ctx.fillRect(cx - blobR, cy - blobR, blobR * 2, blobR * 2);
       }
 
       // Hover highlight
@@ -209,18 +226,20 @@
     return `rgb(${r}, ${g}, ${b})`;
   }
 
-  function darkenColor(hex: string, amount: number): string {
+  function hexToRgba(hex: string, alpha: number): string {
     const num = parseInt(hex.replace('#', ''), 16);
-    const r = Math.max(0, (num >> 16) - amount);
-    const g = Math.max(0, ((num >> 8) & 0xff) - amount);
-    const b = Math.max(0, (num & 0xff) - amount);
-    return `rgb(${r}, ${g}, ${b})`;
+    const r = (num >> 16) & 0xff;
+    const g = (num >> 8) & 0xff;
+    const b = num & 0xff;
+    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   $effect(() => {
     if (canvas) {
       colonies;
       mediaType;
+      grid;
+      findings;
       selectedColonyIndex;
       hoveredColonyIndex;
       renderColonies();
@@ -262,8 +281,11 @@
 
 <style>
   .plate-canvas {
-    width: 400px;
-    height: 400px;
+    /* Internal resolution is 400×400 for picking accuracy, but CSS-scales to fit */
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    aspect-ratio: 1;
     border-radius: 50%;
     box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4);
   }

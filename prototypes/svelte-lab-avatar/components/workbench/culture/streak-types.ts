@@ -48,22 +48,6 @@ export function plateToGrid(nx: number, ny: number): { gx: number; gy: number } 
   return { gx, gy };
 }
 
-// === Loop State ===
-
-export interface LoopState {
-  inoculumLevel: number; // 0-1, how much bacteria is on the loop
-  temperature: number;   // 0-1, 1.0 = just flamed (kills bacteria on contact), decays over time
-  isFlamed: boolean;     // whether the loop has been sterilized since last use
-}
-
-// === Lid State ===
-
-export interface LidState {
-  tiltX: number;             // -1 to 1, horizontal tilt
-  tiltY: number;             // -1 to 1, vertical tilt (positive = tilted away)
-  totalOpenSeconds: number;  // accumulated time × exposure magnitude
-}
-
 // === Simulation Constants ===
 
 export const SIM = {
@@ -71,14 +55,20 @@ export const SIM = {
   PRESSURE_LIGHT: 1.0,
   PRESSURE_HEAVY: 2.5,
   DAMAGE_THRESHOLD: 3.0,     // cumulative heavy pressure exceeding this = gouge
-  DEPOSIT_BASE_RATE: 0.02,   // base deposit per frame at normal speed
-  DEPLETION_RATE: 0.85,      // fraction of deposit removed from loop each frame
-  PICKUP_RATE: 0.05,         // fraction of existing density picked up when crossing
+  DENSITY_MAX: 0.5,          // hard cap — a cell saturates and takes no more
+  // Deposit: bacteria deposited per cell = volume × concentration × DEPOSIT_RATE × modifiers
+  // This is independent of how fast volume drains, so Zone 1 is always confluent.
+  DEPOSIT_RATE: 0.5,
+  // Volume drain: fixed amount consumed per cell regardless of deposit amount.
+  // Loop lasts ~1.0/0.005 = 200 cells (≈ 4 passes of 50 cells each = one full Zone 1).
+  VOLUME_DRAIN: 0.005,
+  // Pickup: fraction of cell density absorbed as volume when crossing an existing deposit.
+  PICKUP_VOLUME_RATE: 0.12,
 
-  // Speed normalization
-  SPEED_REFERENCE: 5.0,      // pixels/frame at "normal" speed (normalized coords)
+  // Speed normalization — speedNorm is in normalized plate coords per second
+  SPEED_REFERENCE: 0.5,      // norm-coords/sec at "normal" sweep speed
   SPEED_MIN_FACTOR: 0.3,     // minimum speed factor (very fast movement)
-  SPEED_MAX_FACTOR: 3.0,     // maximum speed factor (very slow movement)
+  SPEED_MAX_FACTOR: 3.0,     // maximum speed factor (very slow/careful movement)
 
   // Loop temperature
   TEMP_DECAY_PER_FRAME: 0.015, // temperature drops this much per frame of movement
@@ -88,11 +78,14 @@ export const SIM = {
   CONTAM_RATE: 0.002,   // contamination events per frame per unit of lid angle
   CONTAM_BASE: 0.0005,  // base contamination even with lid mostly closed
 
-  // Colony generation thresholds
-  DENSITY_CONFLUENT: 0.5,   // above this = confluent growth
-  DENSITY_DENSE: 0.15,      // above this = dense colonies
-  DENSITY_ISOLATED: 0.02,   // above this = isolated colonies (the goal)
-  DENSITY_NONE: 0.005,      // below this = no growth
+  // Colony generation thresholds — calibrated to DEPOSIT_RATE=0.5, DENSITY_MAX=0.5
+  // Zone 1 (full loop): cells cap at 0.5 and hit confluent easily
+  // Zone 2 (pickup ≈0.15 vol, conc≈0.6): deposit ≈0.045/cell → dense near border, isolated far
+  // Zone 3 (pickup from Zone 2 ≈0.03 vol, conc≈0.15): deposit ≈0.0023/cell → sparse isolated
+  DENSITY_CONFLUENT: 0.20,  // Zone 1 carpet — 1 pass with full loop
+  DENSITY_DENSE: 0.02,      // Zone 2 near border — diluted pickup
+  DENSITY_ISOLATED: 0.003,  // Zone 3-4 — double-diluted pickup
+  DENSITY_NONE: 0.0005,     // background noise threshold
 
   // Lid physics
   LID_MIN_STREAK: 0.15,     // minimum lid angle to allow streaking
@@ -100,7 +93,8 @@ export const SIM = {
 
   // Pressure ramp (per frame at ~60fps)
   PRESSURE_RAMP_UP: 0.015,    // ramp up when Shift held (~1.1s to full)
-  PRESSURE_RAMP_DOWN: 0.025,  // ramp down when Shift released (~0.67s to zero)
+  PRESSURE_RAMP_DOWN: 0.008,  // ramp down when Shift released (~2s to zero — deliberate, like real pressure)
+  MIN_STREAK_PRESSURE: 0.05,  // loop must press down to contact agar; at zero it hovers above
 
   // Lid tilt
   LID_TILT_THRESHOLD: 0.15,   // minimum tilt magnitude to allow streaking
@@ -119,20 +113,6 @@ export interface Colony {
   isContaminant: boolean;
   isIsolated: boolean; // true if no nearby colonies (suitable for picking)
   densityLevel: 'confluent' | 'dense' | 'isolated';
-}
-
-// === Culture Phase ===
-
-export type CulturePhase = 'prep' | 'streaking' | 'incubating' | 'reading' | 'picking';
-
-// === Workbench Zones ===
-
-export type WorkbenchZone = 'flame' | 'sample' | 'plate' | 'none';
-
-export interface WorkbenchLayout {
-  flameRect: { x: number; y: number; w: number; h: number };
-  sampleRect: { x: number; y: number; w: number; h: number };
-  plateRect: { x: number; y: number; w: number; h: number };
 }
 
 // === Colony Colors ===

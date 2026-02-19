@@ -1,41 +1,74 @@
+<!--
+  WorkbenchView.svelte — Generic workbench surface.
+
+  Renders a grid with items placed in fixed cells.
+  Item rendering is fully delegated to ItemRenderer — this component
+  has ZERO knowledge of specific item types or their interactions.
+  Items are self-contained and communicate via workbench context.
+-->
 <script lang="ts">
-  import type { Fixture, Sample, Observation, Patient, MediaType, ActivePrep } from '../../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode } from '../../../shared/types';
+  import type { Fixture, Sample } from '../../../shared/types';
+  import { FIXTURE_DEFS } from '../../../shared/types';
   import DetailView from '../ui/DetailView.svelte';
-  import MicroscopeStage from './MicroscopeStage.svelte';
-  import CultureStation from './CultureStation.svelte';
-  import PrepStation from './PrepStation.svelte';
+  import WorkbenchGrid from './WorkbenchGrid.svelte';
+  import ItemRenderer from './items/ItemRenderer.svelte';
+  import HeldItemCursor from './items/HeldItemCursor.svelte';
+  import { placeItems, persistPositions } from './items/layout-items';
+  import { WorkbenchState, setWorkbenchContext } from './workbench-context.svelte';
 
   interface Props {
-    furniture: Fixture;
+    fixture: Fixture;
     samples: Sample[];
-    observations: Observation[];
-    patients: Patient[];
-    currentTick: number;
-    activePrep: ActivePrep | null;
     onClose: () => void;
-    onRecordObservation?: (observation: Omit<Observation, 'id' | 'timestamp'>) => void;
-    onPrepMedia?: (furnitureId: string, mediaType: MediaType) => void;
   }
 
-  let { furniture, samples, observations, patients, currentTick, activePrep, onClose, onRecordObservation, onPrepMedia }: Props = $props();
+  let { fixture, samples, onClose }: Props = $props();
 
-  const def = $derived(FIXTURE_DEFS[furniture.type]);
-  const mode = $derived(detectWorkbenchMode(furniture.items));
+  const fixtureDef = $derived(FIXTURE_DEFS[fixture.type]);
+  const gridCols = $derived('surfaceGrid' in fixtureDef ? fixtureDef.surfaceGrid[0] : 4);
+  const gridRows = $derived('surfaceGrid' in fixtureDef ? fixtureDef.surfaceGrid[1] : 2);
+
+  // Place items on the grid (positions are persisted on items)
+  const placements = $derived(placeItems(fixture.items, gridCols, gridRows));
+
+  // Persist auto-assigned positions back to items (one-time side effect)
+  $effect(() => {
+    persistPositions(placements);
+  });
+
+  // Reactive workbench context — items read/write through this
+  const wb = new WorkbenchState(
+    () => fixture.items,
+    () => samples,
+  );
+  setWorkbenchContext(wb);
 </script>
 
-<DetailView icon={def.icon} title={furniture.name} tag={mode} {onClose}>
-  {#if mode === 'microscope'}
-    <MicroscopeStage {furniture} {samples} {observations} {onRecordObservation} />
-  {:else if mode === 'culture'}
-    <CultureStation {furniture} {samples} {observations} {patients} {currentTick} {onRecordObservation} />
-  {:else if mode === 'prep'}
-    <PrepStation {furniture} {currentTick} {activePrep} onPrepStart={(mediaType) => onPrepMedia?.(furniture.id, mediaType)} />
-  {:else}
-    <div class="text-center text-muted">
-      <p class="icon-xl mb-md">{def.icon}</p>
-      <p class="text-lg mb-sm">{furniture.name} detail view coming soon</p>
-      <p>Mode: <code>{mode}</code></p>
-    </div>
-  {/if}
+<DetailView icon={fixtureDef.icon} title={fixture.name} {onClose}>
+  <div class="w-full max-w-225 p-md">
+    <WorkbenchGrid
+      {gridCols}
+      {gridRows}
+      {placements}
+      hint={fixture.items.length === 0
+        ? 'This bench is empty. Place items here from your inventory.'
+        : ''}
+    >
+      {#snippet itemContent(placement)}
+        <ItemRenderer item={placement.item} />
+      {/snippet}
+
+      {#snippet heldContent(item)}
+        <HeldItemCursor {item} />
+      {/snippet}
+
+      {#snippet statusBar()}
+        <div class="flex items-center gap-md py-xs px-md text-sm bg-bg-dark" style="border-top: var(--border-thin); border-radius: 0 0 6px 6px;">
+          <span class="text-parchment-aged italic">
+            {fixture.items.length === 0 ? 'Empty workbench' : `${fixture.items.length} item${fixture.items.length === 1 ? '' : 's'} · ${gridCols}×${gridRows} grid`}
+          </span>
+        </div>
+      {/snippet}
+    </WorkbenchGrid>
+  </div>
 </DetailView>

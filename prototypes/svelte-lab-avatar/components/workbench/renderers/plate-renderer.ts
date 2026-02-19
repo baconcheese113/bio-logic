@@ -6,7 +6,7 @@
 import type { DensityGrid, MediaType } from '../culture/streak-types';
 import { MEDIA_COLORS, GRID_SIZE, SIM } from '../culture/streak-types';
 
-export function lightenColor(hex: string, pct: number): string {
+function lightenColor(hex: string, pct: number): string {
   const num = parseInt(hex.replace('#', ''), 16);
   const r = Math.min(255, (num >> 16) + pct);
   const g = Math.min(255, ((num >> 8) & 0xff) + pct);
@@ -61,7 +61,7 @@ export function redrawPlate(
 }
 
 /** Render bacteria density heatmap over the plate */
-export function renderDensityOverlay(
+function renderDensityOverlay(
   ctx: CanvasRenderingContext2D,
   size: number,
   radius: number,
