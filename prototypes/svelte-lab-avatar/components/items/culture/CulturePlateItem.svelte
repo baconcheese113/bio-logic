@@ -12,22 +12,21 @@
     Shift hold  = ramp pressure (via workbench context)
     Pointer on dish = streak while loop is held + lid open + inoculum present
 
-  Physics reuse: culture-plate.ts (density grid, applyStreakSegment)
+  Physics reuse: streak-physics.ts (density grid, applyStreakSegment)
   Render reuse : plate-renderer.ts (redrawPlate, drawStreakSegment)
-  Colony reuse : colony-generator.ts + ColonyPlateView.svelte
+  Colony reuse : colony-generator.ts + ColonyView.svelte
 -->
 <script lang="ts">
-  import type { Item, CultureFindings, MediaType } from '../../../../shared/types';
-  import { getCulturePlate } from '../../../../shared/types';
-  import { MEDIA_COLORS, SIM } from '../culture/streak-types';
-  import type { Colony } from '../culture/streak-types';
-  import { getWorkbench } from '../workbench-context.svelte';
-  import { createPlateState, applyStreakSegment } from './culture-plate';
-  import { redrawPlate, drawStreakSegment } from '../renderers/plate-renderer';
-  import { generateColoniesFromGrid, computeGridQuality } from '../culture/colony-generator';
-  import type { StreakQuality } from '../culture/colony-generator';
-  import ColonyPlateView from '../culture/ColonyPlateView.svelte';
-  import { GRID_SIZE } from '../culture/streak-types';
+  import type { Item, CultureFindings, MediaType } from '../../../lib/types';
+  import { getCulturePlate } from '../../../lib/types';
+  import { MEDIA_COLORS, SIM, GRID_SIZE, PLATE_RADIUS } from './simulation-types';
+  import type { Colony } from './simulation-types';
+  import { getWorkbench } from '../../workbench/workbench-context.svelte';
+  import { createPlateState, applyStreakSegment } from './streak-physics';
+  import { redrawPlate, drawStreakSegment } from './plate-renderer';
+  import { generateColoniesFromGrid, computeGridQuality } from './colony-generator';
+  import type { StreakQuality } from './colony-generator';
+  import ColonyView from './ColonyView.svelte';
 
   interface Props { item: Item; }
   let { item }: Props = $props();
@@ -39,7 +38,6 @@
 
   // --- Canvas constants ---
   const PLATE_SIZE = 400;
-  const PLATE_RADIUS = 185;
   const PLATE_CENTER = PLATE_SIZE / 2;
 
   let dishEl = $state<HTMLDivElement>();
@@ -442,7 +440,7 @@
   {:else}
     <!-- Colony view -->
     <div class="flex flex-col items-center justify-center gap-1 w-full h-full overflow-hidden">
-      <ColonyPlateView {colonies} {mediaType} grid={plateState.grid} findings={snappedFindings ?? undefined} />
+      <ColonyView {colonies} {mediaType} grid={plateState.grid} findings={snappedFindings ?? undefined} />
       {#if quality}
         <div class="quality-badge grade-{quality.overallGrade}">
           {quality.overallGrade} · {quality.isolatedColonyCount} isolated

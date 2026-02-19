@@ -17,8 +17,8 @@
     The progress bar reflects the loop's current temperature (not a separate timer).
 -->
 <script lang="ts">
-  import type { Item } from '../../../../shared/types';
-  import { getWorkbench } from '../workbench-context.svelte';
+  import type { Item } from '../../lib/types';
+  import { getWorkbench } from '../workbench/workbench-context.svelte';
 
   interface Props { item: Item; }
   let { item }: Props = $props();

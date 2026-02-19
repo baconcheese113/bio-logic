@@ -1,19 +1,19 @@
 <script lang="ts">
-  import { createInitialLabState } from '../shared/mock-data';
-  import type { LabState, GridPosition, SampleType, Item, ActivePrep } from '../shared/types';
+  import { createInitialLabState } from './lib/mock-data';
+  import type { LabState, GridPosition, SampleType, Item, ActivePrep } from './lib/types';
   import {
     isAdjacent, movePlayerTo,
     collectSample, placeItem, pickupFromFixture, takeFromCabinet,
     checkPrepCompletion,
     submitDiagnosis,
     updateSampleDegradation, updatePatientPatience, maybeSpawnNewPatient,
-  } from '../shared/game-actions';
-  import type { Diagnosis } from '../shared/types';
+  } from './lib/game-actions';
+  import type { Diagnosis } from './lib/types';
 
   import LabGrid from './components/lab/LabGrid.svelte';
   import ClockBar from './components/hud/ClockBar.svelte';
   import FixturePanel from './components/panels/FixturePanel.svelte';
-  import SampleHUD from './components/hud/SampleHUD.svelte';
+  import CarryingBar from './components/hud/CarryingBar.svelte';
   import WorkbenchView from './components/workbench/WorkbenchView.svelte';
   import PatientPanel from './components/panels/PatientPanel.svelte';
   import NotebookPanel from './components/panels/NotebookPanel.svelte';
@@ -159,7 +159,7 @@
 
     <div class="main-content">
       <div class="lab-viewport">
-        <SampleHUD carrying={labState.player.carrying} carryCapacity={labState.player.carryCapacity} />
+        <CarryingBar carrying={labState.player.carrying} carryCapacity={labState.player.carryCapacity} />
         
         <NotebookPanel 
           observations={labState.observations}

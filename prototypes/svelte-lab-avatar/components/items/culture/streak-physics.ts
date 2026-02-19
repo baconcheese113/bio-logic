@@ -3,8 +3,8 @@
  * All state mutations are explicit — call the functions, read the results.
  */
 
-import type { DensityGrid } from '../culture/streak-types';
-import { GRID_SIZE, SIM, createDensityGrid, plateToGrid } from '../culture/streak-types';
+import type { DensityGrid } from './simulation-types';
+import { GRID_SIZE, SIM, createDensityGrid, plateToGrid } from './simulation-types';
 
 interface PlateState {
   grid: DensityGrid;

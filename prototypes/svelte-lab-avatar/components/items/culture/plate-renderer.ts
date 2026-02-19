@@ -3,15 +3,23 @@
  * Extracted from CultureWorkbench for reuse across workbench configurations.
  */
 
-import type { DensityGrid, MediaType } from '../culture/streak-types';
-import { MEDIA_COLORS, GRID_SIZE, SIM } from '../culture/streak-types';
+import type { DensityGrid, MediaType } from './simulation-types';
+import { MEDIA_COLORS, GRID_SIZE, SIM } from './simulation-types';
 
-function lightenColor(hex: string, pct: number): string {
+export function lightenColor(hex: string, pct: number): string {
   const num = parseInt(hex.replace('#', ''), 16);
   const r = Math.min(255, (num >> 16) + pct);
   const g = Math.min(255, ((num >> 8) & 0xff) + pct);
   const b = Math.min(255, (num & 0xff) + pct);
   return `rgb(${r},${g},${b})`;
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 /** Draw complete plate (agar base + density overlay + rim) */

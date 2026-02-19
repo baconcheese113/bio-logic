@@ -5,6 +5,9 @@
  * See docs/taxonomy.md for full reference.
  */
 
+import type { ItemType, ItemState } from '../components/workbench/item-defs';
+export type { ItemType, ItemState };
+
 // === Grid & Position ===
 
 export interface GridPosition {
@@ -179,18 +182,12 @@ export type SampleLocation =
 //  SUBSTANCE & CONTAINER SYSTEM
 // ============================================================
 
-type SubstanceType =
+export type SubstanceType =
   | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool'
   | 'nutrient-agar' | 'blood-agar' | 'gelatin'
   | 'agar-powder' | 'gelatin-powder' | 'peptone'
   | 'defibrinated-blood' | 'distilled-water'
   | 'bacteria-culture';
-
-interface ContainerDef {
-  capacity: number;
-  acceptedSubstances: SubstanceType[];
-  sealable: boolean;
-}
 
 export interface SubstanceContents {
   substance: SubstanceType;
@@ -206,50 +203,6 @@ type SubstanceMeta =
 
 
 // ============================================================
-//  ITEM DEFINITION REGISTRY
-// ============================================================
-
-interface ItemDef {
-  label: string;
-  icon: string;
-  gridSize: [number, number];
-  placement: 'benchtop' | 'freeStanding';
-  maxStack: number;
-  consumable: boolean;
-  portable: boolean;
-  container?: ContainerDef;
-}
-
-export const ITEM_DEFS = {
-  // Equipment — reusable, stays on benches
-  'bunsen-burner':    { label: 'Bunsen Burner',    icon: '🔥', gridSize: [1, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'inoculation-loop': { label: 'Inoculation Loop', icon: '〰️', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'microscope':       { label: 'Brass Microscope',  icon: '🔬', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'hand-centrifuge':  { label: 'Hand Centrifuge',   icon: '🔄', gridSize: [2, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'staining-rack':    { label: 'Staining Rack',     icon: '🧪', gridSize: [2, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'steam-sterilizer': { label: 'Steam Sterilizer',  icon: '♨️', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: false },
-  'flask':            { label: 'Laboratory Flask',   icon: '⚗️', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: true,
-                        container: { capacity: 5, acceptedSubstances: ['distilled-water', 'nutrient-agar', 'blood-agar', 'gelatin'] as SubstanceType[], sealable: true } },
-
-  // Containers — hold substances, portable
-  'empty-dish':       { label: 'Petri Dish',         icon: '🧫', gridSize: [2, 2] as [number, number], placement: 'benchtop' as const, maxStack: 5, consumable: false, portable: true,
-                        container: { capacity: 1, acceptedSubstances: ['nutrient-agar', 'blood-agar', 'gelatin', 'bacteria-culture'] as SubstanceType[], sealable: true } },
-  'sample-vial':      { label: 'Sample Vial',        icon: '🧪', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 0, consumable: false, portable: true,
-                        container: { capacity: 1, acceptedSubstances: ['blood', 'sputum', 'csf', 'urine', 'stool'] as SubstanceType[], sealable: true } },
-
-  // Consumables — depletable supplies, portable
-  'agar-powder':        { label: 'Agar Powder',        icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-  'gelatin-powder':     { label: 'Gelatin Powder',      icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-  'beef-extract':       { label: 'Beef Extract',        icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-  'peptone':            { label: 'Peptone',              icon: '🫙', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-  'defibrinated-blood': { label: 'Defibrinated Blood',  icon: '🩸', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-  'distilled-water':    { label: 'Distilled Water',      icon: '💧', gridSize: [1, 1] as [number, number], placement: 'benchtop' as const, maxStack: 3, consumable: true, portable: true },
-} as const satisfies Record<string, ItemDef>;
-
-export type ItemType = keyof typeof ITEM_DEFS;
-
-
-// ============================================================
 //  RUNTIME ITEM INSTANCES
 // ============================================================
 
@@ -261,13 +214,6 @@ export interface Item {
   state?: ItemState;
   contents?: SubstanceContents;
 }
-
-export type ItemState =
-  | { kind: 'microscope'; loadedSlideId: string | null; focusLevel: number }
-  | { kind: 'bunsen-burner'; lit: boolean }
-  | { kind: 'inoculation-loop'; volume: number; concentration: number; temperature: number; isSterile: boolean }
-  | { kind: 'staining-rack'; loadedSlides: string[]; currentStain: string | null }
-  | { kind: 'centrifuge'; loadedVials: string[]; spinning: boolean; rpm: number };
 
 
 // ============================================================
@@ -492,32 +438,6 @@ export const SKIN_TONES = ['#ffe0bd', '#e5c298', '#c68642', '#8d5524', '#5c3317'
 export const HAIR_COLORS = ['#090806', '#2c222b', '#71635a', '#b7a69e', '#d6c4c2', '#cabfb1'];
 
 
-// ============================================================
-//  ITEM HELPER FUNCTIONS
-// ============================================================
 
-export function getItemIcon(item: Item): string {
-  return ITEM_DEFS[item.type].icon;
-}
-
-export function getItemLabel(item: Item): string {
-  const def = ITEM_DEFS[item.type];
-  const plate = getCulturePlate(item);
-  if (plate) return plate.label;
-  if (item.quantity > 1) return `${def.label} ×${item.quantity}`;
-  return def.label;
-}
-
-export function getItemSize(item: Item): number {
-  return ITEM_DEFS[item.type].gridSize[0];
-}
-
-export function getCarryingLoad(items: Item[]): number {
-  return items.reduce((sum, item) => sum + getItemSize(item), 0);
-}
-
-export function isPortable(item: Item): boolean {
-  return ITEM_DEFS[item.type].portable;
-}
 
 

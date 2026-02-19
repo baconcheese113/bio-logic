@@ -12,8 +12,9 @@
  * Item components call getWorkbench() and read reactive properties.
  */
 import { setContext, getContext } from 'svelte';
-import type { Item, Sample, ItemType } from '../../../shared/types';
-import { SIM } from './culture/streak-types';
+import type { Item, Sample } from '../../lib/types';
+import type { ItemType } from './item-defs';
+import { SIM } from '../items/culture/simulation-types';
 
 const KEY = Symbol('workbench');
 

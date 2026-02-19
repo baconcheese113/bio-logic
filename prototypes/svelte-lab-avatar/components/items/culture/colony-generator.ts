@@ -3,9 +3,9 @@
  * Pure functions: density grid + culture findings → colony positions.
  */
 
-import type { DensityGrid, Colony, StreakQuality, MediaType } from './streak-types';
-import type { CultureFindings } from '../../../../shared/types';
-import { GRID_SIZE, SIM, COLONY_COLORS, CONTAMINANT_COLORS } from './streak-types';
+import type { DensityGrid, Colony, StreakQuality, MediaType } from './simulation-types';
+import type { CultureFindings } from '../../../lib/types';
+import { GRID_SIZE, SIM, COLONY_COLORS, CONTAMINANT_COLORS } from './simulation-types';
 
 export type { StreakQuality };
 
@@ -53,15 +53,15 @@ export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
 
         if (density >= SIM.DENSITY_CONFLUENT) {
           // Confluent: place almost every qualifying cell (thin slightly to avoid overlap)
-          if (Math.random() < 0.35) {
+          if (Math.random() < SIM.COLONY_PROB_CONFLUENT) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'confluent'));
           }
         } else if (density >= SIM.DENSITY_DENSE) {
-          if (Math.random() < 0.25) {
+          if (Math.random() < SIM.COLONY_PROB_DENSE) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'dense'));
           }
         } else if (density >= SIM.DENSITY_ISOLATED) {
-          if (Math.random() < 0.12) {
+          if (Math.random() < SIM.COLONY_PROB_ISOLATED) {
             colonies.push(createColony(nx, ny, density, colonyColor, findings, 'isolated'));
           }
         }
@@ -97,10 +97,10 @@ export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
   const confluent = colonies.filter(c => c.densityLevel === 'confluent').length;
   const dense = colonies.filter(c => c.densityLevel === 'dense').length;
   const isolated = colonies.filter(c => c.densityLevel === 'isolated').length;
-  const maxDensity = Math.max(...Array.from(grid.cells));
-  const cellsAboveConfluent = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_CONFLUENT).length;
-  const cellsAboveDense = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_DENSE).length;
-  const cellsAboveIsolated = Array.from(grid.cells).filter(v => v >= SIM.DENSITY_ISOLATED).length;
+  const maxDensity = Math.max(...Array.from<number>(grid.cells));
+  const cellsAboveConfluent = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_CONFLUENT).length;
+  const cellsAboveDense = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_DENSE).length;
+  const cellsAboveIsolated = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_ISOLATED).length;
   console.log(`[colonies] gridMax=${maxDensity.toFixed(4)} | cells≥confluent:${cellsAboveConfluent} ≥dense:${cellsAboveDense} ≥isolated:${cellsAboveIsolated} | colonies: confluent=${confluent} dense=${dense} isolated=${isolated}`);
 
   return colonies;

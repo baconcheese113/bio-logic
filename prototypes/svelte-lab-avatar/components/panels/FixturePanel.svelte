@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { Fixture, GridPosition, Item } from '../../../shared/types';
-  import { FIXTURE_DEFS, detectWorkbenchMode, getCarryingLoad, isPortable } from '../../../shared/types';
+  import type { Fixture, GridPosition, Item } from '../../lib/types';
+  import { FIXTURE_DEFS, detectWorkbenchMode } from '../../lib/types';
+  import { getCarryingLoad, isPortable } from '../workbench/item-defs';
   import ItemSlot from '../ui/ItemSlot.svelte';
 
   interface Props {

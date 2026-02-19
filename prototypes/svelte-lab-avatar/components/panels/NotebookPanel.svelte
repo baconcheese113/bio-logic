@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Observation } from '../../../shared/types';
-  import { OBSERVATION_ICONS } from '../../../shared/types';
+  import type { Observation } from '../../lib/types';
+  import { OBSERVATION_ICONS } from '../../lib/types';
 
   interface Props {
     observations: Observation[];

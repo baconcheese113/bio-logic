@@ -7,13 +7,13 @@
   Items are self-contained and communicate via workbench context.
 -->
 <script lang="ts">
-  import type { Fixture, Sample } from '../../../shared/types';
-  import { FIXTURE_DEFS } from '../../../shared/types';
+  import type { Fixture, Sample } from '../../lib/types';
+  import { FIXTURE_DEFS } from '../../lib/types';
   import DetailView from '../ui/DetailView.svelte';
   import WorkbenchGrid from './WorkbenchGrid.svelte';
-  import ItemRenderer from './items/ItemRenderer.svelte';
-  import HeldItemCursor from './items/HeldItemCursor.svelte';
-  import { placeItems, persistPositions } from './items/layout-items';
+  import ItemRenderer from '../items/ItemRenderer.svelte';
+  import HeldItemOverlay from './HeldItemOverlay.svelte';
+  import { placeItems, persistPositions } from './item-defs';
   import { WorkbenchState, setWorkbenchContext } from './workbench-context.svelte';
 
   interface Props {
@@ -59,7 +59,7 @@
       {/snippet}
 
       {#snippet heldContent(item)}
-        <HeldItemCursor {item} />
+        <HeldItemOverlay {item} />
       {/snippet}
 
       {#snippet statusBar()}

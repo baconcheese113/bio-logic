@@ -15,12 +15,8 @@ import type {
   ActivePrep,
   Direction,
 } from './types';
-import {
-  getCarryingLoad,
-  getItemSize,
-  FIXTURE_DEFS,
-  isPortable,
-} from './types';
+import { FIXTURE_DEFS } from './types';
+import { getCarryingLoad, getItemSize, isPortable } from '../components/workbench/item-defs';
 import { generatePatient, WAITING_BENCHES } from './mock-data';
 
 // ============================================================

@@ -3,8 +3,8 @@
   Used in fixture panels, inventory displays, and workbench sidebars.
 -->
 <script lang="ts">
-  import { getItemIcon, getItemLabel } from '../../../shared/types';
-  import type { Item } from '../../../shared/types';
+  import { getItemIcon, getItemLabel } from '../workbench/item-defs';
+  import type { Item } from '../../lib/types';
 
   interface Props {
     item: Item;

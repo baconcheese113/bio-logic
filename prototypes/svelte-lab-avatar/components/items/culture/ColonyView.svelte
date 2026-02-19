@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { Colony, MediaType, DensityGrid } from './streak-types';
-  import type { CultureFindings } from '../../../../shared/types';
-  import { MEDIA_COLORS, COLONY_COLORS, GRID_SIZE, SIM } from './streak-types';
+  import type { Colony, MediaType, DensityGrid } from './simulation-types';
+  import type { CultureFindings } from '../../../lib/types';
+  import { MEDIA_COLORS, COLONY_COLORS, GRID_SIZE, SIM, PLATE_RADIUS } from './simulation-types';
+  import { lightenColor, hexToRgba } from './plate-renderer';
 
   interface Props {
     colonies: Colony[];
@@ -19,7 +20,6 @@
   let hoveredColonyIndex = $state<number | null>(null);
 
   const PLATE_SIZE = 400;
-  const PLATE_RADIUS = 180;
   const PLATE_CENTER = PLATE_SIZE / 2;
 
   const selectedColony = $derived(
@@ -216,22 +216,6 @@
     ctx.strokeStyle = 'rgba(200, 180, 150, 0.3)';
     ctx.lineWidth = 3;
     ctx.stroke();
-  }
-
-  function lightenColor(hex: string, amount: number): string {
-    const num = parseInt(hex.replace('#', ''), 16);
-    const r = Math.min(255, (num >> 16) + amount);
-    const g = Math.min(255, ((num >> 8) & 0xff) + amount);
-    const b = Math.min(255, (num & 0xff) + amount);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  function hexToRgba(hex: string, alpha: number): string {
-    const num = parseInt(hex.replace('#', ''), 16);
-    const r = (num >> 16) & 0xff;
-    const g = (num >> 8) & 0xff;
-    const b = num & 0xff;
-    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   $effect(() => {

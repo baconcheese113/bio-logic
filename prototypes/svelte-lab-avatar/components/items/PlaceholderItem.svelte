@@ -3,8 +3,8 @@
   Shows the item's emoji icon and label.
 -->
 <script lang="ts">
-  import type { Item } from '../../../../shared/types';
-  import { ITEM_DEFS } from '../../../../shared/types';
+  import type { Item } from '../../lib/types';
+  import { ITEM_DEFS } from '../workbench/item-defs';
 
   interface Props {
     item: Item;

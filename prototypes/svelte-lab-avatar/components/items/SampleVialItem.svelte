@@ -7,9 +7,9 @@
     Once pressure crosses DIP_THRESHOLD, inoculum loads instantly (single event).
 -->
 <script lang="ts">
-  import type { Item, SampleType } from '../../../../shared/types';
-  import { SAMPLE_COLORS } from '../../../../shared/types';
-  import { getWorkbench } from '../workbench-context.svelte';
+  import type { Item, SampleType } from '../../lib/types';
+  import { SAMPLE_COLORS } from '../../lib/types';
+  import { getWorkbench } from '../workbench/workbench-context.svelte';
 
   interface Props { item: Item; }
   let { item }: Props = $props();

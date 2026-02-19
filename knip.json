@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "entry": ["prototypes/shared/event-bus.ts"],
   "project": ["prototypes/**/*.{ts,svelte}"],
   "ignore": ["legacy/**", "dist/**"],
   "ignoreDependencies": ["tailwindcss"]

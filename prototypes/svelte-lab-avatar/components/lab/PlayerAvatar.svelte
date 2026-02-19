@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Player } from '../../../shared/types';
-  import { getItemIcon } from '../../../shared/types';
+  import type { Player } from '../../lib/types';
+  import { getItemIcon } from '../workbench/item-defs';
 
   interface Props {
     player: Player;

@@ -5,7 +5,7 @@
 
 // === Media ===
 
-import type { MediaType } from '../../../../shared/types';
+import type { MediaType } from '../../../lib/types';
 export type { MediaType };
 
 export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; label: string }> = {
@@ -17,6 +17,8 @@ export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; lab
 // === Density Grid (core simulation state) ===
 
 export const GRID_SIZE = 100; // 100x100 cells covering the plate
+/** Canonical plate radius in canvas pixels (canvas is PLATE_SIZE×PLATE_SIZE). */
+export const PLATE_RADIUS = 185;
 
 export interface DensityGrid {
   /** Bacterial deposit density at each cell. Values 0+ (not capped). */
@@ -86,6 +88,11 @@ export const SIM = {
   DENSITY_DENSE: 0.02,      // Zone 2 near border — diluted pickup
   DENSITY_ISOLATED: 0.003,  // Zone 3-4 — double-diluted pickup
   DENSITY_NONE: 0.0005,     // background noise threshold
+
+  // Colony spawn probabilities per qualifying grid cell
+  COLONY_PROB_CONFLUENT: 0.35,
+  COLONY_PROB_DENSE: 0.25,
+  COLONY_PROB_ISOLATED: 0.12,
 
   // Lid physics
   LID_MIN_STREAK: 0.15,     // minimum lid angle to allow streaking

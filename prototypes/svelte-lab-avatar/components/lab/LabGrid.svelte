@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { LabState, GridPosition, Patient } from '../../../shared/types';
-  import { TILE_SIZE } from '../../../shared/mock-data';
+  import type { LabState, GridPosition, Patient } from '../../lib/types';
+  import { TILE_SIZE } from '../../lib/mock-data';
   import FixtureTile from './FixtureTile.svelte';
   import PlayerAvatar from './PlayerAvatar.svelte';
   import PatientTile from './PatientTile.svelte';

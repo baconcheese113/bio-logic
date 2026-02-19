@@ -8,9 +8,10 @@
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { GridPlacement } from './items/layout-items';
+  import type { GridPlacement } from './item-defs';
   import { getWorkbench } from './workbench-context.svelte';
-  import { ITEM_DEFS, getItemLabel, type Item } from '../../../shared/types';
+  import type { Item } from '../../lib/types';
+  import { ITEM_DEFS, getItemLabel } from './item-defs';
 
   interface Props {
     gridCols: number;

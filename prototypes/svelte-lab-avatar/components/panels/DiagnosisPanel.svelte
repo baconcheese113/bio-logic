@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Patient, Observation, Diagnosis, TreatmentOption, OrganismCategory } from '../../../shared/types';
+  import type { Patient, Observation, Diagnosis, TreatmentOption, OrganismCategory } from '../../lib/types';
 
   interface Props {
     patient: Patient;
