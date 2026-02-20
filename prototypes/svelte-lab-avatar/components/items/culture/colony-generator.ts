@@ -3,11 +3,9 @@
  * Pure functions: density grid + culture findings → colony positions.
  */
 
-import type { DensityGrid, Colony, StreakQuality, MediaType } from './simulation-types';
+import type { DensityGrid, Colony, ColonySeed, StreakQuality, MediaType } from './simulation-types';
 import type { CultureFindings } from '../../../lib/types';
 import { GRID_SIZE, SIM, COLONY_COLORS, CONTAMINANT_COLORS } from './simulation-types';
-
-export type { StreakQuality };
 
 // === Colony Generation from Density Grid ===
 
@@ -19,90 +17,165 @@ interface ColonyGenParams {
   lidExposure: number; // totalOpenSeconds from lid state
 }
 
-export function generateColoniesFromGrid(params: ColonyGenParams): Colony[] {
-  const { grid, findings, mediaType, contaminationEvents } = params;
+// Seeding constants — kept together to make tuning easy.
+const LAMBDA_SCALE = 50;  // density 0.04 → λ=2; density 0.20 → λ=10
+const LAMBDA_MAX   = 10;  // cap to bound total seed count per cell
+const CROWDING_K   = 0.15; // r_max suppression factor per unit λ
 
-  // MacConkey selectivity: gram-positive organisms don't grow
+/** Smooth λ(x,y) from 3×3 average density × LAMBDA_SCALE.
+ * Replaces the hard dense/isolated threshold split — λ now varies continuously
+ * so seed count and r_cap change gradually across the streak gradient. */
+function computeSmoothedLambda(grid: DensityGrid): Float32Array {
+  const out = new Float32Array(GRID_SIZE * GRID_SIZE);
+  for (let gy = 0; gy < GRID_SIZE; gy++) {
+    for (let gx = 0; gx < GRID_SIZE; gx++) {
+      let sum = 0, count = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const ny = gy + dy, nx = gx + dx;
+          if (ny < 0 || ny >= GRID_SIZE || nx < 0 || nx >= GRID_SIZE) continue;
+          sum += grid.cells[ny * GRID_SIZE + nx];
+          count++;
+        }
+      }
+      out[gy * GRID_SIZE + gx] = Math.min(LAMBDA_MAX, (sum / count) * LAMBDA_SCALE);
+    }
+  }
+  return out;
+}
+
+/**
+ * Generate stable seed positions from the density grid.
+ * Seeds are time-independent; call computeColoniesAtTime(seeds, hours) to get
+ * Colony[] at any incubation duration. This separation makes real-time growth
+ * trivial: just increment hours and re-derive colonies.
+ *
+ * Dense tier: many seeds with small r_max placed near grid spacing.
+ *   applyCollisionLimitedRadius() will pack them into a microcolony grid.
+ * Isolated tier: few seeds with organism-specific r_max, well separated.
+ * Confluent tier: skipped — the lawn OffscreenCanvas renders those regions.
+ */
+export function generateSeedsFromGrid(params: ColonyGenParams): ColonySeed[] {
+  const { grid, findings, mediaType, contaminationEvents } = params;
   const targetGrows = canGrowOnMedia(findings, mediaType);
   const colonyColor = COLONY_COLORS[findings.colonyColor] ?? COLONY_COLORS.cream;
+  const [iMin, iMax] = findings.isolatedRadiusRange ?? [0.014, 0.023];
 
-  const colonies: Colony[] = [];
+  const seeds: ColonySeed[] = [];
+  const lambdaField = computeSmoothedLambda(grid);
+  // midR: typical colony radius at low density (shrinks as lambda rises).
+  const midR = (iMin + iMax) / 2;
 
   if (targetGrows) {
-    // Scan density grid and place colonies based on density thresholds
     for (let gy = 0; gy < GRID_SIZE; gy++) {
       for (let gx = 0; gx < GRID_SIZE; gx++) {
         const idx = gy * GRID_SIZE + gx;
-        const density = grid.cells[idx];
-        const damage = grid.damage[idx];
-        const killed = grid.killZone[idx];
+        if (grid.damage[idx] > SIM.DAMAGE_THRESHOLD) continue;
+        if (grid.killZone[idx] > SIM.KILL_THRESHOLD) continue;
 
-        // No growth on damaged agar or kill zones
-        if (damage > SIM.DAMAGE_THRESHOLD) continue;
-        if (killed > SIM.KILL_THRESHOLD) continue;
-        if (density < SIM.DENSITY_NONE) continue;
+        // λ varies continuously from 0 (empty) to LAMBDA_MAX (saturated streak).
+        // No hard dense/isolated split — r_cap and seed count both depend smoothly on λ.
+        const lambda = lambdaField[idx];
+        if (lambda < 0.05) continue;
 
-        // Convert grid coords to normalized plate coords
-        const nx = (gx + 0.5) / GRID_SIZE;
-        const ny = (gy + 0.5) / GRID_SIZE;
+        const n = poissonSample(lambda);
+        if (n === 0) continue;
 
-        // Check inside plate circle
-        const dx = nx - 0.5;
-        const dy = ny - 0.5;
-        if (dx * dx + dy * dy > 0.24) continue; // slightly inside rim
+        // densityLevel drives rendering only; it no longer gates seed count.
+        const densityLevel: Colony['densityLevel'] = lambda > 2 ? 'dense' : 'isolated';
+        // r_base = midR / (1 + CROWDING_K × λ): large in sparse zones, small in dense zones.
+        // At λ=1: ÷1.15. At λ=6: ÷1.9. At λ=10: ÷2.5.
+        const r_base = midR / (1 + CROWDING_K * lambda);
 
-        if (density >= SIM.DENSITY_CONFLUENT) {
-          // Confluent: place almost every qualifying cell (thin slightly to avoid overlap)
-          if (Math.random() < SIM.COLONY_PROB_CONFLUENT) {
-            colonies.push(createColony(nx, ny, density, colonyColor, findings, 'confluent'));
-          }
-        } else if (density >= SIM.DENSITY_DENSE) {
-          if (Math.random() < SIM.COLONY_PROB_DENSE) {
-            colonies.push(createColony(nx, ny, density, colonyColor, findings, 'dense'));
-          }
-        } else if (density >= SIM.DENSITY_ISOLATED) {
-          if (Math.random() < SIM.COLONY_PROB_ISOLATED) {
-            colonies.push(createColony(nx, ny, density, colonyColor, findings, 'isolated'));
-          }
+        const cellLeft = gx / GRID_SIZE;
+        const cellTop  = gy / GRID_SIZE;
+        const cellSize = 1 / GRID_SIZE;
+
+        for (let s = 0; s < n; s++) {
+          const sx = cellLeft + Math.random() * cellSize;
+          const sy = cellTop  + Math.random() * cellSize;
+          const pdx = sx - 0.5, pdy = sy - 0.5;
+          if (pdx * pdx + pdy * pdy > 0.24) continue;
+
+          const r_max = r_base * (0.75 + Math.random() * 0.5);
+          seeds.push({
+            x: sx, y: sy, r_max,
+            lag: 2 + Math.random() * 6,
+            growthRate: 0.18 + Math.random() * 0.10,
+            densityLevel,
+            color: colonyColor,
+            hemolysisType: findings.hemolysis,
+            isContaminant: false,
+          });
         }
       }
     }
   }
 
-  // Place contaminant colonies (these grow regardless of media selectivity)
   for (let i = 0; i < contaminationEvents; i++) {
-    // Random position inside plate
     let cx: number, cy: number;
     do {
       cx = 0.1 + Math.random() * 0.8;
       cy = 0.1 + Math.random() * 0.8;
     } while ((cx - 0.5) ** 2 + (cy - 0.5) ** 2 > 0.2);
 
-    colonies.push({
-      x: cx,
-      y: cy,
-      radius: 0.004 + Math.random() * 0.006,
+    seeds.push({
+      x: cx, y: cy,
+      r_max: 0.004 + Math.random() * 0.006,
+      lag: 1 + Math.random() * 3,
+      growthRate: 0.20 + Math.random() * 0.10,
+      densityLevel: 'isolated',
       color: CONTAMINANT_COLORS[Math.floor(Math.random() * CONTAMINANT_COLORS.length)],
       hemolysisType: 'gamma',
-      hemolysisRadius: 0,
       isContaminant: true,
-      isIsolated: true, // contaminants are usually isolated
-      densityLevel: 'isolated',
     });
   }
 
-  // Mark isolation status based on proximity
-  markIsolation(colonies);
+  const filtered = applyHardCoreFilterSeeds(seeds);
 
-  const confluent = colonies.filter(c => c.densityLevel === 'confluent').length;
-  const dense = colonies.filter(c => c.densityLevel === 'dense').length;
-  const isolated = colonies.filter(c => c.densityLevel === 'isolated').length;
+  const dense = filtered.filter(s => s.densityLevel === 'dense').length;
+  const isolated = filtered.filter(s => !s.isContaminant && s.densityLevel === 'isolated').length;
   const maxDensity = Math.max(...Array.from<number>(grid.cells));
-  const cellsAboveConfluent = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_CONFLUENT).length;
-  const cellsAboveDense = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_DENSE).length;
-  const cellsAboveIsolated = Array.from<number>(grid.cells).filter(v => v >= SIM.DENSITY_ISOLATED).length;
-  console.log(`[colonies] gridMax=${maxDensity.toFixed(4)} | cells≥confluent:${cellsAboveConfluent} ≥dense:${cellsAboveDense} ≥isolated:${cellsAboveIsolated} | colonies: confluent=${confluent} dense=${dense} isolated=${isolated}`);
+  console.log(`[seeds] gridMax=${maxDensity.toFixed(4)} | dense:${dense} iso:${isolated}`);
 
+  return filtered;
+}
+
+/**
+ * Compute Colony[] at a given incubation time from stable seeds.
+ * Call this inside a $derived to make incubation time-reactive with zero extra work.
+ *
+ * Growth follows a logistic curve:
+ *   ~0.1 at 8h (just visible), ~0.5 at 17h, ~0.85 at 24h, ~0.97 at 36h
+ */
+export function computeColoniesAtTime(seeds: ColonySeed[], hours: number): Colony[] {
+  // Per-seed logistic growth with individual lag phase and rate.
+  // r(t) = r_max × 1 / (1 + exp(-k × (t - lag - midpoint)))
+  // midpoint offset of 8h gives ~50% size at (lag + 8h), matches typical 18–24h incubation.
+  const colonies: Colony[] = seeds.map(s => {
+    const t = Math.max(0, hours - s.lag);
+    const gf = 1 / (1 + Math.exp(-s.growthRate * (t - 8)));
+    const r = Math.max(0.001, s.r_max * gf);
+    // Coverage radius for dense seeds: uncapped growth × 4× spread.
+    // At full growth, this disc covers the territory between neighboring seeds,
+    // merging the B(t) field into a continuous lawn by ~20-24h.
+    const coverageRadius = s.densityLevel === 'dense' ? s.r_max * gf * 4.0 : r;
+    const hemolysisRadius = s.hemolysisType === 'gamma' ? 0 : r * (s.hemolysisType === 'beta' ? 2.0 : 1.5);
+    return {
+      x: s.x, y: s.y,
+      radius: r,
+      coverageRadius,
+      growthFactor: gf,
+      color: s.color,
+      hemolysisType: s.hemolysisType,
+      hemolysisRadius,
+      isContaminant: s.isContaminant,
+      isIsolated: false,
+      densityLevel: s.densityLevel,
+    };
+  });
+  applyCollisionLimitedRadius(colonies);
+  markIsolation(colonies);
   return colonies;
 }
 
@@ -110,46 +183,69 @@ function canGrowOnMedia(findings: CultureFindings, _mediaType: MediaType): boole
   return findings.growth;
 }
 
-function createColony(
-  nx: number,
-  ny: number,
-  _density: number,
-  color: string,
-  findings: CultureFindings,
-  level: Colony['densityLevel'],
-): Colony {
-  // Confluent/dense colonies stay close to the streak line; isolated spread more freely.
-  const jitterRange = level === 'confluent' ? 0.004 : level === 'dense' ? 0.008 : 0.02;
-  const jitterX = (Math.random() - 0.5) * jitterRange;
-  const jitterY = (Math.random() - 0.5) * jitterRange;
+/** Sample from a Poisson distribution using Knuth's algorithm (good for small λ). */
+function poissonSample(lambda: number): number {
+  if (lambda <= 0) return 0;
+  const L = Math.exp(-lambda);
+  let k = 0, p = 1;
+  do { k++; p *= Math.random(); } while (p > L);
+  return k - 1;
+}
 
-  // Size scales with density level.
-  // Values are in plate-fraction units; multiply by PLATE_RADIUS*2 (~360px) for canvas px.
-  // Real S. aureus: ~1-2mm on 90mm plate ≈ 4-8px at 360px canvas diameter.
-  let baseRadius: number;
-  if (level === 'confluent') {
-    baseRadius = 0.003 + Math.random() * 0.002;  // 1.1–1.9px canvas — tiny, approach full lawn
-  } else if (level === 'dense') {
-    baseRadius = 0.005 + Math.random() * 0.003;  // 1.9–3.0px canvas — slightly larger, still packed
-  } else {
-    baseRadius = 0.014 + Math.random() * 0.009;  // 5.2–8.5px canvas — large clearly individual
+/** Greedy hard-core filter on seeds using r_max as notional radius.
+ * Dense seeds allow very tight packing (clearance=0.001) so they form a
+ * microcolony grid. Isolated seeds enforce realistic separation. */
+function applyHardCoreFilterSeeds(seeds: ColonySeed[]): ColonySeed[] {
+  const accepted: ColonySeed[] = [];
+  for (const s of seeds) {
+    const clearance = s.densityLevel === 'dense' ? 0.001 : 0.014;
+    let tooClose = false;
+    for (const other of accepted) {
+      const dx = s.x - other.x;
+      const dy = s.y - other.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < s.r_max + other.r_max + clearance) { tooClose = true; break; }
+    }
+    if (!tooClose) accepted.push(s);
   }
+  return accepted;
+}
 
-  const hemolysisRadius = findings.hemolysis === 'gamma'
-    ? 0
-    : baseRadius * (findings.hemolysis === 'beta' ? 2.0 : 1.5);
-
-  return {
-    x: nx + jitterX,
-    y: ny + jitterY,
-    radius: baseRadius,
-    color,
-    hemolysisType: findings.hemolysis,
-    hemolysisRadius,
-    isContaminant: false,
-    isIsolated: false, // will be computed by markIsolation
-    densityLevel: level,
-  };
+/** Cap each colony radius using surface gap to k=6 nearest neighbors.
+ * Returns variable sizes in dense regions (Voronoi-like territory) rather than
+ * uniform circles from nearest-only clamping. */
+function applyCollisionLimitedRadius(colonies: Colony[]): void {
+  const K = 6; // neighbors to check
+  for (let i = 0; i < colonies.length; i++) {
+    const ci = colonies[i];
+    // Dense colonies can be tiny (sub-pixel) — their lawn overlay carries the visual.
+    // Isolated colonies need a visible floor so players can click on them.
+    const MIN_RADIUS = ci.densityLevel === 'dense' ? 0.001 : 0.003;
+    // Collect k nearest gap values
+    const gaps: number[] = [];
+    for (let j = 0; j < colonies.length; j++) {
+      if (i === j) continue;
+      const cj = colonies[j];
+      const dx = ci.x - cj.x;
+      const dy = ci.y - cj.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      gaps.push(dist - cj.radius);
+      if (gaps.length > K) {
+        // Keep only K smallest — insertion sort trick
+        gaps.sort((a, b) => a - b);
+        gaps.length = K;
+      }
+    }
+    if (gaps.length > 0) {
+      // Use the tightest gap among k-nearest to limit radius
+      const tightest = gaps[0];
+      ci.radius = Math.max(MIN_RADIUS, Math.min(ci.radius, tightest * 0.5));
+      if (ci.hemolysisRadius > 0) {
+        const scale = ci.hemolysisType === 'beta' ? 2.0 : 1.5;
+        ci.hemolysisRadius = ci.radius * scale;
+      }
+    }
+  }
 }
 
 /** Mark colonies as isolated if they have no neighbors within a threshold distance */

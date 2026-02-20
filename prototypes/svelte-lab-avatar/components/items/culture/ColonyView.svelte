@@ -1,19 +1,20 @@
 <script lang="ts">
-  import type { Colony, MediaType, DensityGrid } from './simulation-types';
-  import type { CultureFindings } from '../../../lib/types';
-  import { MEDIA_COLORS, GRID_SIZE, SIM, PLATE_RADIUS, COLONY_COLORS } from './simulation-types';
+  import type { Colony, MediaType } from './simulation-types';
+  import { MEDIA_COLORS, PLATE_RADIUS, GRID_SIZE, SIM } from './simulation-types';
   import { lightenColor } from './plate-renderer';
 
   interface Props {
     colonies: Colony[];
     mediaType: MediaType;
-    grid?: DensityGrid;
-    findings?: CultureFindings;
+    /** Raw density grid cells for wet streak film (t=0 physical marks, fades over 16h). */
+    streakGrid?: Float32Array;
+    /** Current incubation hours — drives streak film fade and stipple sigmoid. */
+    incubationHours?: number;
     pickingEnabled?: boolean;
     onColonyPicked?: (colony: Colony) => void;
   }
 
-  let { colonies, mediaType, grid, findings, pickingEnabled = false, onColonyPicked }: Props = $props();
+  let { colonies, mediaType, streakGrid, incubationHours = 0, pickingEnabled = false, onColonyPicked }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let selectedColonyIndex = $state<number | null>(null);
@@ -80,6 +81,40 @@
     hoveredColonyIndex = null;
   }
 
+  const COVER_SIZE = 256;
+  // Rasterize dense colony coverage into a 256×256 float grid.
+  // B(x,y) = max growthFactor of any dense seed whose coverageRadius disc contains (x,y).
+  // MAX aggregation (not additive) decouples B from seed count — prevents saturating
+  // to 1.0 before bacteria have actually grown, giving a time-correct 0→1 transition.
+  function computeCoverageField(cols: Colony[]): Float32Array {
+    const B = new Float32Array(COVER_SIZE * COVER_SIZE);
+    for (const c of cols) {
+      if (c.densityLevel !== 'dense') continue;
+      const cx = c.x * COVER_SIZE;
+      const cy = c.y * COVER_SIZE;
+      const r = c.coverageRadius * COVER_SIZE; // uncapped spread radius
+      if (r < 0.5) continue; // truly sub-pixel — bacteria not yet spread
+      const rSq = r * r;
+      const gf = c.growthFactor;
+      const x0 = Math.max(0, Math.floor(cx - r));
+      const x1 = Math.min(COVER_SIZE - 1, Math.ceil(cx + r));
+      const y0 = Math.max(0, Math.floor(cy - r));
+      const y1 = Math.min(COVER_SIZE - 1, Math.ceil(cy + r));
+      for (let py = y0; py <= y1; py++) {
+        for (let px = x0; px <= x1; px++) {
+          const dx = px + 0.5 - cx;
+          const dy = py + 0.5 - cy;
+          if (dx * dx + dy * dy <= rSq) {
+            // MAX: B tracks how "grown" the fastest seed covering this pixel is.
+            // Lawn appears when the fastest nearby colony has grown substantially.
+            if (gf > B[py * COVER_SIZE + px]) B[py * COVER_SIZE + px] = gf;
+          }
+        }
+      }
+    }
+    return B;
+  }
+
   function renderColonies() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -111,52 +146,26 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
 
-    // --- Confluent lawn (offscreen + blur for smooth edges) ---
-    if (grid) {
-      const cellPx = (PLATE_RADIUS * 2) / GRID_SIZE;
+    // --- Wet streak film (physical agar disruption, visible at t=0, fades by 16h) ---
+    // Represents the moist track left by the loop on agar before colonies form.
+    // Color is muted warm-tan (agar disruption) — not the colony color.
+    const filmFade = Math.max(0, 1 - incubationHours / 16);
+    if (streakGrid && filmFade > 0.01) {
+      const cellW = (PLATE_RADIUS * 2) / GRID_SIZE;
       const plateLeft = PLATE_CENTER - PLATE_RADIUS;
-      const plateTop = PLATE_CENTER - PLATE_RADIUS;
-      const cellR = cellPx * 0.72;
-
-      if (findings) {
-        const cColor = COLONY_COLORS[findings.colonyColor] ?? '#fffdd0';
-        const offscreen = new OffscreenCanvas(PLATE_SIZE, PLATE_SIZE);
-        const octx = offscreen.getContext('2d')!;
-        octx.fillStyle = cColor;
-        octx.beginPath();
-        for (let gy = 0; gy < GRID_SIZE; gy++) {
-          for (let gx = 0; gx < GRID_SIZE; gx++) {
-            if (grid.cells[gy * GRID_SIZE + gx] < SIM.DENSITY_CONFLUENT) continue;
-            const cx = plateLeft + (gx + 0.5) * cellPx;
-            const cy = plateTop + (gy + 0.5) * cellPx;
-            octx.moveTo(cx + cellR, cy);
-            octx.arc(cx, cy, cellR, 0, Math.PI * 2);
-          }
-        }
-        octx.fill();
-
-        // Composite with slight blur to soften grid edges
-        ctx.globalAlpha = 0.93;
-        ctx.filter = 'blur(1.5px)';
-        ctx.drawImage(offscreen, 0, 0);
-        ctx.filter = 'none';
-        ctx.globalAlpha = 1;
-      }
-
-      // Dense (non-confluent) cells: faint darkening to hint at streak path
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      const plateTop  = PLATE_CENTER - PLATE_RADIUS;
+      ctx.fillStyle = 'rgb(160, 130, 100)';
       for (let gy = 0; gy < GRID_SIZE; gy++) {
         for (let gx = 0; gx < GRID_SIZE; gx++) {
-          const d = grid.cells[gy * GRID_SIZE + gx];
-          if (d < SIM.DENSITY_DENSE || d >= SIM.DENSITY_CONFLUENT) continue;
-          ctx.fillRect(
-            plateLeft + gx * cellPx,
-            plateTop + gy * cellPx,
-            Math.ceil(cellPx) + 1,
-            Math.ceil(cellPx) + 1
-          );
+          const d = streakGrid[gy * GRID_SIZE + gx];
+          if (d < SIM.DENSITY_NONE) continue;
+          const filmAlpha = Math.min(0.40, d / 0.15) * filmFade;
+          if (filmAlpha < 0.01) continue;
+          ctx.globalAlpha = filmAlpha;
+          ctx.fillRect(plateLeft + gx * cellW, plateTop + gy * cellW, cellW + 0.5, cellW + 0.5);
         }
       }
+      ctx.globalAlpha = 1;
     }
 
     // --- Hemolysis zones (clearing effect for beta, greenish for alpha) ---
@@ -176,44 +185,71 @@
         ctx.fillStyle = hemoGrad;
         ctx.fill();
       } else {
-        // Alpha: subtle greenish discoloration
+        // Alpha: partial hemolysis — blood turns greenish-brown.
+        // Render as a desaturation ring (olive tone replaces the red) rather than an additive blob.
+        const alphaGrad = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, hr);
+        alphaGrad.addColorStop(0, 'rgba(155, 130, 80, 0.50)');
+        alphaGrad.addColorStop(1, 'rgba(155, 130, 80, 0)');
         ctx.beginPath();
         ctx.arc(cx, cy, hr, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(120, 140, 100, 0.25)';
+        ctx.fillStyle = alphaGrad;
         ctx.fill();
       }
     }
 
-    // --- Colony bodies (dense & isolated — opaque 3D circles) ---
+    // --- Colony bodies (isolated — matte opaque with irregular edges) ---
     for (let i = 0; i < colonies.length; i++) {
       const colony = colonies[i];
       if (colony.densityLevel === 'confluent') continue;
-      const { cx, cy, r } = colonyToCanvas(colony);
+      // Dense colonies are rendered in the stipple pass below.
+      if (colony.densityLevel === 'dense') continue;
 
-      // Colony body — opaque filled circle
+      // Sigmoid fade-in: invisible early, smoothly appears as the colony grows.
+      // smoothstep(0.10, 0.40, gf): starts at gf≈0.10 (~2h), fully visible at gf≈0.40 (~12h).
+      const tAlpha = Math.max(0, Math.min(1, (colony.growthFactor - 0.10) / 0.30));
+      const alpha = tAlpha * tAlpha * (3 - 2 * tAlpha);
+      if (alpha < 0.02) continue;
+
+      const { cx, cy, r } = colonyToCanvas(colony);
+      ctx.globalAlpha = alpha;
+
+      // Soft drop shadow (drawn first so it sits behind the colony body).
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.ellipse(cx + 0.9, cy + 1.2, r * 0.90, r * 0.70, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.fill();
+
+      // Irregular 10-point polygon — deterministic per-colony via position hash.
+      // Small jitter (±6.5%) breaks the perfect-circle look without being distracting.
+      ctx.beginPath();
+      const hA = colony.x * 2345.6 + colony.y * 8901.2;
+      for (let vi = 0; vi <= 10; vi++) {
+        const theta = (vi / 10) * Math.PI * 2;
+        const vr = r * (1 + Math.sin(hA + vi * 567.3) * 0.065);
+        if (vi === 0) ctx.moveTo(cx + Math.cos(theta) * vr, cy + Math.sin(theta) * vr);
+        else ctx.lineTo(cx + Math.cos(theta) * vr, cy + Math.sin(theta) * vr);
+      }
+      ctx.closePath();
+
+      // Matte opaque body — flat fill, NO radial gradient fading to transparent (that reads as glow).
       ctx.fillStyle = colony.color;
       ctx.fill();
 
-      // Subtle drop shadow
-      ctx.beginPath();
-      ctx.arc(cx + 0.5, cy + 0.5, r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)';
-      ctx.lineWidth = 0.8;
+      // Darker rim (1px stroke) — defines edge without creating a light halo at perimeter.
+      ctx.strokeStyle = lightenColor(colony.color, -22);
+      ctx.lineWidth = 0.9;
       ctx.stroke();
 
-      // Specular highlight (only on colonies large enough to see it)
-      if (r >= 3) {
-        const hlR = r * 0.4;
-        const hlX = cx - r * 0.22;
-        const hlY = cy - r * 0.22;
-        const hlGrad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, hlR);
-        hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-        hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = hlGrad;
-        ctx.fillRect(hlX - hlR, hlY - hlR, hlR * 2, hlR * 2);
+      // Small opaque specular highlight (top-left ellipse).
+      // NOT a gradient-to-transparent — that would read as glow.
+      if (r >= 4) {
+        ctx.beginPath();
+        ctx.ellipse(cx - r * 0.28, cy - r * 0.28, r * 0.20, r * 0.13, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+        ctx.fill();
       }
+
+      ctx.globalAlpha = 1;
 
       // Hover highlight
       if (pickingEnabled && i === hoveredColonyIndex && i !== selectedColonyIndex) {
@@ -243,6 +279,58 @@
           : 'rgba(208, 108, 108, 0.3)';
         ctx.lineWidth = 1;
         ctx.stroke();
+      }
+    }
+
+    // --- Dense lawn background (matte flat fill, NO blur, NO glow) ---
+    // B(x,y) = max growthFactor of covering dense seeds (time-varying via coverageRadius).
+    // smoothstep(0.40, 0.80): starts at gf~0.40 (~14h), full at gf~0.80 (~20h).
+    // Max alpha 75% — stipple dots painted above add the grain texture.
+    {
+      const B = computeCoverageField(colonies);
+      const lawnColor = colonies.find(c => !c.isContaminant)?.color ?? '#fffdd0';
+      const cellW = (PLATE_RADIUS * 2) / COVER_SIZE;
+      const plateLeft = PLATE_CENTER - PLATE_RADIUS;
+      const plateTop  = PLATE_CENTER - PLATE_RADIUS;
+      const lawnCanvas = new OffscreenCanvas(PLATE_SIZE, PLATE_SIZE);
+      const lctx = lawnCanvas.getContext('2d')!;
+      lctx.fillStyle = lawnColor;
+      for (let gy = 0; gy < COVER_SIZE; gy++) {
+        for (let gx = 0; gx < COVER_SIZE; gx++) {
+          const b = B[gy * COVER_SIZE + gx];
+          if (b < 0.40) continue;
+          const t = Math.max(0, Math.min(1, (b - 0.40) / 0.40));
+          const alpha = t * t * (3 - 2 * t) * 0.75;
+          if (alpha < 0.02) continue;
+          lctx.globalAlpha = alpha;
+          lctx.fillRect(plateLeft + gx * cellW, plateTop + gy * cellW, cellW + 0.5, cellW + 0.5);
+        }
+      }
+      // No blur — matte fill. Real dense growth is opaque, not emissive.
+      ctx.globalAlpha = 0.88;
+      ctx.drawImage(lawnCanvas, 0, 0);
+      ctx.globalAlpha = 1;
+    }
+
+    // --- Dense stipple grain (1.2px dots, sigmoid opacity = smooth fade-in) ---
+    // sigmoid(gf, center=0.45, k=10): invisible at 0h, 11% at 8h, 48% at 12h, full at 20h.
+    // Each dot is tiny — the aggregate of hundreds creates high-frequency grain texture.
+    {
+      const denseColor = colonies.find(c => c.densityLevel === 'dense' && !c.isContaminant)?.color;
+      if (denseColor) {
+        ctx.fillStyle = denseColor;
+        for (const colony of colonies) {
+          if (colony.densityLevel !== 'dense') continue;
+          const opacity = 1 / (1 + Math.exp(-10 * (colony.growthFactor - 0.45)));
+          if (opacity < 0.04) continue;
+          ctx.globalAlpha = opacity;
+          const dcx = colony.x * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS);
+          const dcy = colony.y * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS);
+          ctx.beginPath();
+          ctx.arc(dcx, dcy, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
       }
     }
 
@@ -286,8 +374,8 @@
     if (canvas) {
       colonies;
       mediaType;
-      grid;
-      findings;
+      streakGrid;
+      incubationHours;
       selectedColonyIndex;
       hoveredColonyIndex;
       renderColonies();

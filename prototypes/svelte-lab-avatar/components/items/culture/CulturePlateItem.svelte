@@ -20,11 +20,12 @@
   import type { Item, CultureFindings, MediaType } from '../../../lib/types';
   import { getCulturePlate } from '../../../lib/types';
   import { MEDIA_COLORS, SIM, GRID_SIZE, PLATE_RADIUS } from './simulation-types';
-  import type { Colony } from './simulation-types';
+  import type { ColonySeed } from './simulation-types';
+  import { ORGANISMS, cultureFindings } from './organism-defs';
   import { getWorkbench } from '../../workbench/workbench-context.svelte';
   import { createPlateState, applyStreakSegment } from './streak-physics';
   import { redrawPlate, drawStreakSegment } from './plate-renderer';
-  import { generateColoniesFromGrid, computeGridQuality } from './colony-generator';
+  import { generateSeedsFromGrid, computeColoniesAtTime, computeGridQuality } from './colony-generator';
   import type { StreakQuality } from './colony-generator';
   import ColonyView from './ColonyView.svelte';
 
@@ -40,7 +41,7 @@
   const PLATE_SIZE = 400;
   const PLATE_CENTER = PLATE_SIZE / 2;
 
-    let cellEl = $state<HTMLDivElement>();
+  let cellEl = $state<HTMLDivElement>();
   let plateCanvas = $state<HTMLCanvasElement>();
   let debugCanvas = $state<HTMLCanvasElement>();
   let showDebug = $state(false);
@@ -80,12 +81,25 @@
   // --- Plate physics state (local to this component) ---
   let plateState = $state(createPlateState());
 
+  // Active organism — drives colony appearance. Future: driven by held sample's organism ID.
+  const activeOrganism = $derived(ORGANISMS['staph-aureus']);
+  const activeFindingsForMedia = $derived(
+    cultureFindings(activeOrganism, mediaType)
+    ?? { growth: true, gramType: 'positive' as const, colonyColor: 'cream' as const, hemolysis: 'beta' as const }
+  );
+
   // --- Phase ---
   type PlatePhase = 'streaking' | 'colonies';
   let phase = $state<PlatePhase>('streaking');
-  let colonies = $state<Colony[]>([]);
+  // Stable seed positions derived from the density grid (time-independent).
+  // Changing incubationHours re-derives colonies without re-seeding.
+  let plateSeeds = $state<ColonySeed[]>([]);
+  let incubationHours = $state(24);
+  const colonies = $derived(computeColoniesAtTime(plateSeeds, incubationHours));
   let snappedFindings = $state<CultureFindings | null>(null);
-  let quality = $state<StreakQuality | null>(null);
+  const quality = $derived<StreakQuality | null>(
+    plateSeeds.length > 0 ? computeGridQuality(plateState.grid, colonies) : null
+  );
 
   // --- Lid tilt ---
   let lidTiltX = $state(0);
@@ -318,36 +332,35 @@
   });
 
   // --- Done → generate colonies immediately ---
-  const TEST_FINDINGS: CultureFindings = {
-    growth: true,
-    gramType: 'positive',
-    colonyColor: 'cream',
-    hemolysis: 'beta',
-  };
-
   function handleDone() {
-    const findings = TEST_FINDINGS;
+    const findings = activeFindingsForMedia;
     snappedFindings = findings;
-    colonies = generateColoniesFromGrid({
+    plateSeeds = generateSeedsFromGrid({
       grid: plateState.grid,
       findings,
       mediaType,
       contaminationEvents: plateState.contaminationEvents,
       lidExposure: plateState.totalOpenSeconds,
     });
-    quality = computeGridQuality(plateState.grid, colonies);
     phase = 'colonies';
   }
 
-  function handleBack() {
-    snappedFindings = null;
-    quality = null;
-    plateState = createPlateState();
-    const ctx = plateCanvas?.getContext('2d');
-    if (ctx) redrawPlate(ctx, PLATE_SIZE, PLATE_RADIUS, mediaType, plateState.grid);
-    colonies = [];
-    phase = 'streaking';
-  }
+  // --- Colony debug stats ---
+  const colonyDebug = $derived.by(() => {
+    if (!quality || colonies.length === 0) return null;
+    const cells = plateState.grid.cells;
+    let gridMax = 0, cellsConfluent = 0, cellsDense = 0, cellsIsolated = 0;
+    for (let i = 0; i < cells.length; i++) {
+      const v = cells[i];
+      if (v > gridMax) gridMax = v;
+      if (v >= SIM.DENSITY_CONFLUENT) cellsConfluent++;
+      else if (v >= SIM.DENSITY_DENSE) cellsDense++;
+      else if (v >= SIM.DENSITY_ISOLATED) cellsIsolated++;
+    }
+    const d = colonies.filter(x => x.densityLevel === 'dense').length;
+    const iso = colonies.filter(x => x.densityLevel === 'isolated' && !x.isContaminant).length;
+    return { gridMax, cellsConfluent, cellsDense, cellsIsolated, c: plateSeeds.filter(s => s.densityLevel === 'dense').length, d, iso };
+  });
 </script>
 
 <svelte:window
@@ -362,7 +375,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="dish"
-                onpointerenter={handleDishPointerEnter}
+        onpointerenter={handleDishPointerEnter}
         onpointermove={handleDishPointerMove}
         onpointerleave={handleDishPointerLeave}
         style:touch-action="none"
@@ -427,7 +440,7 @@
       class:active={showDebug}
       onclick={() => { showDebug = !showDebug; if (showDebug) renderDebugOverlay(); }}
     >density</button>
-{#if showDebug}
+    {#if showDebug}
       <div class="debug-stats">
         Grid: {plateState.totalGridBacteria.toFixed(1)}
         | Loop: {(heldLoopState ? heldLoopState.volume * heldLoopState.concentration : 0).toFixed(1)}
@@ -439,18 +452,45 @@
   {:else}
     <!-- Colony view -->
     <div class="flex flex-col items-center justify-center gap-1 w-full h-full overflow-hidden">
-      <ColonyView {colonies} {mediaType} grid={plateState.grid} findings={snappedFindings ?? undefined} />
+      <ColonyView {colonies} {mediaType} streakGrid={plateState.grid.cells} {incubationHours} />
       {#if quality}
         <div class="quality-badge grade-{quality.overallGrade}">
           {quality.overallGrade} · {quality.isolatedColonyCount} isolated
         </div>
       {/if}
-      <button class="btn-sm" onclick={handleBack}>← New Plate</button>
+      <!-- Incubation time slider (0–96h) -->
+      <div class="flex items-center gap-2 w-full px-3">
+        <span class="incubation-label">0h</span>
+        <input
+          type="range" min="0" max="96" step="1"
+          bind:value={incubationHours}
+          class="incubation-slider flex-1"
+        />
+        <span class="incubation-label">{incubationHours}h</span>
+      </div>
+      {#if colonyDebug}
+        <div class="debug-stats" style="font-size:0.6rem;line-height:1.4">
+          Grid max: {colonyDebug.gridMax.toFixed(3)} | cells conf:{colonyDebug.cellsConfluent} dense:{colonyDebug.cellsDense} iso:{colonyDebug.cellsIsolated}<br>
+          Colonies conf:{colonyDebug.c} dense:{colonyDebug.d} iso:{colonyDebug.iso}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
 
 <style>
+  .incubation-slider {
+    accent-color: #d4a840;
+    height: 3px;
+    cursor: pointer;
+  }
+  .incubation-label {
+    font-size: 0.62rem;
+    color: var(--color-parchment-aged, #a8987a);
+    min-width: 2.4rem;
+    text-align: center;
+  }
+
   .quality-badge {
     font-size: 0.65rem;
     letter-spacing: 0.08em;

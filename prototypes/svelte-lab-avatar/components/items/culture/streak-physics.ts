@@ -12,6 +12,26 @@
 import type { DensityGrid } from './simulation-types';
 import { GRID_SIZE, SIM, createDensityGrid, plateToGrid } from './simulation-types';
 
+// Precomputed circular Gaussian splat kernel — radius 2 grid cells, σ=1.2.
+// Replaces the 3-cell perpendicular band: 13-cell smooth footprint that matches
+// the finite contact area of a real inoculation loop pressed onto agar.
+// Deposit is naturally smoothed at source — no post-hoc blur needed.
+const SPLAT_RADIUS = 2;
+const SPLAT_KERNEL: ReadonlyArray<{ readonly dgx: number; readonly dgy: number; readonly weight: number }> = (() => {
+  const sigma = 1.2;
+  const entries: Array<{ dgx: number; dgy: number; weight: number }> = [];
+  let total = 0;
+  for (let dgy = -SPLAT_RADIUS; dgy <= SPLAT_RADIUS; dgy++) {
+    for (let dgx = -SPLAT_RADIUS; dgx <= SPLAT_RADIUS; dgx++) {
+      if (dgx * dgx + dgy * dgy > SPLAT_RADIUS * SPLAT_RADIUS) continue;
+      const w = Math.exp(-(dgx * dgx + dgy * dgy) / (2 * sigma * sigma));
+      entries.push({ dgx, dgy, weight: w });
+      total += w;
+    }
+  }
+  return entries.map(e => ({ dgx: e.dgx, dgy: e.dgy, weight: e.weight / total }));
+})();
+
 interface PlateState {
   grid: DensityGrid;
   lidTiltX: number;
@@ -79,17 +99,6 @@ export function applyStreakSegment(
     state.initialBacteriaLoaded = volume * concentration;
   }
 
-  // Perpendicular direction for wide-band deposit
-  const perpScale = 1 / GRID_SIZE;
-  const perpX = dist > 0.0001 ? (-dy / dist) * perpScale : 0;
-  const perpY = dist > 0.0001 ? (dx / dist) * perpScale : 0;
-
-  const bandOffsets = [
-    { ox: 0, oy: 0, weight: SIM.LOOP_GROOVE_WEIGHT, isCenter: true },
-    { ox: -perpX, oy: -perpY, weight: SIM.LOOP_EDGE_WEIGHT, isCenter: false },
-    { ox: perpX, oy: perpY, weight: SIM.LOOP_EDGE_WEIGHT, isCenter: false },
-  ];
-
   const steps = Math.max(1, Math.ceil(dist * GRID_SIZE));
   for (let s = 0; s <= steps; s++) {
     const t = steps > 0 ? s / steps : 0;
@@ -109,31 +118,45 @@ export function applyStreakSegment(
         const drainRate = SIM.DRAIN_FRACTION * pressureFactor * speedFactor;
         const drain = volume * drainRate;
         const bacteria = drain * concentration;
-        volume -= drain;
 
-        // Distribute bacteria across 3-cell band
-        for (const off of bandOffsets) {
-          const cell = plateToGrid(px + off.ox, py + off.oy);
-          if (!cell) continue;
-          const idx = cell.gy * GRID_SIZE + cell.gx;
-          const cellBacteria = bacteria * off.weight;
+        // Gaussian splat: distribute bacteria across kernel footprint.
+        // Conservation: only drain the volume that corresponds to bacteria
+        // that actually landed on agar (can't vanish into saturated cells).
+        let totalDeposited = 0;
+        const { gx: cgx, gy: cgy } = centerCell;
+        for (const { dgx, dgy, weight } of SPLAT_KERNEL) {
+          const nx = cgx + dgx, ny = cgy + dgy;
+          if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+          const idx = ny * GRID_SIZE + nx;
           const headroom = Math.max(0, SIM.DENSITY_MAX - state.grid.cells[idx]);
-          state.grid.cells[idx] += Math.min(cellBacteria, headroom);
-
-          if (off.isCenter) {
-            state.grid.damage[idx] += SIM.LOOP_GROOVE_DAMAGE;
-          }
+          const deposited = Math.min(bacteria * weight, headroom);
+          state.grid.cells[idx] += deposited;
+          totalDeposited += deposited;
+          if (dgx === 0 && dgy === 0) state.grid.damage[idx] += SIM.LOOP_GROOVE_DAMAGE;
         }
+        volume -= concentration > 0 ? totalDeposited / concentration : drain;
       }
 
-      // --- Pickup: conservative transfer from grid to loop ---
-      if (state.grid.cells[centerIdx] > SIM.DENSITY_ISOLATED) {
-        const bacteriaPickedUp = state.grid.cells[centerIdx] * SIM.PICKUP_FRACTION;
-        state.grid.cells[centerIdx] -= bacteriaPickedUp;
-
-        const loopBacteria = volume * concentration + bacteriaPickedUp;
-        volume = Math.min(1, volume + bacteriaPickedUp * SIM.PICKUP_VOLUME_FACTOR);
-        concentration = volume > 0 ? loopBacteria / volume : 0;
+      // --- Pickup: conservative transfer across Gaussian kernel footprint ---
+      // Sampling the same 13-cell footprint as deposit creates a wide "combed" band
+      // when crossing a dense streak, matching the physical loop contact area.
+      {
+        let totalPickedUp = 0;
+        const pkx = centerCell.gx, pky = centerCell.gy;
+        for (const { dgx, dgy, weight } of SPLAT_KERNEL) {
+          const nx = pkx + dgx, ny = pky + dgy;
+          if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+          const pidx = ny * GRID_SIZE + nx;
+          if (state.grid.cells[pidx] <= SIM.DENSITY_ISOLATED) continue;
+          const picked = state.grid.cells[pidx] * SIM.PICKUP_FRACTION * weight;
+          state.grid.cells[pidx] -= picked;
+          totalPickedUp += picked;
+        }
+        if (totalPickedUp > 0) {
+          const loopBacteria = volume * concentration + totalPickedUp;
+          volume = Math.min(1, volume + totalPickedUp * SIM.PICKUP_VOLUME_FACTOR);
+          concentration = volume > 0 ? loopBacteria / volume : 0;
+        }
       }
     }
 

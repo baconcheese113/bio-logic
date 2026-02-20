@@ -81,7 +81,7 @@ type GramResult = 'positive' | 'negative';
 type MorphologyShape = 'cocci' | 'bacilli' | 'spirilla' | 'coccobacilli';
 type MorphologyArrangement = 'singles' | 'pairs' | 'chains' | 'clusters' | 'tetrads';
 export type HemolysisType = 'alpha' | 'beta' | 'gamma';
-export type ColonyColor = 'golden' | 'white' | 'gray' | 'green' | 'cream' | 'mucoid';
+export type ColonyColor = 'golden' | 'white' | 'gray' | 'green' | 'cream' | 'mucoid' | 'pink' | 'colorless';
 
 export interface MicroscopeFindings {
   gram: GramResult;
@@ -100,6 +100,9 @@ export interface CultureFindings {
   colonyColor: ColonyColor;
   lactoseFermenter?: boolean;
   gramType: GramType;
+  /** Organism-specific isolated colony radius [min, max] in plate-fraction units.
+   *  If absent, colony-generator uses its built-in defaults. */
+  isolatedRadiusRange?: [number, number];
 }
 
 export interface CaseFindings {
@@ -184,7 +187,7 @@ export type SampleLocation =
 
 export type SubstanceType =
   | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool'
-  | 'nutrient-agar' | 'blood-agar' | 'gelatin'
+  | 'nutrient-agar' | 'blood-agar' | 'gelatin' | 'macconkey'
   | 'agar-powder' | 'gelatin-powder' | 'peptone'
   | 'defibrinated-blood' | 'distilled-water'
   | 'bacteria-culture';
@@ -234,7 +237,7 @@ export function getCulturePlate(item: Item): CulturePlateState | null {
   if (item.type !== 'empty-dish' || !item.contents) return null;
   const meta = item.contents.meta;
   if (meta?.kind === 'culture') {
-    const mediaType = (['blood-agar', 'nutrient-agar', 'gelatin'] as MediaType[]).includes(item.contents.substance as MediaType)
+    const mediaType = (['blood-agar', 'nutrient-agar', 'gelatin', 'macconkey'] as MediaType[]).includes(item.contents.substance as MediaType)
       ? item.contents.substance as MediaType
       : null;
     return { id: item.id, mediaType, phase: meta.phase, label: MEDIA_RECIPES[mediaType ?? 'nutrient-agar'].label };
@@ -251,7 +254,7 @@ export function getCulturePlate(item: Item): CulturePlateState | null {
 //  MEDIA TYPES & RECIPES
 // ============================================================
 
-export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar';
+export type MediaType = 'blood-agar' | 'gelatin' | 'nutrient-agar' | 'macconkey';
 
 const MEDIA_RECIPES = {
   'nutrient-agar': {
@@ -268,6 +271,11 @@ const MEDIA_RECIPES = {
     label: 'Gelatin Plate',
     ingredients: ['empty-dish', 'gelatin-powder', 'peptone'] as ItemType[],
     prepTicks: 250,
+  },
+  'macconkey': {
+    label: 'MacConkey Agar Plate',
+    ingredients: ['empty-dish', 'agar-powder', 'peptone'] as ItemType[], // simplified
+    prepTicks: 350,
   },
 } as const satisfies Record<MediaType, { label: string; ingredients: ItemType[]; prepTicks: number }>;
 

@@ -9,9 +9,10 @@ import type { MediaType } from '../../../lib/types';
 export type { MediaType };
 
 export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; label: string }> = {
-  'blood-agar': { base: '#991d1d', streak: '#4a0e0e', label: 'Blood Agar' },
-  'gelatin': { base: '#d4b86a', streak: '#b89840', label: 'Gelatin' },
+  'blood-agar':    { base: '#991d1d', streak: '#4a0e0e', label: 'Blood Agar' },
+  'gelatin':       { base: '#d4b86a', streak: '#b89840', label: 'Gelatin' },
   'nutrient-agar': { base: '#c9b896', streak: '#a89870', label: 'Nutrient Agar' },
+  'macconkey':     { base: '#e8b4a0', streak: '#c47860', label: 'MacConkey Agar' },
 };
 
 // === Density Grid (core simulation state) ===
@@ -62,22 +63,24 @@ export const SIM = {
   // Fractional drain: each step transfers this fraction of remaining volume to agar.
   // Gives exponential decay — heavy deposit at start, rapidly diminishing.
   // bacteria_deposited = drain × concentration (conservative by construction).
-  DRAIN_FRACTION: 0.005,
+  // 0.004 keeps enough bacteria for ~4 zone-1 strokes before trailing off.
+  DRAIN_FRACTION: 0.004,
 
   // Pickup: fraction of cell density picked up when loop crosses existing deposit.
-  PICKUP_FRACTION: 0.04,
-  // How much "volume" each unit of picked-up bacteria adds (bacteria is mostly solid).
-  PICKUP_VOLUME_FACTOR: 0.1,
+  // 0.25 creates a visible combed reduction band when crossing the initial dense streak.
+  PICKUP_FRACTION: 0.25,
+  // How much "volume" each unit of picked-up bacteria adds to loop load.
+  // 1.0: each unit picked up refills the loop by 1 unit of volume —
+  // means the loop loads up fast in dense regions, producing a visible diluted trail.
+  PICKUP_VOLUME_FACTOR: 1.0,
 
-  // Wide-band deposit: loop creates 3-cell-wide groove with ridges on edges.
-  LOOP_GROOVE_WEIGHT: 0.20,   // center cell deposit fraction (wire contact groove)
-  LOOP_EDGE_WEIGHT: 0.40,     // each side cell deposit fraction (ridge)
-  LOOP_GROOVE_DAMAGE: 0.003,  // faint agar scoring from wire drag
+  // Wide-band deposit: replaced by Gaussian splat kernel in streak-physics.ts
+  LOOP_GROOVE_DAMAGE: 0.003,  // faint agar scoring from wire drag on center cell
 
   // Speed normalization — speedNorm is in normalized plate coords per second
   SPEED_REFERENCE: 0.5,      // norm-coords/sec at "normal" sweep speed
   SPEED_MIN_FACTOR: 0.3,     // minimum speed factor (very fast movement)
-  SPEED_MAX_FACTOR: 3.0,     // maximum speed factor (very slow/careful movement)
+  SPEED_MAX_FACTOR: 1.8,     // maximum speed factor (very slow/careful movement)
 
   // Loop temperature
   TEMP_DECAY_PER_FRAME: 0.015, // temperature drops this much per frame of movement
@@ -96,10 +99,9 @@ export const SIM = {
   DENSITY_ISOLATED: 0.003,  // Zone 3-4 — double-diluted pickup
   DENSITY_NONE: 0.0005,     // background noise threshold
 
-  // Colony spawn probabilities per qualifying grid cell
-  COLONY_PROB_CONFLUENT: 0.95,
-  COLONY_PROB_DENSE: 0.70,
-  COLONY_PROB_ISOLATED: 0.12,
+  // Colony spawn probability for isolated tier (sparse cells only).
+  // Confluent + dense regions are rendered as continuous tinted mass, not circles.
+  COLONY_PROB_ISOLATED: 0.15,
 
   // Lid physics
   LID_MIN_STREAK: 0.15,     // minimum lid angle to allow streaking
@@ -121,6 +123,11 @@ export interface Colony {
   x: number;
   y: number;
   radius: number;
+  /** Growth-factor-scaled influence radius for the dense lawn overlay — NOT collision-capped.
+   * Evolves with incubation time so the lawn visibly emerges as bacteria spread. */
+  coverageRadius: number;
+  /** Per-seed logistic growth factor at current incubation time (0→1). Used by lawn overlay. */
+  growthFactor: number;
   color: string;
   hemolysisType: 'alpha' | 'beta' | 'gamma';
   hemolysisRadius: number;
@@ -129,15 +136,35 @@ export interface Colony {
   densityLevel: 'confluent' | 'dense' | 'isolated';
 }
 
+/** A placed bacterial seed. Radius grows over incubation time via logistic curve.
+ * Seeds are immutable after placement; colonies are computed at render time from
+ * (seeds, incubationHours) so the same seeds can be re-rendered at any time point. */
+export interface ColonySeed {
+  x: number;
+  y: number;
+  /** Maximum radius this colony can reach at full incubation (plate-fraction). */
+  r_max: number;
+  /** Lag phase duration in hours — growth doesn't start until t > lag. */
+  lag: number;
+  /** Logistic growth rate (k). Higher = faster colony expansion after lag. */
+  growthRate: number;
+  densityLevel: Colony['densityLevel'];
+  color: string;
+  hemolysisType: Colony['hemolysisType'];
+  isContaminant: boolean;
+}
+
 // === Colony Colors ===
 
 export const COLONY_COLORS: Record<string, string> = {
-  golden: '#daa520',
-  white: '#f5f5dc',
-  gray: '#a0a0a0',
-  green: '#6b8e5a',
-  cream: '#fffdd0',
-  mucoid: '#e8dcc8',
+  golden:    '#daa520',
+  white:     '#f5f5dc',
+  gray:      '#a8a8a0',
+  green:     '#6b8e5a',
+  cream:     '#fffdd0',
+  mucoid:    '#e8dcc8',
+  pink:      '#e8648a',  // MacConkey lactose fermenters
+  colorless: '#e4dcd2',  // non-fermenters on MacConkey (near-agar tone)
 };
 
 export const CONTAMINANT_COLORS = ['#d4c5a9', '#b8a88a', '#c9c0aa', '#e0d5bf'];
