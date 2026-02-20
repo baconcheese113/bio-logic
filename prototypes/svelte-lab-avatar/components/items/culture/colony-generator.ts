@@ -126,11 +126,11 @@ function createColony(
   // Real S. aureus: ~1-2mm on 90mm plate ≈ 4-8px at 360px canvas diameter.
   let baseRadius: number;
   if (level === 'confluent') {
-    baseRadius = 0.010 + Math.random() * 0.005;  // 3.6–5.4px canvas — merge into carpet
+    baseRadius = 0.004 + Math.random() * 0.003;  // 1.5–2.6px canvas — tiny dots, pack densely
   } else if (level === 'dense') {
-    baseRadius = 0.007 + Math.random() * 0.004;  // 2.5–3.9px canvas
+    baseRadius = 0.006 + Math.random() * 0.004;  // 2.2–3.7px canvas — medium spaced dots
   } else {
-    baseRadius = 0.008 + Math.random() * 0.005;  // 2.9–4.7px canvas — clearly individual
+    baseRadius = 0.014 + Math.random() * 0.009;  // 5.2–8.5px canvas — large clearly individual
   }
 
   const hemolysisRadius = findings.hemolysis === 'gamma'

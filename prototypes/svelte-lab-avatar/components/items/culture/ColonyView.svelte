@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Colony, MediaType, DensityGrid } from './simulation-types';
   import type { CultureFindings } from '../../../lib/types';
-  import { MEDIA_COLORS, COLONY_COLORS, GRID_SIZE, SIM, PLATE_RADIUS } from './simulation-types';
+  import { MEDIA_COLORS, GRID_SIZE, SIM, PLATE_RADIUS } from './simulation-types';
   import { lightenColor, hexToRgba } from './plate-renderer';
 
   interface Props {
@@ -30,7 +30,7 @@
     return {
       cx: colony.x * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
       cy: colony.y * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
-      r: Math.max(3, colony.radius * PLATE_RADIUS * 2),
+      r: Math.max(4, colony.radius * PLATE_RADIUS * 2),
     };
   }
 
@@ -110,19 +110,16 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
 
-    // Grid-based confluent carpet — renders a true solid lawn from density data
-    if (grid && findings) {
-      const baseColor = COLONY_COLORS[findings.colonyColor] ?? COLONY_COLORS['cream'];
+    // Faint streak trace — shows the physical streak path as subtle darkening
+    // (provides "lawnmower lines" effect underlying the colony dots)
+    if (grid) {
       const cellPx = (PLATE_RADIUS * 2) / GRID_SIZE;
       const plateLeft = PLATE_CENTER - PLATE_RADIUS;
       const plateTop = PLATE_CENTER - PLATE_RADIUS;
-      ctx.filter = 'blur(10px)';
-      ctx.fillStyle = baseColor;
-      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
       for (let gy = 0; gy < GRID_SIZE; gy++) {
         for (let gx = 0; gx < GRID_SIZE; gx++) {
-          const density = grid.cells[gy * GRID_SIZE + gx];
-          if (density < SIM.DENSITY_CONFLUENT) continue;
+          if (grid.cells[gy * GRID_SIZE + gx] < SIM.DENSITY_DENSE) continue;
           ctx.fillRect(
             plateLeft + gx * cellPx,
             plateTop + gy * cellPx,
@@ -131,13 +128,11 @@
           );
         }
       }
-      ctx.filter = 'none';
-      ctx.globalAlpha = 1;
     }
 
-    // Draw hemolysis zones first
+    // Draw hemolysis zones (skip confluent — colonies too tiny for individual halos)
     for (const colony of colonies) {
-      if (colony.densityLevel === 'confluent' && grid) continue; // confluent hemolysis shown via carpet
+      if (colony.densityLevel === 'confluent') continue;
       const { cx, cy } = colonyToCanvas(colony);
       if (colony.hemolysisType !== 'gamma' && colony.hemolysisRadius > 0) {
         const hr = colony.hemolysisRadius * PLATE_RADIUS * 2;
@@ -150,18 +145,17 @@
       }
     }
 
-    // Draw colony bodies
+    // Draw colony bodies — all density levels rendered as individual dots
     for (let i = 0; i < colonies.length; i++) {
       const colony = colonies[i];
-      if (colony.densityLevel === 'confluent' && grid) continue; // rendered as pixel carpet above
       const { cx, cy, r } = colonyToCanvas(colony);
 
       if (colony.densityLevel === 'confluent') {
-        // Flat matte fill fallback when no grid
+        // Tiny flat dot — many pack together to form the dense lawn
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fillStyle = colony.color;
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.90;
         ctx.fill();
         ctx.globalAlpha = 1;
       } else {

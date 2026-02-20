@@ -9,7 +9,7 @@ import type { MediaType } from '../../../lib/types';
 export type { MediaType };
 
 export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; label: string }> = {
-  'blood-agar': { base: '#8b3a3a', streak: '#5c2020', label: 'Blood Agar' },
+  'blood-agar': { base: '#7a1818', streak: '#4a0e0e', label: 'Blood Agar' },
   'gelatin': { base: '#d4b86a', streak: '#b89840', label: 'Gelatin' },
   'nutrient-agar': { base: '#c9b896', streak: '#a89870', label: 'Nutrient Agar' },
 };
@@ -90,8 +90,8 @@ export const SIM = {
   DENSITY_NONE: 0.0005,     // background noise threshold
 
   // Colony spawn probabilities per qualifying grid cell
-  COLONY_PROB_CONFLUENT: 0.35,
-  COLONY_PROB_DENSE: 0.25,
+  COLONY_PROB_CONFLUENT: 0.80,
+  COLONY_PROB_DENSE: 0.45,
   COLONY_PROB_ISOLATED: 0.12,
 
   // Lid physics
