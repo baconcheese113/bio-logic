@@ -118,17 +118,19 @@ function createColony(
   findings: CultureFindings,
   level: Colony['densityLevel'],
 ): Colony {
-  const jitterX = (Math.random() - 0.5) * 0.02;
-  const jitterY = (Math.random() - 0.5) * 0.02;
+  // Confluent/dense colonies stay close to the streak line; isolated spread more freely.
+  const jitterRange = level === 'confluent' ? 0.004 : level === 'dense' ? 0.008 : 0.02;
+  const jitterX = (Math.random() - 0.5) * jitterRange;
+  const jitterY = (Math.random() - 0.5) * jitterRange;
 
   // Size scales with density level.
   // Values are in plate-fraction units; multiply by PLATE_RADIUS*2 (~360px) for canvas px.
   // Real S. aureus: ~1-2mm on 90mm plate ≈ 4-8px at 360px canvas diameter.
   let baseRadius: number;
   if (level === 'confluent') {
-    baseRadius = 0.004 + Math.random() * 0.003;  // 1.5–2.6px canvas — tiny dots, pack densely
+    baseRadius = 0.003 + Math.random() * 0.002;  // 1.1–1.9px canvas — tiny, approach full lawn
   } else if (level === 'dense') {
-    baseRadius = 0.006 + Math.random() * 0.004;  // 2.2–3.7px canvas — medium spaced dots
+    baseRadius = 0.005 + Math.random() * 0.003;  // 1.9–3.0px canvas — slightly larger, still packed
   } else {
     baseRadius = 0.014 + Math.random() * 0.009;  // 5.2–8.5px canvas — large clearly individual
   }

@@ -9,7 +9,7 @@ import type { MediaType } from '../../../lib/types';
 export type { MediaType };
 
 export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; label: string }> = {
-  'blood-agar': { base: '#7a1818', streak: '#4a0e0e', label: 'Blood Agar' },
+  'blood-agar': { base: '#991d1d', streak: '#4a0e0e', label: 'Blood Agar' },
   'gelatin': { base: '#d4b86a', streak: '#b89840', label: 'Gelatin' },
   'nutrient-agar': { base: '#c9b896', streak: '#a89870', label: 'Nutrient Agar' },
 };
@@ -58,14 +58,21 @@ export const SIM = {
   PRESSURE_HEAVY: 2.5,
   DAMAGE_THRESHOLD: 3.0,     // cumulative heavy pressure exceeding this = gouge
   DENSITY_MAX: 0.5,          // hard cap — a cell saturates and takes no more
-  // Deposit: bacteria deposited per cell = volume × concentration × DEPOSIT_RATE × modifiers
-  // This is independent of how fast volume drains, so Zone 1 is always confluent.
-  DEPOSIT_RATE: 0.5,
-  // Volume drain: fixed amount consumed per cell regardless of deposit amount.
-  // Loop lasts ~1.0/0.005 = 200 cells (≈ 4 passes of 50 cells each = one full Zone 1).
-  VOLUME_DRAIN: 0.005,
-  // Pickup: fraction of cell density absorbed as volume when crossing an existing deposit.
-  PICKUP_VOLUME_RATE: 0.12,
+
+  // Fractional drain: each step transfers this fraction of remaining volume to agar.
+  // Gives exponential decay — heavy deposit at start, rapidly diminishing.
+  // bacteria_deposited = drain × concentration (conservative by construction).
+  DRAIN_FRACTION: 0.005,
+
+  // Pickup: fraction of cell density picked up when loop crosses existing deposit.
+  PICKUP_FRACTION: 0.04,
+  // How much "volume" each unit of picked-up bacteria adds (bacteria is mostly solid).
+  PICKUP_VOLUME_FACTOR: 0.1,
+
+  // Wide-band deposit: loop creates 3-cell-wide groove with ridges on edges.
+  LOOP_GROOVE_WEIGHT: 0.20,   // center cell deposit fraction (wire contact groove)
+  LOOP_EDGE_WEIGHT: 0.40,     // each side cell deposit fraction (ridge)
+  LOOP_GROOVE_DAMAGE: 0.003,  // faint agar scoring from wire drag
 
   // Speed normalization — speedNorm is in normalized plate coords per second
   SPEED_REFERENCE: 0.5,      // norm-coords/sec at "normal" sweep speed
@@ -80,18 +87,18 @@ export const SIM = {
   CONTAM_RATE: 0.002,   // contamination events per frame per unit of lid angle
   CONTAM_BASE: 0.0005,  // base contamination even with lid mostly closed
 
-  // Colony generation thresholds — calibrated to DEPOSIT_RATE=0.5, DENSITY_MAX=0.5
-  // Zone 1 (full loop): cells cap at 0.5 and hit confluent easily
-  // Zone 2 (pickup ≈0.15 vol, conc≈0.6): deposit ≈0.045/cell → dense near border, isolated far
-  // Zone 3 (pickup from Zone 2 ≈0.03 vol, conc≈0.15): deposit ≈0.0023/cell → sparse isolated
+  // Colony generation thresholds — calibrated to DRAIN_FRACTION=0.005, concentration=100
+  // Zone 1 (full loop): exponential decay, cells reach confluent easily
+  // Zone 2 (pickup from zone 1): much less volume, moderate deposit
+  // Zone 3 (pickup from zone 2): sparse isolated colonies
   DENSITY_CONFLUENT: 0.20,  // Zone 1 carpet — 1 pass with full loop
   DENSITY_DENSE: 0.02,      // Zone 2 near border — diluted pickup
   DENSITY_ISOLATED: 0.003,  // Zone 3-4 — double-diluted pickup
   DENSITY_NONE: 0.0005,     // background noise threshold
 
   // Colony spawn probabilities per qualifying grid cell
-  COLONY_PROB_CONFLUENT: 0.80,
-  COLONY_PROB_DENSE: 0.45,
+  COLONY_PROB_CONFLUENT: 0.95,
+  COLONY_PROB_DENSE: 0.70,
   COLONY_PROB_ISOLATED: 0.12,
 
   // Lid physics

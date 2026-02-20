@@ -60,7 +60,7 @@
       loop.state = {
         kind: 'inoculation-loop',
         volume: 1.0,
-        concentration: 1.0,
+        concentration: 100,
         temperature: loop.state?.kind === 'inoculation-loop' ? loop.state.temperature : 0,
         isSterile: true,
       };

@@ -14,14 +14,6 @@ export function lightenColor(hex: string, pct: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-export function hexToRgba(hex: string, alpha: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = (num >> 16) & 0xff;
-  const g = (num >> 8) & 0xff;
-  const b = num & 0xff;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 /** Draw complete plate (agar base + density overlay + rim) */
 export function redrawPlate(
   ctx: CanvasRenderingContext2D,

@@ -40,8 +40,7 @@
   const PLATE_SIZE = 400;
   const PLATE_CENTER = PLATE_SIZE / 2;
 
-  let dishEl = $state<HTMLDivElement>();
-  let cellEl = $state<HTMLDivElement>();
+    let cellEl = $state<HTMLDivElement>();
   let plateCanvas = $state<HTMLCanvasElement>();
   let debugCanvas = $state<HTMLCanvasElement>();
   let showDebug = $state(false);
@@ -322,19 +321,12 @@
   const TEST_FINDINGS: CultureFindings = {
     growth: true,
     gramType: 'positive',
-    colonyColor: 'golden',
+    colonyColor: 'cream',
     hemolysis: 'beta',
   };
 
-  function deriveFindingsFromSample(): CultureFindings | null {
-    for (const sample of wb.samples) {
-      if (sample.findings?.culture) return sample.findings.culture;
-    }
-    return null;
-  }
-
   function handleDone() {
-    const findings = deriveFindingsFromSample() ?? TEST_FINDINGS;
+    const findings = TEST_FINDINGS;
     snappedFindings = findings;
     colonies = generateColoniesFromGrid({
       grid: plateState.grid,
@@ -370,8 +362,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="dish"
-        bind:this={dishEl}
-        onpointerenter={handleDishPointerEnter}
+                onpointerenter={handleDishPointerEnter}
         onpointermove={handleDishPointerMove}
         onpointerleave={handleDishPointerLeave}
         style:touch-action="none"
@@ -436,6 +427,14 @@
       class:active={showDebug}
       onclick={() => { showDebug = !showDebug; if (showDebug) renderDebugOverlay(); }}
     >density</button>
+{#if showDebug}
+      <div class="debug-stats">
+        Grid: {plateState.totalGridBacteria.toFixed(1)}
+        | Loop: {(heldLoopState ? heldLoopState.volume * heldLoopState.concentration : 0).toFixed(1)}
+        | Init: {plateState.initialBacteriaLoaded.toFixed(1)}
+        | Contam: {plateState.contaminationEvents}
+      </div>
+    {/if}
 
   {:else}
     <!-- Colony view -->
@@ -515,6 +514,15 @@
   .debug-toggle.active {
     opacity: 1;
     color: #6cba6c;
+  }
+
+  .debug-stats {
+    font-size: 0.55rem;
+    font-family: monospace;
+    color: #6cba6c;
+    opacity: 0.8;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .lid-disc {

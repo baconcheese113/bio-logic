@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Colony, MediaType, DensityGrid } from './simulation-types';
   import type { CultureFindings } from '../../../lib/types';
-  import { MEDIA_COLORS, GRID_SIZE, SIM, PLATE_RADIUS } from './simulation-types';
-  import { lightenColor, hexToRgba } from './plate-renderer';
+  import { MEDIA_COLORS, GRID_SIZE, SIM, PLATE_RADIUS, COLONY_COLORS } from './simulation-types';
+  import { lightenColor } from './plate-renderer';
 
   interface Props {
     colonies: Colony[];
@@ -30,7 +30,7 @@
     return {
       cx: colony.x * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
       cy: colony.y * PLATE_RADIUS * 2 + (PLATE_CENTER - PLATE_RADIUS),
-      r: Math.max(4, colony.radius * PLATE_RADIUS * 2),
+      r: Math.max(2, colony.radius * PLATE_RADIUS * 2),
     };
   }
 
@@ -86,7 +86,7 @@
 
     ctx.clearRect(0, 0, PLATE_SIZE, PLATE_SIZE);
 
-    // Plate shadow
+    // --- Plate shadow ---
     ctx.save();
     ctx.beginPath();
     ctx.arc(PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS + 4, 0, Math.PI * 2);
@@ -94,7 +94,7 @@
     ctx.fill();
     ctx.restore();
 
-    // Plate background
+    // --- Plate background (agar) ---
     ctx.save();
     ctx.beginPath();
     ctx.arc(PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS, 0, Math.PI * 2);
@@ -105,21 +105,50 @@
       PLATE_CENTER - 30, PLATE_CENTER - 30, 10,
       PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS
     );
-    grad.addColorStop(0, lightenColor(colors.base, 15));
-    grad.addColorStop(1, colors.base);
+    grad.addColorStop(0, lightenColor(colors.base, 20));
+    grad.addColorStop(0.7, colors.base);
+    grad.addColorStop(1, lightenColor(colors.base, -10));
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
 
-    // Faint streak trace — shows the physical streak path as subtle darkening
-    // (provides "lawnmower lines" effect underlying the colony dots)
+    // --- Confluent lawn (offscreen + blur for smooth edges) ---
     if (grid) {
       const cellPx = (PLATE_RADIUS * 2) / GRID_SIZE;
       const plateLeft = PLATE_CENTER - PLATE_RADIUS;
       const plateTop = PLATE_CENTER - PLATE_RADIUS;
+      const cellR = cellPx * 0.72;
+
+      if (findings) {
+        const cColor = COLONY_COLORS[findings.colonyColor] ?? '#fffdd0';
+        const offscreen = new OffscreenCanvas(PLATE_SIZE, PLATE_SIZE);
+        const octx = offscreen.getContext('2d')!;
+        octx.fillStyle = cColor;
+        octx.beginPath();
+        for (let gy = 0; gy < GRID_SIZE; gy++) {
+          for (let gx = 0; gx < GRID_SIZE; gx++) {
+            if (grid.cells[gy * GRID_SIZE + gx] < SIM.DENSITY_CONFLUENT) continue;
+            const cx = plateLeft + (gx + 0.5) * cellPx;
+            const cy = plateTop + (gy + 0.5) * cellPx;
+            octx.moveTo(cx + cellR, cy);
+            octx.arc(cx, cy, cellR, 0, Math.PI * 2);
+          }
+        }
+        octx.fill();
+
+        // Composite with slight blur to soften grid edges
+        ctx.globalAlpha = 0.93;
+        ctx.filter = 'blur(1.5px)';
+        ctx.drawImage(offscreen, 0, 0);
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1;
+      }
+
+      // Dense (non-confluent) cells: faint darkening to hint at streak path
       ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
       for (let gy = 0; gy < GRID_SIZE; gy++) {
         for (let gx = 0; gx < GRID_SIZE; gx++) {
-          if (grid.cells[gy * GRID_SIZE + gx] < SIM.DENSITY_DENSE) continue;
+          const d = grid.cells[gy * GRID_SIZE + gx];
+          if (d < SIM.DENSITY_DENSE || d >= SIM.DENSITY_CONFLUENT) continue;
           ctx.fillRect(
             plateLeft + gx * cellPx,
             plateTop + gy * cellPx,
@@ -130,44 +159,60 @@
       }
     }
 
-    // Draw hemolysis zones (skip confluent — colonies too tiny for individual halos)
+    // --- Hemolysis zones (clearing effect for beta, greenish for alpha) ---
     for (const colony of colonies) {
       if (colony.densityLevel === 'confluent') continue;
-      const { cx, cy } = colonyToCanvas(colony);
-      if (colony.hemolysisType !== 'gamma' && colony.hemolysisRadius > 0) {
-        const hr = colony.hemolysisRadius * PLATE_RADIUS * 2;
+      if (colony.hemolysisType === 'gamma' || colony.hemolysisRadius <= 0) continue;
+      const { cx, cy, r } = colonyToCanvas(colony);
+      const hr = colony.hemolysisRadius * PLATE_RADIUS * 2;
+
+      if (colony.hemolysisType === 'beta') {
+        // Beta: radial gradient clearing — blood lysed, revealing lighter agar
+        const hemoGrad = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, hr);
+        hemoGrad.addColorStop(0, 'rgba(210, 190, 150, 0.55)');
+        hemoGrad.addColorStop(1, 'rgba(210, 190, 150, 0)');
         ctx.beginPath();
         ctx.arc(cx, cy, hr, 0, Math.PI * 2);
-        ctx.fillStyle = colony.hemolysisType === 'beta'
-          ? 'rgba(200, 180, 160, 0.4)'
-          : 'rgba(120, 140, 100, 0.3)';
+        ctx.fillStyle = hemoGrad;
+        ctx.fill();
+      } else {
+        // Alpha: subtle greenish discoloration
+        ctx.beginPath();
+        ctx.arc(cx, cy, hr, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(120, 140, 100, 0.25)';
         ctx.fill();
       }
     }
 
-    // Draw colony bodies — all density levels rendered as individual dots
+    // --- Colony bodies (dense & isolated — opaque 3D circles) ---
     for (let i = 0; i < colonies.length; i++) {
       const colony = colonies[i];
+      if (colony.densityLevel === 'confluent') continue;
       const { cx, cy, r } = colonyToCanvas(colony);
 
-      if (colony.densityLevel === 'confluent') {
-        // Tiny flat dot — many pack together to form the dense lawn
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = colony.color;
-        ctx.globalAlpha = 0.90;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      } else {
-        // Soft organic blob — radial gradient fading to transparent, no hard edge
-        const blobR = r * 2.2;
-        const blobGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, blobR);
-        const peakAlpha = colony.densityLevel === 'isolated' ? 0.95 : 0.80;
-        blobGrad.addColorStop(0,   hexToRgba(colony.color, peakAlpha));
-        blobGrad.addColorStop(0.45, hexToRgba(colony.color, peakAlpha * 0.75));
-        blobGrad.addColorStop(1,   hexToRgba(colony.color, 0));
-        ctx.fillStyle = blobGrad;
-        ctx.fillRect(cx - blobR, cy - blobR, blobR * 2, blobR * 2);
+      // Colony body — opaque filled circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = colony.color;
+      ctx.fill();
+
+      // Subtle drop shadow
+      ctx.beginPath();
+      ctx.arc(cx + 0.5, cy + 0.5, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Specular highlight (only on colonies large enough to see it)
+      if (r >= 3) {
+        const hlR = r * 0.4;
+        const hlX = cx - r * 0.22;
+        const hlY = cy - r * 0.22;
+        const hlGrad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, hlR);
+        hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+        hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = hlGrad;
+        ctx.fillRect(hlX - hlR, hlY - hlR, hlR * 2, hlR * 2);
       }
 
       // Hover highlight
@@ -186,12 +231,11 @@
         ctx.beginPath();
         ctx.arc(cx, cy, r + 5, 0, Math.PI * 2);
         ctx.strokeStyle = colony.isIsolated
-          ? 'rgba(108, 186, 108, 0.9)'  // green for pure/isolated
-          : 'rgba(208, 108, 108, 0.9)'; // red for mixed/confluent
+          ? 'rgba(108, 186, 108, 0.9)'
+          : 'rgba(208, 108, 108, 0.9)';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Second ring
         ctx.beginPath();
         ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
         ctx.strokeStyle = colony.isIsolated
@@ -202,13 +246,39 @@
       }
     }
 
+    // --- Glossy sheen (wet agar surface) ---
+    const sheenGrad = ctx.createRadialGradient(
+      PLATE_CENTER - 50, PLATE_CENTER - 50, 10,
+      PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS
+    );
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+    sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
+    sheenGrad.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
+
     ctx.restore();
 
-    // Plate rim
+    // --- 3D plate rim ---
+    // Outer shadow
+    ctx.beginPath();
+    ctx.arc(PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    // Main rim
     ctx.beginPath();
     ctx.arc(PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(200, 180, 150, 0.3)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(180, 170, 155, 0.5)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Inner highlight
+    ctx.beginPath();
+    ctx.arc(PLATE_CENTER, PLATE_CENTER, PLATE_RADIUS - 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
     ctx.stroke();
   }
 
