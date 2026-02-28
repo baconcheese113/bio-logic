@@ -10,7 +10,9 @@
     "knip": "knip",
     "lint": "eslint prototypes",
     "lint:fix": "eslint prototypes --fix",
-    "format": "prettier --write \"src/**/*.{ts,json,css,md}\""
+    "format": "prettier --write \"src/**/*.{ts,json,css,md}\"",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "keywords": [
     "phaser",
@@ -21,6 +23,7 @@
   "author": "bacon",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^24.5.2",
@@ -39,5 +42,8 @@
   },
   "volta": {
     "node": "24.11.1"
+  },
+  "dependencies": {
+    "pixi.js": "^8.16.0"
   }
 }

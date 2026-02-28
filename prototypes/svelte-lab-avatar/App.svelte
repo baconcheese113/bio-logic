@@ -20,6 +20,7 @@
   import DiagnosisPanel from './components/panels/DiagnosisPanel.svelte';
   import ModalOverlay from './components/ui/ModalOverlay.svelte';
   import ItemSlot from './components/ui/ItemSlot.svelte';
+  import ReferenceView from './components/reference/ReferenceView.svelte';
 
   // ── Reactive state ──
 
@@ -29,10 +30,18 @@
   // UI-only selection state
   let selectedFixtureId = $state<string | null>(null);
   let selectedPatientId = $state<string | null>(null);
-  let viewingFixtureId = $state<string | null>(null);
+  let viewingFixtureId = $state<string | null>('workbench-centrifuge');
   let notebookOpen = $state(false);
   let diagnosisPatientId = $state<string | null>(null);
   let cabinetOpenId = $state<string | null>(null);
+
+  // ── Hash route ──
+  let currentRoute = $state(window.location.hash);
+  $effect(() => {
+    const handler = () => currentRoute = window.location.hash;
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  });
 
   // ── Tick loop ──
 
@@ -142,7 +151,9 @@
 </script>
 
 <div class="app-container">
-  {#if viewingFixture}
+  {#if currentRoute === '#/reference'}
+    <ReferenceView />
+  {:else if viewingFixture}
     <WorkbenchView
       fixture={viewingFixture}
       samples={viewingSamples}
