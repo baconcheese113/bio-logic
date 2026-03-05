@@ -49,21 +49,8 @@
 
   function handlePointerLeave() {
     wb.hoveredItemId = null;
+    wb.mouseDown = false;
   }
-
-  // Persistent RAF to tick pressure ramping each frame
-  $effect(() => {
-    let rafId: number;
-    let last = performance.now();
-    function tick(now: number) {
-      const dt = (now - last) / 16.67;
-      last = now;
-      wb.tickPressure(dt);
-      rafId = requestAnimationFrame(tick);
-    }
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  });
 
   function handleSurfaceClick() {
     // Clicking empty space while holding → put down
@@ -76,10 +63,6 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key === 'Escape' && wb.heldItemId) wb.putDown();
-    if (e.key === 'Shift') wb.shiftHeld = true;
-  }}
-  onkeyup={(e) => {
-    if (e.key === 'Shift') wb.shiftHeld = false;
   }}
 />
 
@@ -99,6 +82,9 @@
       style:--grid-rows={gridRows}
       onpointermove={handlePointerMove}
       onpointerleave={handlePointerLeave}
+      onpointerdown={() => { wb.mouseDown = true; }}
+      onpointerup={() => { wb.mouseDown = false; }}
+      onpointercancel={() => { wb.mouseDown = false; }}
       onclick={handleSurfaceClick}
     >
       <!-- Empty grid cells -->

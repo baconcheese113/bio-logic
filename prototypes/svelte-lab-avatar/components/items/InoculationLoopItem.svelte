@@ -69,7 +69,7 @@
       let stillHot = false;
       wb.mutateItem(item.id, (it) => {
         if (it.state?.kind === 'inoculation-loop' && it.state.temperature > 0) {
-          it.state.temperature = Math.max(0, it.state.temperature - 0.004 * dt);
+          it.state.temperature = Math.max(0, it.state.temperature - 0.02 * dt);
           stillHot = it.state.temperature > 0;
         }
       });

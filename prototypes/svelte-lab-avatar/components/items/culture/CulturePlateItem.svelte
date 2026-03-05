@@ -9,7 +9,7 @@
     Q hold      = enter lid-tilt mode; mouse position controls tilt angle
     Q + E hold  = lock lid at current tilt (E acts as a clamp)
     Q release   = lid decays back to closed
-    Shift hold  = ramp pressure (via workbench context)
+    Left click  = apply pressure (while loop is held)
     Pointer on dish = streak while loop is held + lid open + inoculum present
 
   Physics reuse: streak-physics.ts (density grid, applyStreakSegment)
@@ -25,6 +25,7 @@
   import { getWorkbench } from '../../workbench/workbench-context.svelte';
   import { createPlateState, applyStreakSegment } from './streak-physics';
   import { redrawPlate, drawStreakSegment } from './plate-renderer';
+  import { genHeightMap, REFERENCE_PATHS } from '../../reference/webgl-colony-renderer';
   import { generateSeedsFromGrid, computeColoniesAtTime, computeGridQuality } from './colony-generator';
   import type { StreakQuality } from './colony-generator';
   import ColonyView from './ColonyView.svelte';
@@ -45,6 +46,8 @@
   let plateCanvas = $state<HTMLCanvasElement>();
   let debugCanvas = $state<HTMLCanvasElement>();
   let showDebug = $state(false);
+  let showReference = $state(false);
+  let referenceHeightMap = $state<Float32Array | undefined>(undefined);
 
   function renderDebugOverlay() {
     if (!debugCanvas) return;
@@ -196,6 +199,7 @@
         heldLoopState.temperature,
         wb.pressureLevel,
         speedNorm,
+        heldLoopState.profile,
       );
 
       wb.mutateItem(wb.heldItemId, (loop) => {
@@ -203,6 +207,7 @@
           loop.state.volume = result.volume;
           loop.state.concentration = result.concentration;
           loop.state.temperature = result.temperature;
+          loop.state.profile = result.profile;
         }
       });
 
@@ -326,7 +331,7 @@
     if (holdingE)  return `Lid locked at ${Math.round(exposure * 100)}% · Release E to adjust`;
     // Ready to streak but no pressure yet
     if (heldLoopState && heldLoopState.temperature <= SIM.KILL_THRESHOLD && exposure >= SIM.LID_MIN_STREAK && wb.pressureLevel < SIM.MIN_STREAK_PRESSURE) {
-      return 'Hold Shift to press loop into agar';
+      return 'Click and drag to streak';
     }
     return `Lid ${Math.round(exposure * 100)}% open · Hold E to lock`;
   });
@@ -452,7 +457,7 @@
   {:else}
     <!-- Colony view -->
     <div class="flex flex-col items-center justify-center gap-1 w-full h-full overflow-hidden">
-      <ColonyView {colonies} {mediaType} streakGrid={plateState.grid.cells} {incubationHours} />
+      <ColonyView {colonies} {mediaType} streakGrid={plateState.grid.cells} {incubationHours} heightMap={showReference ? referenceHeightMap : undefined} />
       {#if quality}
         <div class="quality-badge grade-{quality.overallGrade}">
           {quality.overallGrade} · {quality.isolatedColonyCount} isolated
@@ -468,6 +473,11 @@
         />
         <span class="incubation-label">{incubationHours}h</span>
       </div>
+      <button
+        class="btn-sm debug-toggle"
+        class:active={showReference}
+        onclick={() => { showReference = !showReference; if (showReference && !referenceHeightMap) referenceHeightMap = genHeightMap(Math.random, REFERENCE_PATHS); }}
+      >reference</button>
       {#if colonyDebug}
         <div class="debug-stats" style="font-size:0.6rem;line-height:1.4">
           Grid max: {colonyDebug.gridMax.toFixed(3)} | cells conf:{colonyDebug.cellsConfluent} dense:{colonyDebug.cellsDense} iso:{colonyDebug.cellsIsolated}<br>

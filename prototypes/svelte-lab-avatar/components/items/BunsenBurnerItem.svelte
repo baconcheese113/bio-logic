@@ -46,7 +46,7 @@
     wb.hoverNormY < 0.45
   );
 
-  const HEAT_RATE = 0.012;       // temperature gain per frame (~1.4s from 0 to 1)
+  const HEAT_RATE = 0.06;        // temperature gain per frame (~0.3s from 0 to 1)
   const STERILIZE_TEMP = 0.85;   // temperature at which the loop is considered sterile
 
   // Current loop temperature (for progress display)

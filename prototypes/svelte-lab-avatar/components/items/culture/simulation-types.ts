@@ -17,7 +17,7 @@ export const MEDIA_COLORS: Record<MediaType, { base: string; streak: string; lab
 
 // === Density Grid (core simulation state) ===
 
-export const GRID_SIZE = 100; // 100x100 cells covering the plate
+export const GRID_SIZE = 300; // 300x300 cells covering the plate
 /** Canonical plate radius in canvas pixels (canvas is PLATE_SIZE×PLATE_SIZE). */
 export const PLATE_RADIUS = 185;
 
@@ -63,8 +63,10 @@ export const SIM = {
   // Fractional drain: each step transfers this fraction of remaining volume to agar.
   // Gives exponential decay — heavy deposit at start, rapidly diminishing.
   // bacteria_deposited = drain × concentration (conservative by construction).
-  // 0.004 keeps enough bacteria for ~4 zone-1 strokes before trailing off.
-  DRAIN_FRACTION: 0.004,
+  // 0.002 × 2.5 (full pressure) = 0.005/step → ~60% volume remains after a
+  // full plate-crossing stroke (~80 steps), keeping Q1 flush and leaving
+  // plenty of bacteria for subsequent zones.
+  DRAIN_FRACTION: 0.002,
 
   // Pickup: fraction of cell density picked up when loop crosses existing deposit.
   // 0.25 creates a visible combed reduction band when crossing the initial dense streak.
@@ -107,9 +109,6 @@ export const SIM = {
   LID_MIN_STREAK: 0.15,     // minimum lid angle to allow streaking
   LID_OPTIMAL: 0.3,         // good balance of access vs contamination
 
-  // Pressure ramp (per frame at ~60fps)
-  PRESSURE_RAMP_UP: 0.015,    // ramp up when Shift held (~1.1s to full)
-  PRESSURE_RAMP_DOWN: 0.008,  // ramp down when Shift released (~2s to zero — deliberate, like real pressure)
   MIN_STREAK_PRESSURE: 0.05,  // loop must press down to contact agar; at zero it hovers above
 
   // Lid tilt
@@ -168,6 +167,10 @@ export const COLONY_COLORS: Record<string, string> = {
 };
 
 export const CONTAMINANT_COLORS = ['#d4c5a9', '#b8a88a', '#c9c0aa', '#e0d5bf'];
+
+// === Loop Cross-Sectional Profile ===
+
+// (Loop profile constants live in streak-physics.ts where they are used)
 
 // === Streak Quality (simplified - computed from density grid now) ===
 

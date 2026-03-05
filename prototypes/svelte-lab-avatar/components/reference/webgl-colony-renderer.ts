@@ -13,6 +13,8 @@ import {
   type ReferenceStreakData,
 } from './reference-streak-paths';
 
+export { REFERENCE_PATHS };
+
 const SIZE = 600;
 const HALF = SIZE / 2;
 const PLATE_R = SIZE * 0.46;
@@ -150,7 +152,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function genHeightMap(
+export function genHeightMap(
   rng: () => number,
   refPaths?: ReferenceStreakData,
 ): Float32Array {

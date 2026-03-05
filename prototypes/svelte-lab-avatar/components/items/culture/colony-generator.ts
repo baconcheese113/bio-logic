@@ -141,24 +141,63 @@ export function generateSeedsFromGrid(params: ColonyGenParams): ColonySeed[] {
   return filtered;
 }
 
+// Nutrient competition constants — seeds near many neighbors deplete local nutrients,
+// capping growth in dense regions while letting isolated colonies reach full size.
+const COMP_RADIUS = 0.025;   // neighborhood radius (normalized plate coords)
+const DEPLETION_K = 0.025;   // nutrient depletion per neighbor × growth
+
 /**
  * Compute Colony[] at a given incubation time from stable seeds.
  * Call this inside a $derived to make incubation time-reactive with zero extra work.
  *
- * Growth follows a logistic curve:
- *   ~0.1 at 8h (just visible), ~0.5 at 17h, ~0.85 at 24h, ~0.97 at 36h
+ * Growth follows a logistic curve with nutrient-limited carrying capacity:
+ *   Dense regions hit a nutrient wall around 12–18h, isolated colonies grow to full size.
  */
 export function computeColoniesAtTime(seeds: ColonySeed[], hours: number): Colony[] {
-  // Per-seed logistic growth with individual lag phase and rate.
-  // r(t) = r_max × 1 / (1 + exp(-k × (t - lag - midpoint)))
-  // midpoint offset of 8h gives ~50% size at (lag + 8h), matches typical 18–24h incubation.
-  const colonies: Colony[] = seeds.map(s => {
+  // Spatial hash for efficient neighbor counting
+  const binSize = COMP_RADIUS;
+  const bins = new Map<number, number[]>();
+  for (let i = 0; i < seeds.length; i++) {
+    const bx = Math.floor(seeds[i].x / binSize);
+    const by = Math.floor(seeds[i].y / binSize);
+    const key = bx * 10000 + by;
+    let bin = bins.get(key);
+    if (!bin) { bin = []; bins.set(key, bin); }
+    bin.push(i);
+  }
+
+  // Count neighbors within COMP_RADIUS for each seed
+  const neighborCount = new Float32Array(seeds.length);
+  const r2 = COMP_RADIUS * COMP_RADIUS;
+  for (let i = 0; i < seeds.length; i++) {
+    const s = seeds[i];
+    const bx = Math.floor(s.x / binSize);
+    const by = Math.floor(s.y / binSize);
+    let count = 0;
+    for (let dby = -1; dby <= 1; dby++) {
+      for (let dbx = -1; dbx <= 1; dbx++) {
+        const bin = bins.get((bx + dbx) * 10000 + (by + dby));
+        if (!bin) continue;
+        for (const j of bin) {
+          if (j === i) continue;
+          const dx = s.x - seeds[j].x;
+          const dy = s.y - seeds[j].y;
+          if (dx * dx + dy * dy < r2) count++;
+        }
+      }
+    }
+    neighborCount[i] = count;
+  }
+
+  // Per-seed logistic growth with nutrient competition.
+  // nutrient(t) = max(0, 1 - DEPLETION_K × N × gf_base)
+  // Dense regions deplete nutrients faster → earlier growth cap.
+  const colonies: Colony[] = seeds.map((s, i) => {
     const t = Math.max(0, hours - s.lag);
-    const gf = 1 / (1 + Math.exp(-s.growthRate * (t - 8)));
+    const gfBase = 1 / (1 + Math.exp(-s.growthRate * (t - 8)));
+    const nutrient = Math.max(0, 1 - DEPLETION_K * neighborCount[i] * gfBase);
+    const gf = gfBase * nutrient;
     const r = Math.max(0.001, s.r_max * gf);
-    // Coverage radius for dense seeds: uncapped growth × 4× spread.
-    // At full growth, this disc covers the territory between neighboring seeds,
-    // merging the B(t) field into a continuous lawn by ~20-24h.
     const coverageRadius = s.densityLevel === 'dense' ? s.r_max * gf * 4.0 : r;
     const hemolysisRadius = s.hemolysisType === 'gamma' ? 0 : r * (s.hemolysisType === 'beta' ? 2.0 : 1.5);
     return {

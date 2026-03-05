@@ -6,7 +6,7 @@
  *  - Query what other items / samples are on the bench
  *  - Read pointer state (held item, hovered item, cursor position)
  *  - Pick up / put down tools for interaction
- *  - Read shared input state (shiftHeld, pressureLevel) without prop-drilling
+ *  - Read shared input state (mouseDown, pressureLevel) without prop-drilling
  *
  * WorkbenchView creates a WorkbenchState and calls setWorkbenchContext().
  * Item components call getWorkbench() and read reactive properties.
@@ -14,7 +14,6 @@
 import { setContext, getContext } from 'svelte';
 import type { Item, Sample } from '../../lib/types';
 import type { ItemType } from './item-defs';
-import { SIM } from '../items/culture/simulation-types';
 
 const KEY = Symbol('workbench');
 
@@ -26,14 +25,10 @@ export class WorkbenchState {
   /** Normalized Y position of the cursor within the currently hovered tile (0 = top, 1 = bottom). Set by WorkbenchGrid. */
   hoverNormY = $state(0);
 
-  /** Whether the Shift key is currently depressed. Set by WorkbenchGrid. */
-  shiftHeld = $state(false);
-  /**
-   * Normalized pressure level (0–1). Ramps up when Shift is held while
-   * the inoculation loop is in hand; decays when released.
-   * Any item can read this — the cursor, the plate physics, future tools.
-   */
-  pressureLevel = $state(0);
+  /** Whether the primary pointer button is currently pressed. Set by WorkbenchGrid. */
+  mouseDown = $state(false);
+  /** Pressure level (0 or 1). Full when mouse is held while the inoculation loop is in hand. */
+  pressureLevel = $derived(this.mouseDown && this.isHolding('inoculation-loop') ? 1 : 0);
 
   #getItems: () => Item[];
   #getSamples: () => Sample[];
@@ -82,19 +77,6 @@ export class WorkbenchState {
     return this.items.find(i => i.type === type);
   }
 
-  /**
-   * Tick the pressure ramp. Called every frame by WorkbenchGrid.
-   * Pressure builds when Shift is held with the inoculation loop in hand,
-   * and decays otherwise. This way items only feel "heavy" when holding the tool.
-   */
-  tickPressure(dt: number) {
-    const loopHeld = this.isHolding('inoculation-loop');
-    if (this.shiftHeld && loopHeld) {
-      this.pressureLevel = Math.min(1, this.pressureLevel + SIM.PRESSURE_RAMP_UP * dt);
-    } else {
-      this.pressureLevel = Math.max(0, this.pressureLevel - SIM.PRESSURE_RAMP_DOWN * dt);
-    }
-  }
 }
 
 export function setWorkbenchContext(wb: WorkbenchState) {

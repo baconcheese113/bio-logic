@@ -2,9 +2,7 @@
   SampleVialItem.svelte — Patient sample vial on the workbench grid.
 
   Dipping physics:
-    Hold sterile loop over vial + apply pressure (Shift) to dip into the sample.
-    The pressure threshold represents physically pushing the loop into the liquid.
-    Once pressure crosses DIP_THRESHOLD, inoculum loads instantly (single event).
+  Hold sterile loop over vial and click to dip.
 -->
 <script lang="ts">
   import type { Item, SampleType } from '../../lib/types';
@@ -40,22 +38,8 @@
     wb.isHeldOver(item.id) && needsDip
   );
 
-  // Pressure threshold to trigger a dip — moderate press required
-  const DIP_THRESHOLD = 0.3;
-
-  const isDipping = $derived(canDip && wb.pressureLevel >= DIP_THRESHOLD);
-
-  // Fire once when pressure crosses the threshold while conditions are met.
-  // The $effect resets automatically because canDip becomes false once inoculumLevel > 0.
-  let hasDipped = false;
-  $effect(() => {
-    if (!canDip) {
-      hasDipped = false;
-      return;
-    }
-    if (hasDipped || !isDipping || !wb.heldItemId || !item.contents) return;
-    hasDipped = true;
-
+  function handleDip() {
+    if (!canDip || !wb.heldItemId || !item.contents) return;
     wb.mutateItem(wb.heldItemId, (loop) => {
       loop.state = {
         kind: 'inoculation-loop',
@@ -65,11 +49,13 @@
         isSterile: true,
       };
     });
-  });
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="flex flex-col items-center gap-1 p-1" class:can-dip={canDip} class:needs-dip={needsDip && !canDip}>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="flex flex-col items-center gap-1 p-1" class:can-dip={canDip} class:needs-dip={needsDip && !canDip}
+  onclick={handleDip} style:cursor={canDip ? 'pointer' : undefined}>
   <svg viewBox="0 0 40 100">
     <!-- Cap -->
     <rect x="13" y="2" width="14" height="8" rx="2"
@@ -91,17 +77,10 @@
       <line x1="14" y1={y} x2="16" y2={y} stroke="rgba(150,170,190,0.3)" stroke-width="0.3" />
     {/each}
 
-    <!-- Dip ripple when pressure threshold crossed -->
-    {#if isDipping}
-      <ellipse cx="20" cy={63 - (item.contents?.volume ?? 0) * 40} rx="5" ry="1.5"
-        fill="none" stroke={sampleColor} stroke-width="0.8" opacity="0.6" class="ripple" />
-    {/if}
   </svg>
 
   {#if canDip}
-    <span class="dip-hint">
-      {isDipping ? 'Dipping…' : 'Hold Shift to dip'}
-    </span>
+    <span class="dip-hint">Click to dip</span>
   {:else if needsDip}
     <span class="dip-hint needs">Dip loop here</span>
   {/if}
