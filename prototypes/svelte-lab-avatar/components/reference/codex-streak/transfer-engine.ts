@@ -6,6 +6,7 @@ import {
   type DebugLogConfig,
   type FilmState,
   type LoopSector,
+  type PlateMedium,
   type PlateSession,
   type Rect,
   type SpeciesDef,
@@ -54,15 +55,15 @@ const SCENARIO_PLATE_SEED = 0x0cd3f711;
 export const CANONICAL_TRANSFER_SCENARIOS: TransferScenario[] = [
   {
     id: 'balanced-three-species',
-    name: 'Balanced 3-species streak',
-    description: 'A single balanced pass so the dilution profile stays easy to read while all three species remain visible.',
+    name: 'Balanced mixed streak',
+    description: 'A balanced mixed inoculum so the later sectors still carry multiple readable phenotypes.',
     recommendedSpeciesIndex: 0,
   },
   {
     id: 'dominant-minor-species',
     name: 'Dominant + minor species',
-    description: 'One species dominates the loop while two minor species stay detectable in the same transfer band.',
-    recommendedSpeciesIndex: 1,
+    description: 'A gram-negative dominant load with a mucoid secondary species to test differential readability.',
+    recommendedSpeciesIndex: 3,
   },
   {
     id: 'sterile-cross-smear',
@@ -73,17 +74,18 @@ export const CANONICAL_TRANSFER_SCENARIOS: TransferScenario[] = [
   {
     id: 'reload-through-prior-region',
     name: 'Reload through prior region',
-    description: 'Reload the loop with a new composition and run back through an earlier region to inspect remixing across strokes.',
-    recommendedSpeciesIndex: 1,
+    description: 'Reload the loop with a more mucoid composition and pass through an earlier field to inspect remixed species cues.',
+    recommendedSpeciesIndex: 4,
   },
 ];
 
 export function createCanonicalTransferSession(
   speciesConfig: SpeciesDef[],
   scenarioId: TransferScenarioId,
-  plateSeed = SCENARIO_PLATE_SEED,
+  plateSeed: number | undefined = SCENARIO_PLATE_SEED,
+  medium: PlateMedium = 'blood-agar',
 ): PlateSession {
-  const session = createPlateSession(speciesConfig, plateSeed);
+  const session = createPlateSession(speciesConfig, plateSeed, medium);
   session.actionLog = buildScenarioActions(scenarioId);
   return session;
 }
@@ -153,7 +155,7 @@ function buildScenarioActions(scenarioId: TransferScenarioId): Action[] {
 
 function buildBalancedThreeSpeciesScenario(startTime: number): ScenarioBuildResult {
   const actions: Action[] = [
-    { type: 'loadSample', speciesLoads: [0.34, 0.33, 0.33], timestamp: startTime },
+    { type: 'loadSample', speciesLoads: [0.24, 0.16, 0.15, 0.23, 0.22], timestamp: startTime },
   ];
 
   return appendStroke(
@@ -171,7 +173,7 @@ function buildBalancedThreeSpeciesScenario(startTime: number): ScenarioBuildResu
 
 function buildDominantMinorScenario(startTime: number): ScenarioBuildResult {
   const actions: Action[] = [
-    { type: 'loadSample', speciesLoads: [0.84, 0.12, 0.04], timestamp: startTime },
+    { type: 'loadSample', speciesLoads: [0.08, 0.07, 0.05, 0.56, 0.24], timestamp: startTime },
   ];
 
   return appendStroke(
@@ -189,7 +191,7 @@ function buildDominantMinorScenario(startTime: number): ScenarioBuildResult {
 
 function buildSterileCrossSmearScenario(startTime: number): ScenarioBuildResult {
   const actions: Action[] = [
-    { type: 'loadSample', speciesLoads: [0.45, 0.35, 0.2], timestamp: startTime },
+    { type: 'loadSample', speciesLoads: [0.36, 0.22, 0.12, 0.18, 0.12], timestamp: startTime },
   ];
 
   const firstStroke = appendStroke(
@@ -238,7 +240,7 @@ function buildReloadThroughPriorRegionScenario(startTime: number): ScenarioBuild
 
   firstStroke.actions.push({
     type: 'loadSample',
-    speciesLoads: [0.18, 0.62, 0.2],
+    speciesLoads: [0.06, 0.12, 0.1, 0.24, 0.48],
     timestamp: firstStroke.nextTime,
   });
 

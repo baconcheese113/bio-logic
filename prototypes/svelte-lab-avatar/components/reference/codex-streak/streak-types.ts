@@ -10,21 +10,47 @@ export interface Rect {
   maxY: number;
 }
 
+export type PlateMedium = 'blood-agar' | 'nutrient-agar' | 'macconkey';
 export type HemolysisType = 'alpha' | 'beta' | 'gamma';
-export type SpeciesMorphology = 'smooth' | 'rough' | 'mucoid' | 'spreading';
+export type SpeciesMorphology = 'smooth' | 'rough' | 'mucoid' | 'spreading' | 'draughtsman';
+export type InspectionLightMode = 'surface' | 'transmitted';
+
+export interface MediumDef {
+  id: PlateMedium;
+  name: string;
+  description: string;
+  agarColor: string;
+  agarShadowColor: string;
+  transferResidueColor: string;
+  wetHighlightColor: string;
+  betaHemolysisColor: string;
+  alphaHemolysisColor: string;
+  supportsHemolysis: boolean;
+}
+
+export interface SpeciesPhenotype {
+  colonyColorLabel: string;
+  colonyColor: string;
+  renderColor: string;
+  opacity: number;
+  isolatedRadius: [number, number];
+  hemolysisType: HemolysisType;
+  hemolysisRatio: number;
+  morphology: SpeciesMorphology;
+  roughness: number;
+  sheen: number;
+  differentialLabel: string | null;
+}
 
 export interface SpeciesDef {
   id: string;
   name: string;
   color: string;
-  renderColor?: string;
-  hemolysisType: HemolysisType;
-  isolatedRadius: [number, number];
   lagRange: [number, number];
   growthRateRange: [number, number];
   maxBiomass: number;
   wasteRate: number;
-  morphology?: SpeciesMorphology;
+  media: Partial<Record<PlateMedium, SpeciesPhenotype>>;
 }
 
 export type Action =
@@ -37,8 +63,38 @@ export type Action =
 export interface PlateSession {
   plateSeed: number;
   speciesConfig: SpeciesDef[];
+  medium: PlateMedium;
   actionLog: Action[];
   targetTime: number;
+}
+
+export interface IsolateCandidate {
+  id: string;
+  center: Vec2;
+  bounds: Rect;
+  dominantSpeciesId: string;
+  dominantSpeciesName: string;
+  dominantSpeciesIndex: number;
+  purity: number;
+  confidence: number;
+  crowded: boolean;
+  colonyRadiusCells: number;
+  colonyDiameterMm: number;
+  localHemolysisSignal: number;
+  hemolysisLabel: string;
+  morphologyLabel: string;
+  colonyColorLabel: string;
+  differentialLabel: string | null;
+  transmittedLightRecommended: boolean;
+}
+
+export interface InspectionSnapshot {
+  candidateId: string;
+  medium: PlateMedium;
+  lightMode: InspectionLightMode;
+  bounds: Rect;
+  title: string;
+  observationLines: string[];
 }
 
 export interface LoopSector {
@@ -164,6 +220,14 @@ export interface SeedingMetrics {
   haloArea: number;
 }
 
+export interface IdentificationMetrics {
+  candidateCount: number;
+  highConfidenceCount: number;
+  crowdedCount: number;
+  meanPurity: number;
+  maxConfidence: number;
+}
+
 export type TransferScenarioId =
   | 'balanced-three-species'
   | 'dominant-minor-species'
@@ -176,6 +240,47 @@ export interface TransferScenario {
   description: string;
   recommendedSpeciesIndex: number;
 }
+
+export const DEFAULT_MEDIUM: PlateMedium = 'blood-agar';
+
+export const PLATE_MEDIA: readonly MediumDef[] = [
+  {
+    id: 'blood-agar',
+    name: 'Blood Agar',
+    description: 'Differential medium for hemolysis and primary isolation.',
+    agarColor: '#772120',
+    agarShadowColor: '#4a1615',
+    transferResidueColor: '#8a4038',
+    wetHighlightColor: '#c0a08f',
+    betaHemolysisColor: '#d5bc98',
+    alphaHemolysisColor: '#7f6958',
+    supportsHemolysis: true,
+  },
+  {
+    id: 'nutrient-agar',
+    name: 'Nutrient Agar',
+    description: 'General-purpose medium with no blood-cell hemolysis readout.',
+    agarColor: '#8a7246',
+    agarShadowColor: '#5a4727',
+    transferResidueColor: '#9f8357',
+    wetHighlightColor: '#dac59d',
+    betaHemolysisColor: '#8a7246',
+    alphaHemolysisColor: '#8a7246',
+    supportsHemolysis: false,
+  },
+  {
+    id: 'macconkey',
+    name: 'MacConkey',
+    description: 'Selective and differential medium for gram-negative enterics.',
+    agarColor: '#8d4a63',
+    agarShadowColor: '#612b43',
+    transferResidueColor: '#9d5d76',
+    wetHighlightColor: '#ddb5c0',
+    betaHemolysisColor: '#8d4a63',
+    alphaHemolysisColor: '#8d4a63',
+    supportsHemolysis: false,
+  },
+] as const;
 
 export const SIM = {
   defaultResolution: 160,
@@ -239,40 +344,212 @@ export const DEFAULT_SPECIES = [
     id: 'staph-aureus',
     name: 'S. aureus',
     color: '#d9b25f',
-    renderColor: '#e3d1a1',
-    hemolysisType: 'beta',
-    isolatedRadius: [0.018, 0.028],
     lagRange: [2, 5],
     growthRateRange: [0.18, 0.3],
-    maxBiomass: 1,
+    maxBiomass: 1.02,
     wasteRate: 0.11,
-    morphology: 'smooth',
-  },
-  {
-    id: 'e-coli',
-    name: 'E. coli',
-    color: '#cdd4d8',
-    renderColor: '#d8d1c2',
-    hemolysisType: 'gamma',
-    isolatedRadius: [0.015, 0.024],
-    lagRange: [1.5, 4],
-    growthRateRange: [0.2, 0.32],
-    maxBiomass: 1,
-    wasteRate: 0.08,
-    morphology: 'smooth',
+    media: {
+      'blood-agar': {
+        colonyColorLabel: 'golden',
+        colonyColor: '#d1b05a',
+        renderColor: '#d3ab56',
+        opacity: 0.9,
+        isolatedRadius: [0.016, 0.028],
+        hemolysisType: 'beta',
+        hemolysisRatio: 1.35,
+        morphology: 'smooth',
+        roughness: 0.38,
+        sheen: 0.58,
+        differentialLabel: null,
+      },
+      'nutrient-agar': {
+        colonyColorLabel: 'golden',
+        colonyColor: '#cfb468',
+        renderColor: '#d8bb76',
+        opacity: 0.88,
+        isolatedRadius: [0.014, 0.025],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'smooth',
+        roughness: 0.36,
+        sheen: 0.54,
+        differentialLabel: null,
+      },
+    },
   },
   {
     id: 'strep-pyogenes',
     name: 'S. pyogenes',
-    color: '#d4d0c6',
-    renderColor: '#e6dccf',
-    hemolysisType: 'beta',
-    isolatedRadius: [0.009, 0.015],
+    color: '#d9d3c3',
     lagRange: [2.5, 6],
     growthRateRange: [0.15, 0.24],
-    maxBiomass: 1,
+    maxBiomass: 0.96,
     wasteRate: 0.13,
-    morphology: 'rough',
+    media: {
+      'blood-agar': {
+        colonyColorLabel: 'gray-white',
+        colonyColor: '#c8c1b6',
+        renderColor: '#cfc9bd',
+        opacity: 0.82,
+        isolatedRadius: [0.006, 0.011],
+        hemolysisType: 'beta',
+        hemolysisRatio: 2.1,
+        morphology: 'rough',
+        roughness: 0.74,
+        sheen: 0.24,
+        differentialLabel: null,
+      },
+      'nutrient-agar': {
+        colonyColorLabel: 'gray',
+        colonyColor: '#c3bbaf',
+        renderColor: '#d2c8bb',
+        opacity: 0.8,
+        isolatedRadius: [0.005, 0.009],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'rough',
+        roughness: 0.72,
+        sheen: 0.2,
+        differentialLabel: null,
+      },
+    },
+  },
+  {
+    id: 'strep-pneumoniae',
+    name: 'S. pneumoniae',
+    color: '#c2bfba',
+    lagRange: [3, 6.5],
+    growthRateRange: [0.12, 0.22],
+    maxBiomass: 0.9,
+    wasteRate: 0.12,
+    media: {
+      'blood-agar': {
+        colonyColorLabel: 'gray-green',
+        colonyColor: '#b8ae98',
+        renderColor: '#b9ae96',
+        opacity: 0.74,
+        isolatedRadius: [0.007, 0.012],
+        hemolysisType: 'alpha',
+        hemolysisRatio: 1.25,
+        morphology: 'draughtsman',
+        roughness: 0.69,
+        sheen: 0.16,
+        differentialLabel: null,
+      },
+      'nutrient-agar': {
+        colonyColorLabel: 'gray',
+        colonyColor: '#bbb3a5',
+        renderColor: '#c7bbad',
+        opacity: 0.72,
+        isolatedRadius: [0.006, 0.011],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'draughtsman',
+        roughness: 0.68,
+        sheen: 0.14,
+        differentialLabel: null,
+      },
+    },
+  },
+  {
+    id: 'e-coli',
+    name: 'E. coli',
+    color: '#d7d8d3',
+    lagRange: [1.5, 4],
+    growthRateRange: [0.2, 0.32],
+    maxBiomass: 1,
+    wasteRate: 0.08,
+    media: {
+      'blood-agar': {
+        colonyColorLabel: 'gray-white',
+        colonyColor: '#d6d0c8',
+        renderColor: '#ddd6ce',
+        opacity: 0.84,
+        isolatedRadius: [0.014, 0.024],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'smooth',
+        roughness: 0.4,
+        sheen: 0.44,
+        differentialLabel: null,
+      },
+      'nutrient-agar': {
+        colonyColorLabel: 'gray',
+        colonyColor: '#ccc6bc',
+        renderColor: '#d2cbc0',
+        opacity: 0.82,
+        isolatedRadius: [0.013, 0.022],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'smooth',
+        roughness: 0.42,
+        sheen: 0.4,
+        differentialLabel: null,
+      },
+      macconkey: {
+        colonyColorLabel: 'pink',
+        colonyColor: '#d36e8c',
+        renderColor: '#f0afc3',
+        opacity: 0.86,
+        isolatedRadius: [0.013, 0.023],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'smooth',
+        roughness: 0.44,
+        sheen: 0.34,
+        differentialLabel: 'Pink, lactose fermenter',
+      },
+    },
+  },
+  {
+    id: 'klebsiella-pneumoniae',
+    name: 'K. pneumoniae',
+    color: '#d5b5d1',
+    lagRange: [2, 4.5],
+    growthRateRange: [0.18, 0.28],
+    maxBiomass: 1.08,
+    wasteRate: 0.09,
+    media: {
+      'blood-agar': {
+        colonyColorLabel: 'cream-mucoid',
+        colonyColor: '#e1d3b7',
+        renderColor: '#ead9ba',
+        opacity: 0.92,
+        isolatedRadius: [0.02, 0.033],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'mucoid',
+        roughness: 0.28,
+        sheen: 0.68,
+        differentialLabel: null,
+      },
+      'nutrient-agar': {
+        colonyColorLabel: 'cream-mucoid',
+        colonyColor: '#d8cbb3',
+        renderColor: '#dfd1bb',
+        opacity: 0.9,
+        isolatedRadius: [0.018, 0.03],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'mucoid',
+        roughness: 0.27,
+        sheen: 0.64,
+        differentialLabel: null,
+      },
+      macconkey: {
+        colonyColorLabel: 'pink mucoid',
+        colonyColor: '#d07aa7',
+        renderColor: '#ebb7cf',
+        opacity: 0.94,
+        isolatedRadius: [0.02, 0.033],
+        hemolysisType: 'gamma',
+        hemolysisRatio: 0,
+        morphology: 'mucoid',
+        roughness: 0.25,
+        sheen: 0.72,
+        differentialLabel: 'Pink mucoid, lactose fermenter',
+      },
+    },
   },
 ] satisfies SpeciesDef[];
 
@@ -327,11 +604,13 @@ export function randomPlateSeed(): number {
 
 export function createPlateSession(
   speciesConfig: SpeciesDef[] = DEFAULT_SPECIES,
-  plateSeed = randomPlateSeed(),
+  plateSeed: number | undefined = randomPlateSeed(),
+  medium: PlateMedium = DEFAULT_MEDIUM,
 ): PlateSession {
   return {
-    plateSeed,
+    plateSeed: plateSeed ?? randomPlateSeed(),
     speciesConfig,
+    medium,
     actionLog: [],
     targetTime: 24,
   };
@@ -496,4 +775,46 @@ export function createRenderMaps(resolution: number = SIM.defaultResolution): Re
     hemolysisAlpha: new Float32Array(cellCount),
     hemolysisBeta: new Float32Array(cellCount),
   };
+}
+
+export function getMediumDef(medium: PlateMedium): MediumDef {
+  const profile = PLATE_MEDIA.find((entry) => entry.id === medium);
+  if (!profile) {
+    throw new Error(`Unknown plate medium: ${medium}`);
+  }
+  return profile;
+}
+
+export function getSpeciesPhenotype(
+  species: SpeciesDef,
+  medium: PlateMedium,
+): SpeciesPhenotype | null {
+  return species.media[medium] ?? null;
+}
+
+export function getSpeciesMorphologyLabel(morphology: SpeciesMorphology): string {
+  switch (morphology) {
+    case 'smooth':
+      return 'smooth';
+    case 'rough':
+      return 'rough';
+    case 'mucoid':
+      return 'mucoid';
+    case 'spreading':
+      return 'spreading';
+    case 'draughtsman':
+      return 'draughtsman-like';
+  }
+}
+
+export function getHemolysisLabel(hemolysisType: HemolysisType): string {
+  switch (hemolysisType) {
+    case 'alpha':
+      return 'alpha hemolysis';
+    case 'beta':
+      return 'beta hemolysis';
+    case 'gamma':
+    default:
+      return 'no hemolysis';
+  }
 }

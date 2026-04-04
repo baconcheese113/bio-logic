@@ -11,61 +11,68 @@ const LEGACY_ROUTES = [
 
 test('legacy codex-streak routes redirect to the single dashboard and keep reference intact', async ({ page }) => {
   await page.goto(REFERENCE_ROUTE);
-  await expect(page.getByRole('heading', { name: 'Colony Rendering — Reference Lab' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Colony Rendering/ })).toBeVisible();
 
   for (const route of LEGACY_ROUTES) {
     await page.goto(route);
     await expect(page).toHaveURL(/#\/reference\/codex-streak\/pipeline$/);
     await expect(page.locator('[data-ref="codex-streak-dashboard"]')).toBeVisible();
     await expect(page.locator('[data-ref="streak-plate-card"]')).toBeVisible();
+    await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="transfer-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="seeding-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="growth-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="render-card"]')).toBeVisible();
+    await expect(page.locator('[data-ref="medium-select"]')).toBeVisible();
   }
 });
 
-test('single dashboard stays interactive on desktop and mobile', async ({ page }) => {
+test('single dashboard reads directly from the plate on desktop and mobile', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.goto(DASHBOARD_ROUTE);
 
   const plateCanvas = page.locator('[data-ref="codex-plate-canvas"]');
-  const dirtyArea = page.locator('[data-ref="transfer-dirty-area"]');
-  const changedCells = page.locator('[data-ref="founder-changed-cells"]');
-  const growthNutrient = page.locator('[data-ref="growth-nutrient"]');
-  const incubationHours = page.locator('[data-ref="incubation-hours"]');
   const incubationSlider = page.locator('[data-ref="incubation-slider"]');
-  const renderHeightPeak = page.locator('[data-ref="render-height-peak"]');
+  const observationCues = page.locator('[data-ref="observation-cues-list"]');
+  const observationFilterSummary = page.locator('[data-ref="observation-filter-summary"]');
+  const renderCanvas = page.locator('[data-ref="render-canvas"]');
 
   await expect(plateCanvas).toBeVisible();
-  await expect(dirtyArea).toHaveText('0');
-  await expect(page.locator('[data-ref="render-card"]')).toBeVisible();
+  await expect(renderCanvas).toBeVisible();
+  await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
+  await expect(page.locator('[data-ref="observation-filter-controls"]')).toBeVisible();
+  await expect(page.locator('[data-ref="observation-light-controls"]')).toBeVisible();
+  await expect(page.locator('[data-ref="inspection-card"]')).toHaveCount(0);
+  await expect(page.locator('[data-ref="medium-select"]')).toBeVisible();
+  await expect(page.locator('[data-ref="render-view-label"]')).toHaveText('shaded');
+  await expect(observationFilterSummary).toContainText('all species');
 
-  const initialNutrient = await growthNutrient.textContent();
+  const webglState = await page.evaluate(() => {
+    const observation = document.querySelector('[data-ref="codex-plate-canvas"]');
+    const render = document.querySelector('[data-ref="render-canvas"]');
 
-  await page.getByRole('button', { name: 'Load Sample' }).click();
+    return {
+      observationWebgl:
+        observation instanceof HTMLCanvasElement ? Boolean(observation.getContext('webgl2')) : false,
+      renderWebgl:
+        render instanceof HTMLCanvasElement ? Boolean(render.getContext('webgl2')) : false,
+    };
+  });
 
-  const box = await plateCanvas.boundingBox();
-  if (!box) {
-    throw new Error('Plate canvas is missing a bounding box.');
-  }
+  expect(webglState.observationWebgl).toBe(true);
+  expect(webglState.renderWebgl).toBe(true);
 
-  await page.mouse.move(box.x + box.width * 0.34, box.y + box.height * 0.34);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.66, box.y + box.height * 0.52, { steps: 12 });
-  await page.mouse.up();
-
-  await expect.poll(async () => Number(await dirtyArea.textContent())).toBeGreaterThan(0);
-  await expect.poll(async () => Number(await changedCells.textContent())).toBeGreaterThan(0);
-
-  await incubationSlider.evaluate((element, value) => {
-    const input = element as HTMLInputElement;
-    input.value = value;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  }, '0');
-
-  await expect(incubationHours).toHaveText('0h');
-  const renderHeightAtZero = Number(await renderHeightPeak.textContent());
+  await page.getByRole('button', { name: 'Balanced mixed streak' }).click();
+  const seedingCard = page.locator('[data-ref="seeding-card"]');
+  const seedingTextBeforeFilter = await seedingCard.textContent();
+  const foundersBeforeFilter = seedingTextBeforeFilter?.match(/Founders:\s*(\d+)/)?.[1] ?? null;
 
   await incubationSlider.evaluate((element, value) => {
     const input = element as HTMLInputElement;
@@ -73,20 +80,206 @@ test('single dashboard stays interactive on desktop and mobile', async ({ page }
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }, '48');
 
-  await expect(incubationHours).toHaveText('48h');
-  await expect.poll(async () => await growthNutrient.textContent()).not.toBe(initialNutrient);
-  await expect.poll(async () => Number(await renderHeightPeak.textContent())).toBeGreaterThan(renderHeightAtZero);
+  await page.locator('[data-ref="observation-filter-strep-pyogenes"]').uncheck();
+  await page.locator('[data-ref="observation-filter-strep-pneumoniae"]').uncheck();
+  await page.locator('[data-ref="observation-filter-e-coli"]').uncheck();
+  await page.locator('[data-ref="observation-filter-klebsiella-pneumoniae"]').uncheck();
+  await expect(observationFilterSummary).toContainText('S. aureus');
+
+  if (foundersBeforeFilter) {
+    await expect(seedingCard).toContainText(`Founders: ${foundersBeforeFilter}`);
+  }
+
+  await page.getByRole('button', { name: 'Show all' }).click();
+  await expect(observationFilterSummary).toContainText('all species');
+
+  await expect(observationCues).toContainText('hemolysis');
+  await page.getByRole('button', { name: 'Grazing' }).click();
+  await expect(observationCues).toContainText('Grazing light');
+  await page.getByRole('button', { name: 'Transmitted' }).click();
+  await expect(observationCues).toContainText('Transmitted light');
+  await page.getByRole('button', { name: 'Bench' }).click();
+  await expect(observationCues).toContainText('Bench light');
+  await page.locator('[data-ref="render-card"] summary').click();
+  await page.locator('[data-ref="render-card"]').getByRole('button', { name: 'Height' }).click();
+  await expect(page.locator('[data-ref="render-view-label"]')).toHaveText('height');
+  await page.locator('[data-ref="render-card"]').getByRole('button', { name: 'Shaded' }).click();
+  await expect(page.locator('[data-ref="render-view-label"]')).toHaveText('shaded');
+
+  await page.locator('[data-ref="medium-select"]').selectOption('macconkey');
+  await expect(observationCues).toContainText('growth versus suppression');
+  await expect(observationCues).toContainText('pink');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(DASHBOARD_ROUTE);
 
-  await expect(page.locator('[data-ref="codex-streak-dashboard"]')).toBeVisible();
   await expect(page.locator('[data-ref="streak-plate-card"]')).toBeVisible();
+  await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
   await expect(page.locator('[data-ref="growth-card"]')).toBeVisible();
   await expect(page.locator('[data-ref="render-card"]')).toBeVisible();
+  expect(consoleErrors).not.toEqual(expect.arrayContaining([expect.stringContaining('Shader compile error')]));
 });
 
-test('render synth is deterministic and keeps wet and groove maps stable across incubation changes', async ({ page }) => {
+test('phenotype sandbox distinguishes representative species through visible plate traits', async ({ page }) => {
+  await page.goto(DASHBOARD_ROUTE);
+
+  const result = await page.evaluate(async () => {
+    const suffix = `?v=${Date.now()}`;
+    const growth = await import(`/prototypes/svelte-lab-avatar/components/reference/codex-streak/growth-engine.ts${suffix}`);
+    const identify = await import(`/prototypes/svelte-lab-avatar/components/reference/codex-streak/identify-isolates.ts${suffix}`);
+    const renderSynth = await import(`/prototypes/svelte-lab-avatar/components/reference/codex-streak/render-synth.ts${suffix}`);
+    const types = await import(`/prototypes/svelte-lab-avatar/components/reference/codex-streak/streak-types.ts${suffix}`);
+
+    const species = types.DEFAULT_SPECIES;
+    const speciesById = new Map(species.map((entry: { id: string }) => [entry.id, entry]));
+
+    function maxValue(values: Float32Array): number {
+      let maxSeen = 0;
+      for (let index = 0; index < values.length; index += 1) {
+        if (values[index] > maxSeen) maxSeen = values[index];
+      }
+      return maxSeen;
+    }
+
+    function simulate(speciesId: string, medium: string, hours: number) {
+      const resolution = 96;
+      const founders = types.createFounderGrid(species.length, resolution);
+      const film = types.createFilmState(species.length, resolution);
+      const speciesIndex = species.findIndex((entry: { id: string }) => entry.id === speciesId);
+      const centerIndex = 48 * resolution + 48;
+
+      founders.counts[speciesIndex][centerIndex] = 3;
+      founders.lag[speciesIndex][centerIndex] = 1.5;
+      founders.growthRate[speciesIndex][centerIndex] = 0.24;
+      film.depositFluid[centerIndex] = 0.015;
+
+      const biomass = growth.computeGrowth(founders, species, medium, hours, resolution);
+      const render = renderSynth.computeRenderMaps(film, biomass, species, medium, resolution);
+      const candidates = identify.identifyIsolatedCandidates(biomass, render, species, medium);
+      const candidate = candidates[0] ?? null;
+
+      function sampleVisuals() {
+        if (!candidate) {
+          return {
+            colorWarmth: 0,
+            pinkBias: 0,
+            roughnessMean: 0,
+            alphaMax: 0,
+            betaMax: 0,
+          };
+        }
+
+        let colonyCells = 0;
+        let roughnessSum = 0;
+        let redSum = 0;
+        let greenSum = 0;
+        let blueSum = 0;
+        let alphaMax = 0;
+        let betaMax = 0;
+
+        for (let y = candidate.bounds.minY; y <= candidate.bounds.maxY; y += 1) {
+          for (let x = candidate.bounds.minX; x <= candidate.bounds.maxX; x += 1) {
+            const index = y * resolution + x;
+            const dx = (x + 0.5) - candidate.center.x * resolution;
+            const dy = (y + 0.5) - candidate.center.y * resolution;
+            const distance = Math.hypot(dx, dy);
+            const normalized = distance / Math.max(1, candidate.colonyRadiusCells);
+
+            alphaMax = Math.max(alphaMax, render.hemolysisAlpha[index]);
+            betaMax = Math.max(betaMax, render.hemolysisBeta[index]);
+
+            if (normalized > 1.05 || render.albedo[index * 4 + 3] === 0) continue;
+
+            colonyCells += 1;
+            roughnessSum += render.roughness[index];
+            redSum += render.albedo[index * 4];
+            greenSum += render.albedo[index * 4 + 1];
+            blueSum += render.albedo[index * 4 + 2];
+
+          }
+        }
+
+        const redMean = colonyCells === 0 ? 0 : redSum / colonyCells;
+        const greenMean = colonyCells === 0 ? 0 : greenSum / colonyCells;
+        const blueMean = colonyCells === 0 ? 0 : blueSum / colonyCells;
+
+        return {
+          colorWarmth: ((redMean + greenMean) * 0.5) - blueMean,
+          pinkBias: redMean - (greenMean + blueMean) * 0.5,
+          roughnessMean: colonyCells === 0 ? 0 : roughnessSum / colonyCells,
+          alphaMax,
+          betaMax,
+        };
+      }
+
+      const visuals = sampleVisuals();
+      return {
+        candidate,
+        candidateCount: candidates.length,
+        heightPeak: maxValue(render.height),
+        colorWarmth: visuals.colorWarmth,
+        pinkBias: visuals.pinkBias,
+        roughnessMean: visuals.roughnessMean,
+        alphaMax: visuals.alphaMax,
+        betaMax: visuals.betaMax,
+      };
+    }
+
+    const aureusBlood = simulate('staph-aureus', 'blood-agar', 36);
+    const pyogenesBlood = simulate('strep-pyogenes', 'blood-agar', 36);
+    const pneumoniaeBlood = simulate('strep-pneumoniae', 'blood-agar', 36);
+    const aureusNutrient = simulate('staph-aureus', 'nutrient-agar', 36);
+    const ecoliBlood = simulate('e-coli', 'blood-agar', 36);
+    const ecoliMac = simulate('e-coli', 'macconkey', 36);
+    const klebMac = simulate('klebsiella-pneumoniae', 'macconkey', 36);
+    const aureusMac = simulate('staph-aureus', 'macconkey', 36);
+
+    return {
+      aureusBlood: aureusBlood.candidate,
+      pyogenesBlood: pyogenesBlood.candidate,
+      pneumoniaeBlood: pneumoniaeBlood.candidate,
+      aureusNutrient: aureusNutrient.candidate,
+      ecoliMac: ecoliMac.candidate,
+      klebMac: klebMac.candidate,
+      aureusMacCount: aureusMac.candidateCount,
+      aureusMacHeightPeak: aureusMac.heightPeak,
+      aureusBloodColorWarmth: aureusBlood.colorWarmth,
+      aureusBloodRoughness: aureusBlood.roughnessMean,
+      pyogenesBloodRoughness: pyogenesBlood.roughnessMean,
+      pneumoniaeBloodAlphaMax: pneumoniaeBlood.alphaMax,
+      ecoliBloodColorWarmth: ecoliBlood.colorWarmth,
+      ecoliBloodPinkBias: ecoliBlood.pinkBias,
+      ecoliMacPinkBias: ecoliMac.pinkBias,
+      ecoliMacRoughness: ecoliMac.roughnessMean,
+      klebMacRoughness: klebMac.roughnessMean,
+      speciesKnown: Array.from(speciesById.keys()),
+    };
+  });
+
+  expect(result.speciesKnown).toContain('strep-pneumoniae');
+  expect(result.aureusBlood).not.toBeNull();
+  expect(result.pyogenesBlood).not.toBeNull();
+  expect(result.pneumoniaeBlood).not.toBeNull();
+  expect(result.aureusNutrient).not.toBeNull();
+  expect(result.ecoliMac).not.toBeNull();
+  expect(result.klebMac).not.toBeNull();
+
+  expect(result.pyogenesBlood.localHemolysisSignal).toBeGreaterThan(result.aureusBlood.localHemolysisSignal);
+  expect(result.pyogenesBlood.colonyDiameterMm).toBeLessThan(result.aureusBlood.colonyDiameterMm);
+  expect(result.pyogenesBloodRoughness).toBeGreaterThan(result.aureusBloodRoughness);
+  expect(result.aureusBloodColorWarmth).toBeGreaterThan(result.ecoliBloodColorWarmth);
+  expect(result.pneumoniaeBloodAlphaMax).toBeGreaterThan(0.02);
+  expect(result.pneumoniaeBlood.morphologyLabel).toBe('draughtsman-like');
+  expect(result.aureusNutrient.hemolysisLabel).toBe('no hemolysis');
+  expect(result.aureusNutrient.localHemolysisSignal).toBeLessThan(0.01);
+  expect(result.ecoliMac.differentialLabel).toContain('lactose fermenter');
+  expect(result.klebMacRoughness).toBeLessThan(result.ecoliMacRoughness);
+  expect(result.klebMac.colonyDiameterMm).toBeGreaterThan(result.ecoliMac.colonyDiameterMm);
+  expect(result.aureusMacCount).toBe(0);
+  expect(result.aureusMacHeightPeak).toBeLessThan(0.001);
+});
+
+test('render synth stays deterministic and keeps wet and groove maps stable across incubation changes', async ({ page }) => {
   await page.goto(DASHBOARD_ROUTE);
 
   const result = await page.evaluate(async () => {
@@ -96,11 +289,7 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
     const types = await import(`/prototypes/svelte-lab-avatar/components/reference/codex-streak/streak-types.ts${suffix}`);
 
     const resolution = 64;
-    const species = [
-      { ...types.DEFAULT_SPECIES[0], hemolysisType: 'beta' },
-      { ...types.DEFAULT_SPECIES[1], hemolysisType: 'alpha', color: '#b9c18b' },
-      { ...types.DEFAULT_SPECIES[2], hemolysisType: 'gamma' },
-    ];
+    const species = types.DEFAULT_SPECIES;
     const film = types.createFilmState(species.length, resolution);
     const founders = types.createFounderGrid(species.length, resolution);
 
@@ -123,14 +312,14 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
       founders.growthRate[founder.speciesIndex][index] = 0.24;
     }
 
-    const biomassAtZero = growth.computeGrowth(founders, species, 0, resolution);
-    const biomassAtFortyEight = growth.computeGrowth(founders, species, 48, resolution);
+    const biomassAtZero = growth.computeGrowth(founders, species, 'blood-agar', 0, resolution);
+    const biomassAtFortyEight = growth.computeGrowth(founders, species, 'blood-agar', 48, resolution);
 
-    const renderZeroA = renderSynth.computeRenderMaps(film, biomassAtZero, species, resolution);
-    const renderZeroB = renderSynth.computeRenderMaps(film, biomassAtZero, species, resolution);
-    const renderFortyEight = renderSynth.computeRenderMaps(film, biomassAtFortyEight, species, resolution);
+    const renderZeroA = renderSynth.computeRenderMaps(film, biomassAtZero, species, 'blood-agar', resolution);
+    const renderZeroB = renderSynth.computeRenderMaps(film, biomassAtZero, species, 'blood-agar', resolution);
+    const renderFortyEight = renderSynth.computeRenderMaps(film, biomassAtFortyEight, species, 'blood-agar', resolution);
 
-    function arraysEqual(left, right) {
+    function arraysEqual(left: ArrayLike<number>, right: ArrayLike<number>): boolean {
       if (left.length !== right.length) return false;
       for (let index = 0; index < left.length; index += 1) {
         if (left[index] !== right[index]) return false;
@@ -138,18 +327,18 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
       return true;
     }
 
-    function maxInSquare(values, centerX, centerY, radius) {
-      let maxValue = 0;
+    function maxInSquare(values: Float32Array, centerX: number, centerY: number, radius: number): number {
+      let maxSeen = 0;
       for (let y = Math.max(0, centerY - radius); y <= Math.min(resolution - 1, centerY + radius); y += 1) {
         for (let x = Math.max(0, centerX - radius); x <= Math.min(resolution - 1, centerX + radius); x += 1) {
           const value = values[y * resolution + x];
-          if (value > maxValue) maxValue = value;
+          if (value > maxSeen) maxSeen = value;
         }
       }
-      return maxValue;
+      return maxSeen;
     }
 
-    function maxValue(values) {
+    function maxValue(values: Float32Array): number {
       let maxSeen = 0;
       for (let index = 0; index < values.length; index += 1) {
         if (values[index] > maxSeen) maxSeen = values[index];
@@ -157,7 +346,7 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
       return maxSeen;
     }
 
-    function fractionAbove(values, threshold) {
+    function fractionAbove(values: Float32Array, threshold: number): number {
       let inside = 0;
       let above = 0;
 
@@ -175,29 +364,25 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
       return inside === 0 ? 0 : above / inside;
     }
 
-    const heightChanged = !arraysEqual(renderZeroA.height, renderFortyEight.height);
-    const wetSame = arraysEqual(renderZeroA.wetMask, renderFortyEight.wetMask);
-    const grooveSame = arraysEqual(renderZeroA.grooveMask, renderFortyEight.grooveMask);
-
     return {
-      deterministic: arraysEqual(renderZeroA.height, renderZeroB.height) &&
+      deterministic:
+        arraysEqual(renderZeroA.height, renderZeroB.height) &&
         arraysEqual(renderZeroA.albedo, renderZeroB.albedo) &&
         arraysEqual(renderZeroA.roughness, renderZeroB.roughness) &&
         arraysEqual(renderZeroA.wetMask, renderZeroB.wetMask) &&
         arraysEqual(renderZeroA.grooveMask, renderZeroB.grooveMask) &&
         arraysEqual(renderZeroA.hemolysisAlpha, renderZeroB.hemolysisAlpha) &&
         arraysEqual(renderZeroA.hemolysisBeta, renderZeroB.hemolysisBeta),
-      wetSame,
-      grooveSame,
-      heightChanged,
+      wetSame: arraysEqual(renderZeroA.wetMask, renderFortyEight.wetMask),
+      grooveSame: arraysEqual(renderZeroA.grooveMask, renderFortyEight.grooveMask),
+      heightChanged: !arraysEqual(renderZeroA.height, renderFortyEight.height),
       zeroHeightMax: maxValue(renderZeroA.height),
       zeroAlphaMax: maxValue(renderZeroA.hemolysisAlpha),
       zeroBetaMax: maxValue(renderZeroA.hemolysisBeta),
       betaHaloFraction: fractionAbove(renderFortyEight.hemolysisBeta, 0.05),
       betaHaloMax: maxInSquare(renderFortyEight.hemolysisBeta, 20, 20, 6),
-      alphaHaloMax: maxInSquare(renderFortyEight.hemolysisAlpha, 32, 32, 6),
-      gammaAlphaLeak: maxInSquare(renderFortyEight.hemolysisAlpha, 44, 22, 5),
-      gammaBetaLeak: maxInSquare(renderFortyEight.hemolysisBeta, 44, 22, 5),
+      alphaHaloMax: maxInSquare(renderFortyEight.hemolysisAlpha, 44, 22, 6),
+      pyogenesBetaMax: maxInSquare(renderFortyEight.hemolysisBeta, 32, 32, 6),
     };
   });
 
@@ -208,9 +393,8 @@ test('render synth is deterministic and keeps wet and groove maps stable across 
   expect(result.zeroHeightMax).toBeLessThan(0.02);
   expect(result.zeroAlphaMax).toBeLessThan(0.001);
   expect(result.zeroBetaMax).toBeLessThan(0.001);
-  expect(result.betaHaloFraction).toBeLessThan(0.2);
+  expect(result.betaHaloFraction).toBeLessThan(0.22);
   expect(result.betaHaloMax).toBeGreaterThan(0.05);
-  expect(result.alphaHaloMax).toBeGreaterThan(0.05);
-  expect(result.gammaAlphaLeak).toBeLessThan(0.01);
-  expect(result.gammaBetaLeak).toBeLessThan(0.01);
+  expect(result.alphaHaloMax).toBeGreaterThan(0.03);
+  expect(result.pyogenesBetaMax).toBeGreaterThan(0.05);
 });

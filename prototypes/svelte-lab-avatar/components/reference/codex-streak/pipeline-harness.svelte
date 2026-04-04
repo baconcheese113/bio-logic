@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WebglRenderPlate from './webgl-render-plate.svelte';
   import {
     drawBiomassMap,
     drawFilmMap,
@@ -23,12 +24,20 @@
   import {
     DEBUG_LOG_DEFAULT,
     DEFAULT_SPECIES,
+    PLATE_MEDIA,
     SIM,
+    createBiomassState,
+    createFilmState,
     createPlateSession,
     createTransferSnapshot,
+    getMediumDef,
+    getSpeciesPhenotype,
     normalizeSpeciesLoads,
     rectArea,
+    type BiomassState,
+    type FilmState,
     type FounderGrid,
+    type PlateMedium,
     type Rect,
     type SeedingMetrics,
     type SpeciesDef,
@@ -43,9 +52,14 @@
   } from './validation';
 
   type GrowthPanelMode = BiomassViewMode | NutrientViewMode;
+  type ObservationLightMode = 'bench' | 'grazing' | 'transmitted';
 
-  const speciesConfig: SpeciesDef[] = DEFAULT_SPECIES.map((species) => ({ ...species }));
+  const speciesConfig: SpeciesDef[] = DEFAULT_SPECIES.map((species) => ({
+    ...species,
+    media: { ...species.media },
+  }));
   const resolution = SIM.defaultResolution;
+  const defaultSliderValues = [24, 16, 14, 24, 22];
 
   const initialSession = createPlateSession(speciesConfig);
   const initialSnapshot = createTransferSnapshot(speciesConfig.length, resolution);
@@ -56,7 +70,9 @@
   let founderGrid = $state.raw<FounderGrid>(initialSeeded.founders);
   let biomassFounders = $state.raw<FounderGrid>(initialSeeded.founders);
 
-  let sliderValues = $state<number[]>([45, 35, 20]);
+  let sliderValues = $state<number[]>([...defaultSliderValues]);
+  let observationSpeciesVisible = $state<boolean[]>(speciesConfig.map(() => true));
+  let observationLightMode = $state<ObservationLightMode>('grazing');
   let selectedScenarioId = $state<TransferScenarioId | null>(null);
   let selectedSpeciesIndex = $state(0);
   let filmMode = $state<FilmViewMode>('total');
@@ -64,7 +80,7 @@
   let growthMode = $state<GrowthPanelMode>('coverage-total');
   let renderMode = $state<RenderViewMode>('shaded');
   let seedingMetrics = $state<SeedingMetrics>(
-    createSeedingMetrics(initialSeeded.founders, null, initialSeeded.dirtyRect),
+    createLiveSeedingMetrics(initialSeeded.founders, null, initialSeeded.dirtyRect),
   );
 
   let isDrawing = $state(false);
@@ -74,14 +90,14 @@
   let transferVersion = $state(0);
   let founderVersion = $state(0);
 
-  let plateCanvas: HTMLCanvasElement | null = null;
-  let filmCanvas: HTMLCanvasElement | null = null;
-  let founderCanvas: HTMLCanvasElement | null = null;
-  let growthCanvas: HTMLCanvasElement | null = null;
-  let renderCanvas: HTMLCanvasElement | null = null;
+  let filmCanvas = $state<HTMLCanvasElement | null>(null);
+  let founderCanvas = $state<HTMLCanvasElement | null>(null);
+  let growthCanvas = $state<HTMLCanvasElement | null>(null);
+  let renderCanvas = $state<HTMLCanvasElement | null>(null);
 
   const loadPreview = $derived(normalizeSpeciesLoads(sliderValues, speciesConfig.length));
   const selectedSpecies = $derived(speciesConfig[selectedSpeciesIndex] ?? speciesConfig[0]);
+  const selectedMedium = $derived(getMediumDef(session.medium));
   const transferDirtyRect = $derived.by(() => {
     transferVersion;
     return transferSnapshot.lastStrokeReport?.dirtyRect ?? transferSnapshot.dirtyRect;
@@ -114,12 +130,45 @@
     return total;
   });
   const biomass = $derived.by(() =>
-    computeGrowth(biomassFounders, speciesConfig, session.targetTime, resolution),
+    computeGrowth(biomassFounders, speciesConfig, session.medium, session.targetTime, resolution),
   );
   const renderMaps = $derived.by(() => {
     transferVersion;
+    return computeRenderMaps(transferSnapshot.film, biomass, speciesConfig, session.medium, resolution);
+  });
+  const observationFilterActive = $derived.by(() =>
+    observationSpeciesVisible.some((isVisible) => !isVisible),
+  );
+  const observationVisibleSpecies = $derived.by(() =>
+    speciesConfig.filter((_, index) => observationSpeciesVisible[index]),
+  );
+  const observationFilterLabel = $derived.by(() => {
+    const visibleSpecies = observationVisibleSpecies;
+    if (visibleSpecies.length === speciesConfig.length) return 'all species';
+    if (visibleSpecies.length === 0) return 'agar and transfer only';
+    if (visibleSpecies.length <= 2) return visibleSpecies.map((species) => species.name).join(' + ');
+    return `${visibleSpecies.length} species visible`;
+  });
+  const observationLightLabel = $derived.by(() => {
+    switch (observationLightMode) {
+      case 'grazing':
+        return 'grazing';
+      case 'transmitted':
+        return 'transmitted';
+      default:
+        return 'bench';
+    }
+  });
+  const observationRenderMaps = $derived.by(() => {
+    transferVersion;
     const currentBiomass = biomass;
-    return computeRenderMaps(transferSnapshot.film, currentBiomass, speciesConfig, resolution);
+    if (!observationFilterActive) {
+      return renderMaps;
+    }
+
+    const filteredFilm = filterFilmState(transferSnapshot.film, observationSpeciesVisible);
+    const filteredBiomass = filterBiomassState(currentBiomass, observationSpeciesVisible);
+    return computeRenderMaps(filteredFilm, filteredBiomass, speciesConfig, session.medium, resolution);
   });
   const growthStats = $derived.by(() => {
     const cellCount = biomass.totalCoverage.length;
@@ -183,19 +232,7 @@
       };
     });
   });
-
-  $effect(() => {
-    transferVersion;
-    selectedSpeciesIndex;
-    if (!plateCanvas) return;
-
-    drawFilmMap(plateCanvas, transferSnapshot.film, speciesConfig, {
-      mode: 'total',
-      speciesIndex: selectedSpeciesIndex,
-      dirtyRect: transferDirtyRect,
-      deltaMaps: transferSnapshot.deltaMaps,
-    });
-  });
+  const showWebglRender = $derived(renderMode === 'shaded');
 
   $effect(() => {
     transferVersion;
@@ -225,29 +262,25 @@
   });
 
   $effect(() => {
-    const currentBiomass = biomass;
-    const mode = growthMode;
-    const speciesIndex = selectedSpeciesIndex;
     if (!growthCanvas) return;
 
-    if (isNutrientMode(mode)) {
-      drawNutrientWasteMap(growthCanvas, currentBiomass, { mode });
+    if (isNutrientMode(growthMode)) {
+      drawNutrientWasteMap(growthCanvas, biomass, { mode: growthMode });
       return;
     }
 
-    drawBiomassMap(growthCanvas, currentBiomass, {
-      mode,
-      speciesIndex,
+    drawBiomassMap(growthCanvas, biomass, {
+      mode: growthMode,
+      speciesIndex: selectedSpeciesIndex,
       species: speciesConfig,
     });
   });
 
   $effect(() => {
-    const maps = renderMaps;
-    const mode = renderMode;
+    renderMode;
     if (!renderCanvas) return;
-
-    drawRenderMap(renderCanvas, maps, { mode });
+    if (renderMode === 'shaded') return;
+    drawRenderMap(renderCanvas, renderMaps, { mode: renderMode });
   });
 
   function handleLoadSample() {
@@ -269,13 +302,14 @@
 
   function handleReset() {
     selectedScenarioId = null;
-    const nextSession = createPlateSession(speciesConfig);
+
+    const nextSession = createPlateSession(speciesConfig, undefined, session.medium);
     const nextSnapshot = createTransferSnapshot(speciesConfig.length, resolution);
     const nextSeeded = seedFounderGrid(nextSnapshot.film, speciesConfig, nextSession.plateSeed);
 
     session = nextSession;
     transferSnapshot = nextSnapshot;
-    sliderValues = [45, 35, 20];
+    sliderValues = [...defaultSliderValues];
     commitFounders(nextSeeded.founders, null, nextSeeded.dirtyRect);
     biomassFounders = nextSeeded.founders;
     transferVersion += 1;
@@ -286,7 +320,7 @@
 
   function handleScenario(id: TransferScenarioId) {
     selectedScenarioId = id;
-    const nextSession = createCanonicalTransferSession(speciesConfig, id);
+    const nextSession = createCanonicalTransferSession(speciesConfig, id, undefined, session.medium);
     const nextSnapshot = replayTransferSession(nextSession, resolution, DEBUG_LOG_DEFAULT);
     const nextSeeded = seedFounderGrid(nextSnapshot.film, speciesConfig, nextSession.plateSeed);
 
@@ -297,13 +331,31 @@
     transferVersion += 1;
   }
 
+  function handleMediumChange(nextMedium: string) {
+    session.medium = nextMedium as PlateMedium;
+  }
+
+  function handleObservationSpeciesToggle(index: number) {
+    observationSpeciesVisible[index] = !observationSpeciesVisible[index];
+  }
+
+  function handleObservationShowAll() {
+    for (let index = 0; index < observationSpeciesVisible.length; index += 1) {
+      observationSpeciesVisible[index] = true;
+    }
+  }
+
+  function setObservationLightMode(mode: ObservationLightMode) {
+    observationLightMode = mode;
+  }
+
   function handlePointerDown(event: PointerEvent) {
-    if (!plateCanvas) return;
-    const point = toPlatePoint(event, plateCanvas);
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
     if (!point) return;
 
     selectedScenarioId = null;
-    plateCanvas.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture(event.pointerId);
     isDrawing = true;
     activePointerId = event.pointerId;
     lastPoint = point;
@@ -311,8 +363,9 @@
   }
 
   function handlePointerMove(event: PointerEvent) {
-    if (!isDrawing || activePointerId !== event.pointerId || !lastPoint || !plateCanvas) return;
-    const point = toPlatePoint(event, plateCanvas);
+    if (!isDrawing || activePointerId !== event.pointerId || !lastPoint) return;
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
     if (!point) return;
 
     appendAction({
@@ -330,7 +383,7 @@
     finishStroke();
   }
 
-  function handlePointerCancel() {
+  function handlePointerCancel(_event?: PointerEvent) {
     if (!isDrawing) return;
     finishStroke();
   }
@@ -359,11 +412,11 @@
 
   function commitFounders(nextFounders: FounderGrid, previous: FounderGrid | null, dirtyRect: Rect | null) {
     founderGrid = nextFounders;
-    seedingMetrics = createSeedingMetrics(nextFounders, previous, dirtyRect);
+    seedingMetrics = createLiveSeedingMetrics(nextFounders, previous, dirtyRect);
     founderVersion += 1;
   }
 
-  function createSeedingMetrics(current: FounderGrid, previous: FounderGrid | null, dirtyRect: Rect | null): SeedingMetrics {
+  function createLiveSeedingMetrics(current: FounderGrid, previous: FounderGrid | null, dirtyRect: Rect | null): SeedingMetrics {
     const replayed = seedFounderGrid(transferSnapshot.film, speciesConfig, session.plateSeed);
     return {
       ...computeSeedingMetrics(current, previous, dirtyRect),
@@ -457,19 +510,98 @@
         return 'shaded';
     }
   }
+
+  function phenotypeSummary(species: SpeciesDef): string {
+    const phenotype = getSpeciesPhenotype(species, session.medium);
+    if (!phenotype) {
+      return 'suppressed on this medium';
+    }
+    return `${phenotype.colonyColorLabel}, ${phenotype.morphology}, ${phenotype.hemolysisType}`;
+  }
+
+  function observationCues(medium: PlateMedium, lightMode: ObservationLightMode): string[] {
+    const lightCue =
+      lightMode === 'grazing'
+        ? 'Grazing light should exaggerate roughness, depressed centers, and mucoid swelling.'
+        : lightMode === 'transmitted'
+          ? 'Transmitted light should flatten glare and make hemolysis and translucency easier to compare.'
+          : 'Bench light should give the most natural overall read of pigment, size, and sheen.';
+
+    switch (medium) {
+      case 'macconkey':
+        return [
+          lightCue,
+          'Look first for growth versus suppression; no growth is already a clue.',
+          'Compare pink lactose-fermenting colonies against pale or colorless growth.',
+          'Use sheen and body to separate smooth colonies from larger mucoid ones.',
+        ];
+      case 'nutrient-agar':
+        return [
+          lightCue,
+          'Compare colony size, edge texture, and translucency without hemolysis noise.',
+          'Smooth colonies should read fuller and rounder than rough or draughtsman forms.',
+          'Mucoid colonies should stay glossier and more swollen than dry gray colonies.',
+        ];
+      case 'blood-agar':
+      default:
+        return [
+          lightCue,
+          'Read the whole plate directly: size, warmth of pigment, edge texture, and sheen.',
+          'In the late streaks, beta hemolysis should clear more aggressively than alpha.',
+          'Pneumococcal colonies should flatten and read more depressed than smooth staph or E. coli.',
+        ];
+    }
+  }
+
+  function filterFilmState(source: FilmState, visibility: readonly boolean[]): FilmState {
+    const filtered = createFilmState(source.filmMass.length, source.resolution);
+    filtered.agarWetness.set(source.agarWetness);
+    filtered.depositFluid.set(source.depositFluid);
+    filtered.groove.set(source.groove);
+
+    for (let speciesIndex = 0; speciesIndex < source.filmMass.length; speciesIndex += 1) {
+      if (!visibility[speciesIndex]) continue;
+      filtered.filmMass[speciesIndex].set(source.filmMass[speciesIndex]);
+    }
+
+    return filtered;
+  }
+
+  function filterBiomassState(source: BiomassState, visibility: readonly boolean[]): BiomassState {
+    const filtered = createBiomassState(source.biomass.length, source.resolution);
+    filtered.nutrient.set(source.nutrient);
+    filtered.waste.set(source.waste);
+
+    for (let speciesIndex = 0; speciesIndex < source.biomass.length; speciesIndex += 1) {
+      if (!visibility[speciesIndex]) continue;
+      filtered.biomass[speciesIndex].set(source.biomass[speciesIndex]);
+      filtered.coverage[speciesIndex].set(source.coverage[speciesIndex]);
+    }
+
+    for (let index = 0; index < source.totalCoverage.length; index += 1) {
+      let combinedCoverage = 0;
+      for (let speciesIndex = 0; speciesIndex < source.coverage.length; speciesIndex += 1) {
+        if (!visibility[speciesIndex]) continue;
+        combinedCoverage += source.coverage[speciesIndex][index];
+      }
+      filtered.totalCoverage[index] = Math.min(1, combinedCoverage);
+    }
+
+    return filtered;
+  }
 </script>
 
 <div
   class="min-h-screen bg-[var(--bg-darkest)] text-[var(--parchment)]"
   data-ref="codex-streak-dashboard"
 >
-  <div class="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-4 lg:px-6">
+  <div class="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-4 py-4 lg:px-6">
     <header class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--brass-dark)] bg-[linear-gradient(180deg,rgba(58,53,46,0.92),rgba(26,24,21,0.96))] px-5 py-4">
       <div class="space-y-1">
         <p class="font-[var(--font-heading)] text-xs uppercase tracking-[0.3em] text-[var(--brass)]">Codex Streak</p>
-        <h1 class="font-[var(--font-heading)] text-2xl text-[var(--parchment)]">Single Dashboard</h1>
+        <h1 class="font-[var(--font-heading)] text-2xl text-[var(--parchment)]">Culture Plate Phenotype Playground</h1>
         <p class="text-sm text-[var(--parchment-aged)]">
-          Streak once, then inspect transfer, seeding, growth, and render without leaving the page.
+          Read the plate directly: colony size, edge texture, sheen, pigment, and hemolysis should make the species diverge without an ID overlay.
         </p>
       </div>
 
@@ -479,10 +611,10 @@
       </nav>
     </header>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_380px]">
       <section class="panel overflow-hidden" data-ref="streak-plate-card">
         <div class="panel-header flex items-center justify-between gap-3">
-          <span>Streak Plate</span>
+          <span>Observation Plate</span>
           <span
             class={[
               'rounded-full px-2.5 py-0.5 text-xs uppercase tracking-[0.18em]',
@@ -495,29 +627,35 @@
 
         <div class="space-y-4 bg-[var(--bg-dark)] p-4">
           <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--parchment-aged)]">
-            <p class="max-w-2xl">
-              Drag directly on the plate. Each completed stroke updates the founder snapshot, the growth simulation, and the render maps.
+            <p class="max-w-3xl">
+              Drag directly on the plate. The main view stays on the final render so the phenotype has to read on the full dish, not in a magnified helper box.
             </p>
             <div class="flex flex-wrap gap-4 text-xs uppercase tracking-[0.18em]">
+              <span>Medium: <span class="text-[var(--parchment)]">{selectedMedium.name}</span></span>
               <span>Scenario: <span class="text-[var(--parchment)]">{selectedScenario?.name ?? 'Live session'}</span></span>
               <span>Time: <span class="text-[var(--parchment)]">{session.targetTime}h</span></span>
+              <span>Light: <span class="text-[var(--parchment)]">{observationLightLabel}</span></span>
+              <span data-ref="observation-filter-summary">
+                Filter: <span class="text-[var(--parchment)]">{observationFilterLabel}</span>
+              </span>
             </div>
           </div>
 
           <div class="rounded-2xl border border-[var(--brass-dark)] bg-[radial-gradient(circle_at_top,#633231,#2b1b1a_60%,#120f0d)] p-3">
-            <canvas
-              bind:this={plateCanvas}
-              aria-label="Streak plate"
-              class="no-select aspect-square w-full touch-none rounded-xl border border-[var(--brass-dark)] bg-black/50"
-              data-ref="codex-plate-canvas"
-              width={SIM.displaySize}
-              height={SIM.displaySize}
-              onpointerdown={handlePointerDown}
-              onpointermove={handlePointerMove}
-              onpointerup={handlePointerFinish}
-              onpointercancel={handlePointerFinish}
-              onlostpointercapture={handlePointerCancel}
-            ></canvas>
+            <WebglRenderPlate
+              maps={observationRenderMaps}
+              medium={session.medium}
+              preset="observation"
+              lighting={observationLightMode}
+              aria-label="Observation plate"
+              canvasClass="no-select aspect-square w-full touch-none rounded-xl border border-[var(--brass-dark)] bg-black/50"
+              dataRef="codex-plate-canvas"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerFinish}
+              onPointerCancel={handlePointerFinish}
+              onLostPointerCapture={handlePointerCancel}
+            />
           </div>
 
           <div class="grid gap-2 sm:grid-cols-4">
@@ -547,7 +685,72 @@
         <section class="panel overflow-hidden">
           <div class="panel-header">Controls</div>
           <div class="space-y-4 bg-[var(--bg-dark)] p-4">
+            <label class="space-y-2 text-sm text-[var(--parchment-aged)]">
+              <span class="font-[var(--font-heading)] uppercase tracking-[0.14em] text-[var(--brass)]">Plate Medium</span>
+              <select
+                class="select w-full"
+                data-ref="medium-select"
+                value={session.medium}
+                onchange={(event) => handleMediumChange((event.currentTarget as HTMLSelectElement).value)}
+              >
+                {#each PLATE_MEDIA as medium (medium.id)}
+                  <option value={medium.id}>{medium.name}</option>
+                {/each}
+              </select>
+              <span class="block text-xs text-[var(--parchment-aged)]">{selectedMedium.description}</span>
+            </label>
+
             <div class="space-y-3">
+              <div class="space-y-2 rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45 px-3 py-2">
+                <div class="flex items-center justify-between gap-3 text-[0.7rem] uppercase tracking-[0.16em] text-[var(--parchment-aged)]">
+                  <p class="font-[var(--font-heading)] text-[var(--brass)]">Observation Light</p>
+                  <span class="text-[var(--parchment)]">{observationLightLabel}</span>
+                </div>
+                <div class="flex flex-wrap gap-2" data-ref="observation-light-controls">
+                  <button
+                    class={`obs-btn ${observationLightMode === 'bench' ? 'selected' : ''}`}
+                    onclick={() => setObservationLightMode('bench')}
+                    type="button"
+                  >
+                    Bench
+                  </button>
+                  <button
+                    class={`obs-btn ${observationLightMode === 'grazing' ? 'selected' : ''}`}
+                    onclick={() => setObservationLightMode('grazing')}
+                    type="button"
+                  >
+                    Grazing
+                  </button>
+                  <button
+                    class={`obs-btn ${observationLightMode === 'transmitted' ? 'selected' : ''}`}
+                    onclick={() => setObservationLightMode('transmitted')}
+                    type="button"
+                  >
+                    Transmitted
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="flex items-center justify-between gap-3 rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45 px-3 py-2 text-[0.7rem] uppercase tracking-[0.16em] text-[var(--parchment-aged)]"
+                data-ref="observation-filter-controls"
+              >
+                <div class="space-y-1">
+                  <p class="font-[var(--font-heading)] text-[var(--brass)]">Observation Filter</p>
+                  <p class="normal-case tracking-normal text-[0.72rem] text-[var(--parchment-aged)]">
+                    Hide species on the top plate only so you can compare phenotypes directly.
+                  </p>
+                </div>
+                <button
+                  class="btn btn-sm"
+                  disabled={!observationFilterActive}
+                  onclick={handleObservationShowAll}
+                  type="button"
+                >
+                  Show all
+                </button>
+              </div>
+
               {#each speciesConfig as species, index (species.id)}
                 <div class="space-y-1">
                   <div class="flex items-center justify-between gap-3 text-xs text-[var(--parchment-aged)]">
@@ -555,7 +758,22 @@
                       <span class="inline-block h-2 w-2 rounded-full" style={`background:${species.color}`}></span>
                       {species.name}
                     </span>
-                    <span class="font-[var(--font-mono)] text-[var(--parchment)]">{Math.round(loadPreview[index] * 100)}%</span>
+                    <div class="flex items-center gap-3">
+                      <span class="font-[var(--font-mono)] text-[var(--parchment)]">{Math.round(loadPreview[index] * 100)}%</span>
+                      <label
+                        class="flex items-center gap-1 text-[0.68rem] uppercase tracking-[0.14em] text-[var(--parchment-aged)]"
+                        title={`Show ${species.name} on the observation plate`}
+                      >
+                        <input
+                          checked={observationSpeciesVisible[index]}
+                          class="h-3.5 w-3.5 cursor-pointer rounded border border-[var(--brass-dark)] bg-[var(--bg-darkest)] accent-[var(--brass)]"
+                          data-ref={`observation-filter-${species.id}`}
+                          type="checkbox"
+                          onchange={() => handleObservationSpeciesToggle(index)}
+                        />
+                        <span>Show</span>
+                      </label>
+                    </div>
                   </div>
                   <input
                     class="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--bg-medium)] accent-[var(--brass)]"
@@ -567,6 +785,7 @@
                       sliderValues[index] = Number((event.currentTarget as HTMLInputElement).value);
                     }}
                   />
+                  <p class="text-[0.68rem] text-[var(--parchment-aged)]">{phenotypeSummary(species)}</p>
                 </div>
               {/each}
             </div>
@@ -598,6 +817,23 @@
                 <span>0h</span>
                 <span>72h</span>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel overflow-hidden" data-ref="observation-cues-card">
+          <div class="panel-header">Observation Cues</div>
+          <div class="space-y-3 bg-[var(--bg-dark)] p-4">
+            <div class="rounded-xl border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45 p-3 text-sm text-[var(--parchment-aged)]">
+              The plate itself is the readout now. Use the later streaks to compare isolated colony size, edge texture, sheen, translucency, and halo behavior directly on the dish.
+            </div>
+
+            <div class="space-y-2" data-ref="observation-cues-list">
+              {#each observationCues(session.medium, observationLightMode) as cue (`cue-${session.medium}-${observationLightMode}-${cue}`)}
+                <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-sm text-[var(--parchment-aged)]">
+                  {cue}
+                </div>
+              {/each}
             </div>
           </div>
         </section>
@@ -789,7 +1025,7 @@
                   <span class="font-[var(--font-mono)] text-[var(--parchment)]">{selectedSpecies.name}</span>
                 </div>
                 <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-xs text-[var(--parchment-aged)]">
-                  Growth only re-snapshots founders on completed strokes, so incubation scrubbing stays responsive while you draw.
+                  Growth still stays deterministic with respect to transfer and medium, so incubation scrubbing only changes downstream biology.
                 </div>
               </div>
             </div>
@@ -800,13 +1036,24 @@
       <section class="panel overflow-hidden" data-ref="render-card">
         <div class="panel-header">Render</div>
         <div class="space-y-3 bg-[var(--bg-dark)] p-4">
-          <canvas
-            bind:this={renderCanvas}
-            class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
-            data-ref="render-canvas"
-            width={SIM.displaySize}
-            height={SIM.displaySize}
-          ></canvas>
+          {#if showWebglRender}
+            <WebglRenderPlate
+              maps={renderMaps}
+              medium={session.medium}
+              preset="diagnostic"
+              aria-label="Render diagnostic plate"
+              canvasClass="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+              dataRef="render-canvas"
+            />
+          {:else}
+            <canvas
+              bind:this={renderCanvas}
+              class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+              data-ref="render-canvas"
+              width={SIM.displaySize}
+              height={SIM.displaySize}
+            ></canvas>
+          {/if}
 
           <div class="grid gap-2 text-xs text-[var(--parchment-aged)] sm:grid-cols-3">
             <div>View: <span class="text-[var(--parchment)]" data-ref="render-view-label">{renderViewLabel(renderMode)}</span></div>
@@ -843,7 +1090,7 @@
                   <span class="font-[var(--font-mono)] text-[var(--parchment)]">{renderStats.alphaCells}</span>
                 </div>
                 <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-xs text-[var(--parchment-aged)]">
-                  RenderSynth stays downstream of the biology: wetness and grooves come from transfer, while height and hemolysis only emerge from grown coverage.
+                  The render card stays diagnostic. The main success condition now is whether the top observation workflow makes isolated species distinguishable enough to read.
                 </div>
               </div>
             </div>

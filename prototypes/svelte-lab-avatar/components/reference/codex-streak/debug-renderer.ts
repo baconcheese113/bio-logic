@@ -1,4 +1,4 @@
-import { clamp01, expandRect, type BiomassState, type FilmState, type FounderGrid, type Rect, type RenderMaps, type SpeciesDef, type TransferDeltaMaps } from './streak-types';
+import { clamp01, expandRect, type BiomassState, type FilmState, type FounderGrid, type InspectionLightMode, type Rect, type RenderMaps, type SpeciesDef, type TransferDeltaMaps } from './streak-types';
 
 export type FilmViewMode =
   | 'total'
@@ -538,6 +538,11 @@ interface RenderMapOptions {
   mode: RenderViewMode;
 }
 
+interface InspectionRenderOptions {
+  bounds: Rect;
+  lightMode: InspectionLightMode;
+}
+
 const NUTRIENT_COLOR = hexToRgb('#4ade80');  // green = full
 const WASTE_COLOR    = hexToRgb('#f87171');  // red = high waste
 const COVERAGE_COLOR = hexToRgb('#e0d0a0');  // warm white = covered
@@ -674,6 +679,54 @@ export function drawRenderMap(
   paintImage(ctx, imageData, canvas.width, canvas.height, true);
 }
 
+export function drawInspectionMap(
+  canvas: HTMLCanvasElement,
+  maps: RenderMaps,
+  options: InspectionRenderOptions | null,
+): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = `rgb(${BACKGROUND_COLOR.join(',')})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!options) {
+    drawEmptyMessage(ctx, canvas, 'Grow a few isolated colonies to inspect a local region');
+    return;
+  }
+
+  const region = expandRect(options.bounds, 2, maps.resolution);
+  const width = region.maxX - region.minX + 1;
+  const height = region.maxY - region.minY + 1;
+  const imageData = ctx.createImageData(width, height);
+  const pixels = imageData.data;
+  const heightMax = findMax(maps.height);
+
+  for (let localY = 0; localY < height; localY += 1) {
+    for (let localX = 0; localX < width; localX += 1) {
+      const globalX = region.minX + localX;
+      const globalY = region.minY + localY;
+      const index = globalY * maps.resolution + globalX;
+      const offset = (localY * width + localX) * 4;
+
+      if (!isInsidePlateCell(globalX, globalY, maps.resolution) || maps.albedo[index * 4 + 3] === 0) {
+        paintPixel(pixels, offset, BACKGROUND_COLOR, 255);
+        continue;
+      }
+
+      const color =
+        options.lightMode === 'surface'
+          ? resolveRenderMapColor(maps, 'shaded', globalX, globalY, index, heightMax)
+          : resolveTransmittedInspectionColor(maps, index);
+      paintPixel(pixels, offset, color, 255);
+    }
+  }
+
+  paintImage(ctx, imageData, canvas.width, canvas.height, false);
+  drawMicroscopeGrid(ctx, canvas.width, canvas.height, width, height);
+}
+
 function resolveRenderMapColor(
   maps: RenderMaps,
   mode: RenderViewMode,
@@ -714,6 +767,28 @@ function resolveHemolysisColor(alpha: number, beta: number): [number, number, nu
   let color = mixColor(BACKGROUND_COLOR, [155, 130, 80], clamp01(alpha));
   color = mixColor(color, [210, 190, 150], clamp01(beta));
   return color;
+}
+
+function resolveTransmittedInspectionColor(
+  maps: RenderMaps,
+  index: number,
+): [number, number, number] {
+  const base: [number, number, number] = [
+    maps.albedo[index * 4],
+    maps.albedo[index * 4 + 1],
+    maps.albedo[index * 4 + 2],
+  ];
+  const clearZone = clamp01(maps.hemolysisBeta[index] * 0.82);
+  const alphaTint = clamp01(maps.hemolysisAlpha[index] * 0.65);
+  const colonyDensity = clamp01(maps.height[index] * 4.2);
+  const sheen = clamp01(maps.wetMask[index] * 0.4);
+  const ringColor = mixColor([182, 84, 104], [234, 220, 200], clearZone);
+  const hemolysisColor = mixColor(ringColor, [116, 96, 82], alphaTint);
+  const transmitted = mixColor(base, hemolysisColor, Math.max(clearZone, alphaTint) * 0.72);
+  const colonyShadow = mixColor(transmitted, [68, 52, 44], colonyDensity * 0.3);
+  const highlight = mixColor(colonyShadow, [245, 232, 222], sheen * 0.18 + clearZone * 0.1);
+
+  return highlight;
 }
 
 function shadeRenderMap(

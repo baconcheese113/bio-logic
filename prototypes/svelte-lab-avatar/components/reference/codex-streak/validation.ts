@@ -4,6 +4,8 @@ import {
   totalUint16,
   type FilmState,
   type FounderGrid,
+  type IdentificationMetrics,
+  type IsolateCandidate,
   type Rect,
   type SeedingMetrics,
   type TransferMetrics,
@@ -95,6 +97,38 @@ export function founderGridEquals(a: FounderGrid, b: FounderGrid): boolean {
   }
 
   return true;
+}
+
+export function computeIdentificationMetrics(candidates: IsolateCandidate[]): IdentificationMetrics {
+  if (candidates.length === 0) {
+    return {
+      candidateCount: 0,
+      highConfidenceCount: 0,
+      crowdedCount: 0,
+      meanPurity: 0,
+      maxConfidence: 0,
+    };
+  }
+
+  let highConfidenceCount = 0;
+  let crowdedCount = 0;
+  let puritySum = 0;
+  let maxConfidence = 0;
+
+  for (const candidate of candidates) {
+    if (candidate.confidence >= 0.7) highConfidenceCount += 1;
+    if (candidate.crowded) crowdedCount += 1;
+    puritySum += candidate.purity;
+    if (candidate.confidence > maxConfidence) maxConfidence = candidate.confidence;
+  }
+
+  return {
+    candidateCount: candidates.length,
+    highConfidenceCount,
+    crowdedCount,
+    meanPurity: puritySum / candidates.length,
+    maxConfidence,
+  };
 }
 
 export function sampleFilmProfile(

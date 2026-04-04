@@ -5,12 +5,14 @@ import {
   createBiomassState,
   type BiomassState,
   type FounderGrid,
+  type PlateMedium,
   type SpeciesDef,
   type SpeciesMorphology,
+  getSpeciesPhenotype,
 } from './streak-types';
 
 interface GrowthCache {
-  foundersKey: string;
+  cacheKey: string;
   colonies: ColonySeed[];
   checkpoints: Map<number, GrowthSimulationState>;
 }
@@ -28,6 +30,12 @@ interface ColonySeed {
   radialRate: number;
   maxRadius: number;
   biomassScale: number;
+  morphology: SpeciesMorphology;
+  edgeIrregularity: number;
+  textureStrength: number;
+  centerDepression: number;
+  ridgeCount: number;
+  shapePhase: number;
 }
 
 interface FrontierSample {
@@ -41,12 +49,13 @@ let cache: GrowthCache | null = null;
 export function computeGrowth(
   founders: FounderGrid,
   species: SpeciesDef[],
+  medium: PlateMedium,
   hours: number,
   resolution: number = SIM.defaultResolution,
 ): BiomassState {
   if (hours <= 0) return createBiomassState(species.length, resolution);
 
-  const growthCache = ensureCache(founders, species, resolution);
+  const growthCache = ensureCache(founders, species, medium, resolution);
   const interval = SIM.checkpointInterval;
   const nearestCheckpointHour = Math.floor(hours / interval) * interval;
   let simulation = getOrBuildCheckpoint(growthCache, species, resolution, nearestCheckpointHour);
@@ -65,13 +74,14 @@ export function computeGrowth(
 function ensureCache(
   founders: FounderGrid,
   species: SpeciesDef[],
+  medium: PlateMedium,
   resolution: number,
 ): GrowthCache {
-  const key = foundersKey(founders);
-  if (!cache || cache.foundersKey !== key) {
+  const key = `${medium}:${species.map((entry) => entry.id).join('|')}:${foundersKey(founders)}`;
+  if (!cache || cache.cacheKey !== key) {
     cache = {
-      foundersKey: key,
-      colonies: buildColonies(founders, species, resolution),
+      cacheKey: key,
+      colonies: buildColonies(founders, species, medium, resolution),
       checkpoints: new Map(),
     };
   }
@@ -208,7 +218,10 @@ function stampColony(
   const minY = Math.max(0, Math.floor(colony.y - reach));
   const maxY = Math.min(resolution - 1, Math.ceil(colony.y + reach));
   const growthFraction = clamp01(radius / Math.max(radius, colony.maxRadius));
-  const amplitude = colony.biomassScale * (0.28 + 0.72 * growthFraction);
+  const amplitude =
+    colony.biomassScale *
+    morphologyAmplitude(colony.morphology) *
+    (0.28 + 0.72 * growthFraction);
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
@@ -217,10 +230,31 @@ function stampColony(
       const distance = Math.hypot(dx, dy);
       if (distance > reach || !isInsidePlateCell(x, y, resolution)) continue;
 
-      const normalized = distance / Math.max(0.75, radius);
+      const angle = Math.atan2(dy, dx);
+      const edgeWave = 0.5 + 0.5 * Math.sin(angle * colony.ridgeCount + colony.shapePhase);
+      const effectiveRadius =
+        radius *
+        (1 + colony.edgeIrregularity * ((edgeWave - 0.5) * 0.44));
+      const normalized = distance / Math.max(0.75, effectiveRadius);
       const core = clamp01(1 - normalized);
       const skirt = clamp01((reach - distance) / Math.max(0.001, edgeSoftness));
-      const contribution = amplitude * Math.max(core * core, skirt * 0.18);
+      const centerMask = clamp01(1 - normalized / 0.55);
+      const centerDip = colony.centerDepression * growthFraction * centerMask * centerMask;
+      const rimBoost =
+        clamp01(1 - Math.abs(normalized - 0.72) / 0.18) *
+        colony.centerDepression *
+        growthFraction *
+        0.34;
+      const grainNoise = pseudoNoise2d(
+        (x + 0.5) * 0.82 + colony.shapePhase,
+        (y + 0.5) * 0.82 - colony.shapePhase,
+      );
+      const grain =
+        1 -
+        colony.textureStrength *
+          (0.18 + Math.max(0, grainNoise - 0.45) * 0.28);
+      const colonyBody = Math.max(0, core * core * (1 - centerDip) + rimBoost);
+      const contribution = amplitude * Math.max(colonyBody * grain, skirt * 0.18);
       if (contribution <= 1e-6) continue;
 
       channel[y * resolution + x] += contribution;
@@ -285,16 +319,20 @@ function sampleFrontier(
 function buildColonies(
   founders: FounderGrid,
   species: SpeciesDef[],
+  medium: PlateMedium,
   resolution: number,
 ): ColonySeed[] {
   const colonies: ColonySeed[] = [];
 
   for (let speciesIndex = 0; speciesIndex < species.length; speciesIndex += 1) {
     const speciesDef = species[speciesIndex];
+    const phenotype = getSpeciesPhenotype(speciesDef, medium);
+    if (!phenotype) continue;
     const founderCounts = founders.counts[speciesIndex];
     const founderLag = founders.lag[speciesIndex];
     const founderRate = founders.growthRate[speciesIndex];
-    const morphologyRadius = getMorphologyRadiusMultiplier(speciesDef.morphology);
+    const morphologyRadius = getMorphologyRadiusMultiplier(phenotype.morphology);
+    const stampProfile = getMorphologyStampProfile(phenotype.morphology);
 
     for (let index = 0; index < founderCounts.length; index += 1) {
       const count = founderCounts[index];
@@ -321,8 +359,8 @@ function buildColonies(
 
         const maxRadius =
           sampleRange(
-            speciesDef.isolatedRadius[0] * resolution,
-            speciesDef.isolatedRadius[1] * resolution,
+            phenotype.isolatedRadius[0] * resolution,
+            phenotype.isolatedRadius[1] * resolution,
             seed ^ 0x31d7f12b,
           ) * morphologyRadius;
         const radialRate =
@@ -337,6 +375,27 @@ function buildColonies(
           radialRate,
           maxRadius,
           biomassScale: sampleRange(0.88, 1.08, seed ^ 0x6c8f2d11),
+          morphology: phenotype.morphology,
+          edgeIrregularity:
+            stampProfile.edgeIrregularity *
+            sampleRange(0.86, 1.16, seed ^ 0x71bc0f53),
+          textureStrength:
+            stampProfile.textureStrength *
+            sampleRange(0.88, 1.14, seed ^ 0x0bc142f7),
+          centerDepression:
+            stampProfile.centerDepression *
+            sampleRange(0.92, 1.08, seed ^ 0x5f2a3bc1),
+          ridgeCount: Math.max(
+            2,
+            Math.round(
+              sampleRange(
+                stampProfile.ridgeCount - 0.75,
+                stampProfile.ridgeCount + 0.75,
+                seed ^ 0x4a2fb191,
+              ),
+            ),
+          ),
+          shapePhase: sampleRange(0, Math.PI * 2, seed ^ 0x9a6c32bf),
         });
       }
     }
@@ -374,9 +433,77 @@ function getMorphologyRadiusMultiplier(morphology: SpeciesMorphology | undefined
       return 1.12;
     case 'rough':
       return 0.92;
+    case 'draughtsman':
+      return 0.88;
     default:
       return 1;
   }
+}
+
+function morphologyAmplitude(morphology: SpeciesMorphology): number {
+  switch (morphology) {
+    case 'mucoid':
+      return 1.08;
+    case 'rough':
+      return 0.92;
+    case 'draughtsman':
+      return 0.9;
+    default:
+      return 1;
+  }
+}
+
+function getMorphologyStampProfile(
+  morphology: SpeciesMorphology,
+): {
+  edgeIrregularity: number;
+  textureStrength: number;
+  centerDepression: number;
+  ridgeCount: number;
+} {
+  switch (morphology) {
+    case 'rough':
+      return {
+        edgeIrregularity: 0.26,
+        textureStrength: 0.22,
+        centerDepression: 0.04,
+        ridgeCount: 5,
+      };
+    case 'mucoid':
+      return {
+        edgeIrregularity: 0.05,
+        textureStrength: 0.03,
+        centerDepression: 0,
+        ridgeCount: 3,
+      };
+    case 'draughtsman':
+      return {
+        edgeIrregularity: 0.14,
+        textureStrength: 0.1,
+        centerDepression: 0.46,
+        ridgeCount: 4,
+      };
+    case 'spreading':
+      return {
+        edgeIrregularity: 0.18,
+        textureStrength: 0.08,
+        centerDepression: 0,
+        ridgeCount: 6,
+      };
+    case 'smooth':
+    default:
+      return {
+        edgeIrregularity: 0.07,
+        textureStrength: 0.05,
+        centerDepression: 0,
+        ridgeCount: 3,
+      };
+  }
+}
+
+function pseudoNoise2d(x: number, y: number): number {
+  const value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123;
+  return value - Math.floor(value);
 }
 
 function createSimulationState(

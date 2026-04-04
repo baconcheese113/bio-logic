@@ -416,7 +416,9 @@ out vec4 o;
 
 uniform sampler2D u_height;
 uniform sampler2D u_colorMap;
+uniform sampler2D u_surfaceMap;
 uniform float u_hasColorMap;
+uniform float u_hasSurfaceMap;
 uniform vec3  u_lightPos;
 uniform float u_time;
 uniform vec2  u_res;
@@ -449,6 +451,7 @@ uniform float u_exposure;
 uniform float u_grainAmount;
 
 const vec3 HEMO_CLEAR = vec3(0.76, 0.69, 0.51);
+const vec3 HEMO_ALPHA = vec3(0.45, 0.33, 0.28);
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -487,6 +490,97 @@ void main() {
   float h_r = texture(u_height, uv + vec2(tx.x, 0)).r * u_heightScale;
   float h_d = texture(u_height, uv - vec2(0, tx.y)).r * u_heightScale;
   float h_u = texture(u_height, uv + vec2(0, tx.y)).r * u_heightScale;
+  vec4 colorSample = texture(u_colorMap, uv);
+  vec4 surfaceSample = texture(u_surfaceMap, uv);
+  float mapRough = surfaceSample.r;
+  float mapWet = surfaceSample.g;
+  float mapAlphaHemo = surfaceSample.b;
+  float mapBetaHemo = surfaceSample.a;
+
+  if (u_hasColorMap > 0.5 && u_hasSurfaceMap > 0.5) {
+    if (colorSample.a < 0.01) { o = vec4(vec3(0.12), 1); return; }
+
+    float colonyMask = smoothstep(0.008, 0.045, h);
+    float denseColony = smoothstep(0.04, 0.16, h);
+    float rough = clamp(mapRough, 0.04, 0.98);
+    float wetness = clamp(mapWet, 0.0, 1.0);
+    float alphaHemo = clamp(mapAlphaHemo, 0.0, 1.0);
+    float betaHemo = clamp(mapBetaHemo, 0.0, 1.0);
+
+    float microStrength =
+      colonyMask * (0.03 + rough * 0.09) +
+      wetness * 0.015 +
+      (1.0 - colonyMask) * 0.008;
+    float microX = noise(uv * 420.0 + vec2(17.0, 3.0)) * 2.0 - 1.0;
+    float microY = noise(uv * 420.0 + vec2(93.0, 47.0)) * 2.0 - 1.0;
+    vec3 NmapBase = normalize(vec3(
+      (h_l - h_r) * u_bumpStr,
+      (h_d - h_u) * u_bumpStr,
+      1.0
+    ));
+    vec3 Vmap = normalize(vec3(0.5 - uv.x, 0.5 - uv.y, 1.2));
+    vec3 Lmap = normalize(u_lightPos);
+    vec3 Nmap = normalize(NmapBase + vec3(microX, microY, 0.0) * microStrength);
+    vec3 Hmap = normalize(Lmap + Vmap);
+    float mapNdotL = max(dot(Nmap, Lmap), 0.0);
+    float mapNdotH = max(dot(Nmap, Hmap), 0.0);
+    float mapSmoothNdotH = max(dot(NmapBase, Hmap), 0.0);
+    float mapSmoothNdotV = max(dot(NmapBase, Vmap), 0.0);
+    float mapFresnel = 0.04 + 0.96 * pow(1.0 - mapSmoothNdotV, 5.0);
+
+    vec3 baseColor = colorSample.rgb;
+    float agarPresence = 1.0 - colonyMask;
+    baseColor = mix(baseColor * vec3(0.56, 0.48, 0.48), baseColor, colonyMask);
+    baseColor = mix(baseColor, u_agarColor * 0.9, agarPresence * 0.45);
+    baseColor = mix(baseColor, HEMO_CLEAR, betaHemo * u_hemoIntensity * 0.12);
+    baseColor = mix(baseColor, HEMO_ALPHA, alphaHemo * u_hemoIntensity * 0.10);
+
+    float wrap = mix(0.78, 0.2, colonyMask);
+    float diffuse = max(0.0, (mapNdotL + wrap) / (1.0 + wrap));
+    diffuse = diffuse * (1.0 - u_ambient) + u_ambient;
+    diffuse += (1.0 - colonyMask) * u_underlight * (0.6 + wetness * 0.4);
+    diffuse += betaHemo * u_underlight * 0.25;
+    diffuse = clamp(diffuse, 0.0, 1.6);
+
+    float directSpecStrength = mix(0.012, u_colSpec, (1.0 - rough) * 0.65 + wetness * 0.45);
+    float directSpec = specD(mapNdotH, r2s(rough)) * directSpecStrength;
+    float clearcoatRough = mix(
+      max(0.08, u_colCCRough * 1.35),
+      max(0.025, u_colCCRough * 0.65),
+      wetness * 0.75 + colonyMask * 0.15
+    );
+    float clearcoatStrength =
+      (0.015 + wetness * (u_colCC * 0.9) + (1.0 - rough) * colonyMask * (u_colCC * 0.2)) *
+      mapFresnel;
+    float clearcoat = specD(mapSmoothNdotH, r2s(clearcoatRough)) * clearcoatStrength;
+    float rimLight = pow(1.0 - max(dot(Nmap, Vmap), 0.0), 2.5) *
+      (0.025 + wetness * 0.05 + (1.0 - rough) * 0.04) *
+      mix(0.7, 1.0 + u_edgeGlow * 0.8, colonyMask);
+    float shadowOcclusion = 1.0 -
+      smoothstep(0.02, 0.18, h) * u_aoStr * (0.55 + denseColony * 0.45);
+
+    vec3 litColor = baseColor * diffuse * shadowOcclusion;
+    litColor += baseColor * rimLight * 0.12;
+    vec3 highlightColor = mix(vec3(1.0), baseColor, 0.32 + colonyMask * 0.18);
+    litColor += highlightColor * (directSpec + clearcoat);
+
+    litColor = mix(litColor, vec3(0.08, 0.02, 0.02), rimMask);
+
+    float vig = 1.0 - dist * dist * u_vigStr;
+    litColor *= vig;
+
+    float grain = hash(uv * u_res + u_time) * u_grainAmount * 2.0 - u_grainAmount;
+    litColor += grain;
+
+    litColor = litColor / (litColor + 0.8) * u_exposure;
+    float grey = dot(litColor, vec3(0.2126, 0.7152, 0.0722));
+    litColor = mix(vec3(grey), litColor, 1.16);
+    litColor = clamp(litColor, 0.0, 1.0);
+    litColor = pow(litColor, vec3(1.0 / 2.2));
+
+    o = vec4(litColor, 1);
+    return;
+  }
 
   float colonyMask = clamp(smoothstep(0.02, 0.08, h) * u_colOpacity, 0.0, 1.0);
   float denseColony = smoothstep(0.15, 0.35, h);
@@ -637,6 +731,9 @@ type ULoc = WebGLUniformLocation | null;
 
 interface Locations {
   light: ULoc;
+  resolution: ULoc;
+  hasColorMap: ULoc;
+  hasSurfaceMap: ULoc;
   agarColor: ULoc;
   agarRough: ULoc;
   agarSpec: ULoc;
@@ -665,17 +762,116 @@ interface Locations {
 
 export interface ColonyRenderer {
   render(time: number, params: ColonyParams): void;
+  updateMaps(maps: RendererTextureMaps): void;
   destroy(): void;
+}
+
+export interface RendererTextureMaps {
+  resolution: number;
+  heightMap: Float32Array;
+  colorMap?: Uint8Array | Uint8ClampedArray;
+  surfaceMap?: Uint8Array | Uint8ClampedArray;
 }
 
 export interface RendererOpts {
   seed?: number;
   useReferencePaths?: boolean;
   heightMap?: Float32Array;
-  colorMap?: Uint8Array;
+  colorMap?: Uint8Array | Uint8ClampedArray;
+  surfaceMap?: Uint8Array | Uint8ClampedArray;
+  textureResolution?: number;
+  textureMaps?: RendererTextureMaps;
 }
 
 const REF_CROP = { centerX: 0.50, centerY: 0.47, radiusFrac: 0.40 };
+
+function inferTextureResolution(
+  explicitResolution: number | undefined,
+  sourceLength: number | undefined,
+): number {
+  if (explicitResolution) return explicitResolution;
+  if (!sourceLength) return SIZE;
+
+  const inferred = Math.round(Math.sqrt(sourceLength));
+  if (inferred * inferred !== sourceLength) {
+    throw new Error(`Unable to infer square texture resolution from length ${sourceLength}.`);
+  }
+  return inferred;
+}
+
+function createEmptyRgbaData(resolution: number): Uint8Array {
+  return new Uint8Array(resolution * resolution * 4);
+}
+
+function packHeightTexture(heightMap: Float32Array): Uint8Array {
+  const packed = new Uint8Array(heightMap.length);
+  for (let index = 0; index < heightMap.length; index += 1) {
+    packed[index] = Math.min(255, Math.round(Math.min(1, Math.max(0, heightMap[index])) * 255));
+  }
+  return packed;
+}
+
+function uploadR8Texture(
+  gl: WebGL2RenderingContext,
+  texture: WebGLTexture,
+  resolution: number,
+  data: Uint8Array,
+): void {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.R8,
+    resolution,
+    resolution,
+    0,
+    gl.RED,
+    gl.UNSIGNED_BYTE,
+    data,
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+function uploadRgbaTexture(
+  gl: WebGL2RenderingContext,
+  texture: WebGLTexture,
+  resolution: number,
+  data: Uint8Array | Uint8ClampedArray,
+): void {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    resolution,
+    resolution,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    data,
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+function syncCanvasSize(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement): void {
+  const devicePixelRatio = globalThis.window?.devicePixelRatio ?? 1;
+  const bounds = canvas.getBoundingClientRect();
+  const logicalSize = Math.max(bounds.width, bounds.height, SIZE);
+  const targetSize = Math.max(256, Math.round(logicalSize * devicePixelRatio));
+
+  if (canvas.width !== targetSize || canvas.height !== targetSize) {
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+  }
+
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
 
 export async function extractHeightMapFromImage(
   imageUrl: string,
@@ -807,53 +1003,52 @@ export function createColonyRenderer(
   const gl = canvas.getContext('webgl2');
   if (!gl) return null;
 
-  canvas.width = SIZE;
-  canvas.height = SIZE;
-
   gl.getExtension('OES_texture_float_linear');
   gl.getExtension('EXT_color_buffer_float');
 
+  const initialHeightMap = opts?.textureMaps?.heightMap ?? opts?.heightMap;
+  let textureResolution = inferTextureResolution(
+    opts?.textureMaps?.resolution ?? opts?.textureResolution,
+    initialHeightMap?.length,
+  );
+
   let heightFloat: Float32Array;
-  if (opts?.heightMap) {
-    heightFloat = opts.heightMap;
+  if (initialHeightMap) {
+    heightFloat = initialHeightMap;
   } else {
     const rng = opts?.seed != null ? mulberry32(opts.seed) : Math.random;
     const refPaths = opts?.useReferencePaths ? REFERENCE_PATHS : undefined;
     heightFloat = genHeightMap(rng, refPaths);
+    textureResolution = inferTextureResolution(opts?.textureResolution, heightFloat.length);
   }
-  const heightU8 = new Uint8Array(SIZE * SIZE);
-  for (let i = 0; i < SIZE * SIZE; i++) {
-    heightU8[i] = Math.min(255, Math.round(Math.min(1, heightFloat[i]) * 255));
-  }
+
+  let colorData =
+    opts?.textureMaps?.colorMap ??
+    opts?.colorMap ??
+    createEmptyRgbaData(textureResolution);
+  let surfaceData =
+    opts?.textureMaps?.surfaceMap ??
+    opts?.surfaceMap ??
+    createEmptyRgbaData(textureResolution);
+  let hasColorMap = (opts?.textureMaps?.colorMap ?? opts?.colorMap) ? 1.0 : 0.0;
+  let hasSurfaceMap = (opts?.textureMaps?.surfaceMap ?? opts?.surfaceMap) ? 1.0 : 0.0;
 
   const heightTex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, heightTex);
-  gl.texImage2D(
-    gl.TEXTURE_2D, 0, gl.R8, SIZE, SIZE, 0,
-    gl.RED, gl.UNSIGNED_BYTE, heightU8,
-  );
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const colorTex = gl.createTexture();
+  const surfaceTex = gl.createTexture();
+  if (!heightTex || !colorTex || !surfaceTex) return null;
+
+  uploadR8Texture(gl, heightTex, textureResolution, packHeightTexture(heightFloat));
+  uploadRgbaTexture(gl, colorTex, textureResolution, colorData);
+  uploadRgbaTexture(gl, surfaceTex, textureResolution, surfaceData);
 
   // Color map texture (species colors — optional)
-  const colorTex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, colorTex);
-  const hasColorMap = opts?.colorMap ? 1.0 : 0.0;
-  const colorData = opts?.colorMap ?? new Uint8Array(SIZE * SIZE * 4);
-  gl.texImage2D(
-    gl.TEXTURE_2D, 0, gl.RGBA, SIZE, SIZE, 0,
-    gl.RGBA, gl.UNSIGNED_BYTE, colorData,
-  );
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
   const vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
   const buf = gl.createBuffer();
+  const prog = gl.createProgram();
+  if (!vao || !buf || !prog) return null;
+
+  gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -862,8 +1057,6 @@ export function createColonyRenderer(
   );
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-
-  const prog = gl.createProgram()!;
   gl.attachShader(prog, compileShader(gl, VERT_SRC, gl.VERTEX_SHADER));
   gl.attachShader(prog, compileShader(gl, FRAG_SRC, gl.FRAGMENT_SHADER));
   gl.linkProgram(prog);
@@ -875,6 +1068,9 @@ export function createColonyRenderer(
   const u = (name: string) => gl.getUniformLocation(prog, name);
   const loc: Locations = {
     light: u('u_lightPos'),
+    resolution: u('u_res'),
+    hasColorMap: u('u_hasColorMap'),
+    hasSurfaceMap: u('u_hasSurfaceMap'),
     agarColor: u('u_agarColor'),
     agarRough: u('u_agarRough'),
     agarSpec: u('u_agarSpec'),
@@ -903,16 +1099,21 @@ export function createColonyRenderer(
 
   gl.uniform1i(u('u_height'), 0);
   gl.uniform1i(u('u_colorMap'), 1);
-  gl.uniform1f(u('u_hasColorMap'), hasColorMap);
-  gl.uniform2f(u('u_res'), SIZE, SIZE);
+  gl.uniform1i(u('u_surfaceMap'), 2);
+  gl.uniform1f(loc.hasColorMap, hasColorMap);
+  gl.uniform1f(loc.hasSurfaceMap, hasSurfaceMap);
+  gl.uniform2f(loc.resolution, textureResolution, textureResolution);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, heightTex);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, colorTex);
-  gl.viewport(0, 0, SIZE, SIZE);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, surfaceTex);
+  syncCanvasSize(gl, canvas);
 
   return {
     render(time: number, p: ColonyParams) {
+      syncCanvasSize(gl, canvas);
       gl.uniform3f(loc.light, p.lightX, p.lightY, p.lightZ);
       gl.uniform3f(loc.agarColor, p.agarR, p.agarG, p.agarB);
       gl.uniform1f(loc.agarRough, p.agarRoughness);
@@ -941,9 +1142,28 @@ export function createColonyRenderer(
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
+    updateMaps(maps: RendererTextureMaps) {
+      textureResolution = maps.resolution;
+      heightFloat = maps.heightMap;
+      colorData = maps.colorMap ?? createEmptyRgbaData(textureResolution);
+      surfaceData = maps.surfaceMap ?? createEmptyRgbaData(textureResolution);
+      hasColorMap = maps.colorMap ? 1.0 : 0.0;
+      hasSurfaceMap = maps.surfaceMap ? 1.0 : 0.0;
+
+      gl.useProgram(prog);
+      gl.uniform1f(loc.hasColorMap, hasColorMap);
+      gl.uniform1f(loc.hasSurfaceMap, hasSurfaceMap);
+      gl.uniform2f(loc.resolution, textureResolution, textureResolution);
+
+      uploadR8Texture(gl, heightTex, textureResolution, packHeightTexture(heightFloat));
+      uploadRgbaTexture(gl, colorTex, textureResolution, colorData);
+      uploadRgbaTexture(gl, surfaceTex, textureResolution, surfaceData);
+      syncCanvasSize(gl, canvas);
+    },
     destroy() {
       gl.deleteTexture(heightTex);
       gl.deleteTexture(colorTex);
+      gl.deleteTexture(surfaceTex);
       gl.deleteBuffer(buf);
       gl.deleteVertexArray(vao);
       gl.deleteProgram(prog);
