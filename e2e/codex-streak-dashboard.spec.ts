@@ -9,6 +9,70 @@ const LEGACY_ROUTES = [
   '/#/reference/codex-streak/growth',
 ];
 
+interface NormalizedPoint {
+  x: number;
+  y: number;
+}
+
+async function dragAcrossCanvas(
+  page: import('@playwright/test').Page,
+  canvas: import('@playwright/test').Locator,
+  points: readonly NormalizedPoint[],
+  releaseAtEnd = true,
+): Promise<void> {
+  await canvas.scrollIntoViewIfNeeded();
+  const bounds = await canvas.boundingBox();
+  if (!bounds || points.length === 0) {
+    throw new Error('Canvas bounds or drag points missing');
+  }
+
+  const first = points[0];
+  await page.mouse.move(bounds.x + bounds.width * first.x, bounds.y + bounds.height * first.y);
+  await page.mouse.down();
+
+  for (const point of points.slice(1)) {
+    await page.mouse.move(bounds.x + bounds.width * point.x, bounds.y + bounds.height * point.y, {
+      steps: 8,
+    });
+  }
+
+  if (releaseAtEnd) {
+    await page.mouse.up();
+  }
+}
+
+async function canvasSignature(
+  page: import('@playwright/test').Page,
+  selector: string,
+): Promise<string> {
+  return page.locator(selector).evaluate((node) => {
+    if (!(node instanceof HTMLCanvasElement)) {
+      return 'not-canvas';
+    }
+
+    const context = node.getContext('2d');
+    if (!context) {
+      return `${node.width}x${node.height}:non-2d`;
+    }
+
+    const { data } = context.getImageData(0, 0, node.width, node.height);
+    let hash = 2166136261;
+
+    for (let index = 0; index < data.length; index += 16) {
+      hash ^= data[index] ?? 0;
+      hash = Math.imul(hash, 16777619);
+      hash ^= data[index + 1] ?? 0;
+      hash = Math.imul(hash, 16777619);
+      hash ^= data[index + 2] ?? 0;
+      hash = Math.imul(hash, 16777619);
+      hash ^= data[index + 3] ?? 0;
+      hash = Math.imul(hash, 16777619);
+    }
+
+    return `${node.width}x${node.height}:${hash >>> 0}`;
+  });
+}
+
 test('legacy codex-streak routes redirect to the single dashboard and keep reference intact', async ({ page }) => {
   await page.goto(REFERENCE_ROUTE);
   await expect(page.getByRole('heading', { name: /Colony Rendering/ })).toBeVisible();
@@ -18,7 +82,6 @@ test('legacy codex-streak routes redirect to the single dashboard and keep refer
     await expect(page).toHaveURL(/#\/reference\/codex-streak\/pipeline$/);
     await expect(page.locator('[data-ref="codex-streak-dashboard"]')).toBeVisible();
     await expect(page.locator('[data-ref="streak-plate-card"]')).toBeVisible();
-    await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="transfer-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="seeding-card"]')).toBeVisible();
     await expect(page.locator('[data-ref="growth-card"]')).toBeVisible();
@@ -39,14 +102,18 @@ test('single dashboard reads directly from the plate on desktop and mobile', asy
   await page.goto(DASHBOARD_ROUTE);
 
   const plateCanvas = page.locator('[data-ref="codex-plate-canvas"]');
+  const transferCanvas = page.locator('[data-ref="transfer-input-canvas"]');
+  const seedingCanvas = page.locator('[data-ref="seeding-canvas"]');
+  const growthCanvas = page.locator('[data-ref="growth-canvas"]');
   const incubationSlider = page.locator('[data-ref="incubation-slider"]');
-  const observationCues = page.locator('[data-ref="observation-cues-list"]');
   const observationFilterSummary = page.locator('[data-ref="observation-filter-summary"]');
   const renderCanvas = page.locator('[data-ref="render-canvas"]');
 
   await expect(plateCanvas).toBeVisible();
+  await expect(transferCanvas).toBeVisible();
+  await expect(seedingCanvas).toBeVisible();
+  await expect(growthCanvas).toBeVisible();
   await expect(renderCanvas).toBeVisible();
-  await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
   await expect(page.locator('[data-ref="observation-filter-controls"]')).toBeVisible();
   await expect(page.locator('[data-ref="observation-light-controls"]')).toBeVisible();
   await expect(page.locator('[data-ref="inspection-card"]')).toHaveCount(0);
@@ -69,7 +136,37 @@ test('single dashboard reads directly from the plate on desktop and mobile', asy
   expect(webglState.observationWebgl).toBe(true);
   expect(webglState.renderWebgl).toBe(true);
 
-  await page.getByRole('button', { name: 'Balanced mixed streak' }).click();
+  await page.getByRole('button', { name: 'Load Sample' }).click();
+  const transferBeforeMove = await canvasSignature(page, '[data-ref="transfer-input-canvas"]');
+  const seedingBeforeMove = await canvasSignature(page, '[data-ref="seeding-canvas"]');
+
+  await dragAcrossCanvas(page, transferCanvas, [
+    { x: 0.18, y: 0.26 },
+    { x: 0.44, y: 0.22 },
+    { x: 0.68, y: 0.2 },
+  ], false);
+
+  await expect(page.locator('[data-ref="transfer-status"]')).toHaveText('Streaking');
+  const transferDuringMove = await canvasSignature(page, '[data-ref="transfer-input-canvas"]');
+  const seedingDuringMove = await canvasSignature(page, '[data-ref="seeding-canvas"]');
+
+  expect(transferDuringMove).not.toBe(transferBeforeMove);
+  expect(seedingDuringMove).not.toBe(seedingBeforeMove);
+
+  const transferBounds = await transferCanvas.boundingBox();
+  if (!transferBounds) {
+    throw new Error('Transfer canvas bounds unavailable');
+  }
+
+  await page.mouse.move(
+    transferBounds.x + transferBounds.width * 0.78,
+    transferBounds.y + transferBounds.height * 0.38,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  await expect(page.locator('[data-ref="transfer-status"]')).not.toHaveText('Streaking');
+
   const seedingCard = page.locator('[data-ref="seeding-card"]');
   const seedingTextBeforeFilter = await seedingCard.textContent();
   const foundersBeforeFilter = seedingTextBeforeFilter?.match(/Founders:\s*(\d+)/)?.[1] ?? null;
@@ -93,13 +190,12 @@ test('single dashboard reads directly from the plate on desktop and mobile', asy
   await page.getByRole('button', { name: 'Show all' }).click();
   await expect(observationFilterSummary).toContainText('all species');
 
-  await expect(observationCues).toContainText('hemolysis');
   await page.getByRole('button', { name: 'Grazing' }).click();
-  await expect(observationCues).toContainText('Grazing light');
+  await expect(page.locator('[data-ref="streak-plate-card"]')).toContainText('Light: grazing');
   await page.getByRole('button', { name: 'Transmitted' }).click();
-  await expect(observationCues).toContainText('Transmitted light');
+  await expect(page.locator('[data-ref="streak-plate-card"]')).toContainText('Light: transmitted');
   await page.getByRole('button', { name: 'Bench' }).click();
-  await expect(observationCues).toContainText('Bench light');
+  await expect(page.locator('[data-ref="streak-plate-card"]')).toContainText('Light: bench');
   await page.locator('[data-ref="render-card"] summary').click();
   await page.locator('[data-ref="render-card"]').getByRole('button', { name: 'Height' }).click();
   await expect(page.locator('[data-ref="render-view-label"]')).toHaveText('height');
@@ -107,17 +203,48 @@ test('single dashboard reads directly from the plate on desktop and mobile', asy
   await expect(page.locator('[data-ref="render-view-label"]')).toHaveText('shaded');
 
   await page.locator('[data-ref="medium-select"]').selectOption('macconkey');
-  await expect(observationCues).toContainText('growth versus suppression');
-  await expect(observationCues).toContainText('pink');
+  await expect(page.locator('[data-ref="streak-plate-card"]')).toContainText('Medium: MacConkey');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(DASHBOARD_ROUTE);
 
   await expect(page.locator('[data-ref="streak-plate-card"]')).toBeVisible();
-  await expect(page.locator('[data-ref="observation-cues-card"]')).toBeVisible();
+  await expect(page.locator('[data-ref="transfer-card"]')).toBeVisible();
   await expect(page.locator('[data-ref="growth-card"]')).toBeVisible();
   await expect(page.locator('[data-ref="render-card"]')).toBeVisible();
   expect(consoleErrors).not.toEqual(expect.arrayContaining([expect.stringContaining('Shader compile error')]));
+});
+
+test('transfer owns live streak input and observation plate stays passive', async ({ page }) => {
+  await page.goto(DASHBOARD_ROUTE);
+
+  const observationPlate = page.locator('[data-ref="codex-plate-canvas"]');
+  const transferCanvas = page.locator('[data-ref="transfer-input-canvas"]');
+
+  await page.getByRole('button', { name: 'Load Sample' }).click();
+  const transferBeforeObservationDrag = await canvasSignature(page, '[data-ref="transfer-input-canvas"]');
+  const seedingBeforeObservationDrag = await canvasSignature(page, '[data-ref="seeding-canvas"]');
+
+  await dragAcrossCanvas(page, observationPlate, [
+    { x: 0.22, y: 0.28 },
+    { x: 0.58, y: 0.28 },
+    { x: 0.72, y: 0.42 },
+  ]);
+
+  await expect(page.locator('[data-ref="transfer-status"]')).not.toHaveText('Streaking');
+  expect(await canvasSignature(page, '[data-ref="transfer-input-canvas"]')).toBe(transferBeforeObservationDrag);
+  expect(await canvasSignature(page, '[data-ref="seeding-canvas"]')).toBe(seedingBeforeObservationDrag);
+
+  await dragAcrossCanvas(page, transferCanvas, [
+    { x: 0.18, y: 0.26 },
+    { x: 0.42, y: 0.22 },
+    { x: 0.7, y: 0.2 },
+    { x: 0.78, y: 0.34 },
+  ]);
+
+  await expect(page.locator('[data-ref="transfer-dirty-area"]')).not.toHaveText('0');
+  expect(await canvasSignature(page, '[data-ref="transfer-input-canvas"]')).not.toBe(transferBeforeObservationDrag);
+  expect(await canvasSignature(page, '[data-ref="seeding-canvas"]')).not.toBe(seedingBeforeObservationDrag);
 });
 
 test('phenotype sandbox distinguishes representative species through visible plate traits', async ({ page }) => {

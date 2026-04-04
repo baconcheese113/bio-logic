@@ -436,6 +436,9 @@
     const x = (event.clientX - bounds.left) / bounds.width;
     const y = (event.clientY - bounds.top) / bounds.height;
     if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+    const dx = x - 0.5;
+    const dy = y - 0.5;
+    if (dx * dx + dy * dy > 0.25) return null;
     return { x, y };
   }
 
@@ -519,40 +522,6 @@
     return `${phenotype.colonyColorLabel}, ${phenotype.morphology}, ${phenotype.hemolysisType}`;
   }
 
-  function observationCues(medium: PlateMedium, lightMode: ObservationLightMode): string[] {
-    const lightCue =
-      lightMode === 'grazing'
-        ? 'Grazing light should exaggerate roughness, depressed centers, and mucoid swelling.'
-        : lightMode === 'transmitted'
-          ? 'Transmitted light should flatten glare and make hemolysis and translucency easier to compare.'
-          : 'Bench light should give the most natural overall read of pigment, size, and sheen.';
-
-    switch (medium) {
-      case 'macconkey':
-        return [
-          lightCue,
-          'Look first for growth versus suppression; no growth is already a clue.',
-          'Compare pink lactose-fermenting colonies against pale or colorless growth.',
-          'Use sheen and body to separate smooth colonies from larger mucoid ones.',
-        ];
-      case 'nutrient-agar':
-        return [
-          lightCue,
-          'Compare colony size, edge texture, and translucency without hemolysis noise.',
-          'Smooth colonies should read fuller and rounder than rough or draughtsman forms.',
-          'Mucoid colonies should stay glossier and more swollen than dry gray colonies.',
-        ];
-      case 'blood-agar':
-      default:
-        return [
-          lightCue,
-          'Read the whole plate directly: size, warmth of pigment, edge texture, and sheen.',
-          'In the late streaks, beta hemolysis should clear more aggressively than alpha.',
-          'Pneumococcal colonies should flatten and read more depressed than smooth staph or E. coli.',
-        ];
-    }
-  }
-
   function filterFilmState(source: FilmState, visibility: readonly boolean[]): FilmState {
     const filtered = createFilmState(source.filmMass.length, source.resolution);
     filtered.agarWetness.set(source.agarWetness);
@@ -613,22 +582,12 @@
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_380px]">
       <section class="panel overflow-hidden" data-ref="streak-plate-card">
-        <div class="panel-header flex items-center justify-between gap-3">
-          <span>Observation Plate</span>
-          <span
-            class={[
-              'rounded-full px-2.5 py-0.5 text-xs uppercase tracking-[0.18em]',
-              isDrawing ? 'bg-[var(--status-busy)] text-[var(--bg-darkest)]' : 'bg-[var(--bg-medium)] text-[var(--parchment-aged)]',
-            ]}
-          >
-            {transferStatus}
-          </span>
-        </div>
+        <div class="panel-header">Observation Plate</div>
 
         <div class="space-y-4 bg-[var(--bg-dark)] p-4">
           <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--parchment-aged)]">
             <p class="max-w-3xl">
-              Drag directly on the plate. The main view stays on the final render so the phenotype has to read on the full dish, not in a magnified helper box.
+              This plate is display-only. Use the transfer card for live streaking, then read the downstream phenotype here on the full dish.
             </p>
             <div class="flex flex-wrap gap-4 text-xs uppercase tracking-[0.18em]">
               <span>Medium: <span class="text-[var(--parchment)]">{selectedMedium.name}</span></span>
@@ -648,13 +607,8 @@
               preset="observation"
               lighting={observationLightMode}
               aria-label="Observation plate"
-              canvasClass="no-select aspect-square w-full touch-none rounded-xl border border-[var(--brass-dark)] bg-black/50"
+              canvasClass="no-select aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/50"
               dataRef="codex-plate-canvas"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerFinish}
-              onPointerCancel={handlePointerFinish}
-              onLostPointerCapture={handlePointerCancel}
             />
           </div>
 
@@ -821,23 +775,6 @@
           </div>
         </section>
 
-        <section class="panel overflow-hidden" data-ref="observation-cues-card">
-          <div class="panel-header">Observation Cues</div>
-          <div class="space-y-3 bg-[var(--bg-dark)] p-4">
-            <div class="rounded-xl border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45 p-3 text-sm text-[var(--parchment-aged)]">
-              The plate itself is the readout now. Use the later streaks to compare isolated colony size, edge texture, sheen, translucency, and halo behavior directly on the dish.
-            </div>
-
-            <div class="space-y-2" data-ref="observation-cues-list">
-              {#each observationCues(session.medium, observationLightMode) as cue (`cue-${session.medium}-${observationLightMode}-${cue}`)}
-                <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-sm text-[var(--parchment-aged)]">
-                  {cue}
-                </div>
-              {/each}
-            </div>
-          </div>
-        </section>
-
         <section class="panel overflow-hidden">
           <div class="panel-header">Quick Scenarios</div>
           <div class="space-y-2 bg-[var(--bg-dark)] p-3">
@@ -862,19 +799,40 @@
 
     <div class="grid gap-4 xl:grid-cols-4">
       <section class="panel overflow-hidden" data-ref="transfer-card">
-        <div class="panel-header">Transfer</div>
+        <div class="panel-header flex items-center justify-between gap-3">
+          <span>Transfer</span>
+          <span
+            class={[
+              'rounded-full px-2.5 py-0.5 text-xs uppercase tracking-[0.18em]',
+              isDrawing ? 'bg-[var(--status-busy)] text-[var(--bg-darkest)]' : 'bg-[var(--bg-medium)] text-[var(--parchment-aged)]',
+            ]}
+            data-ref="transfer-status"
+          >
+            {transferStatus}
+          </span>
+        </div>
         <div class="space-y-3 bg-[var(--bg-dark)] p-4">
           <canvas
             bind:this={filmCanvas}
-            class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+            class="no-select aspect-square w-full touch-none cursor-crosshair rounded-xl border border-[var(--brass-dark)] bg-black/40"
+            data-ref="transfer-input-canvas"
             width={SIM.displaySize}
             height={SIM.displaySize}
+            onpointerdown={handlePointerDown}
+            onpointermove={handlePointerMove}
+            onpointerup={handlePointerFinish}
+            onpointercancel={handlePointerFinish}
+            onlostpointercapture={handlePointerCancel}
           ></canvas>
 
           <div class="grid gap-2 text-xs text-[var(--parchment-aged)] sm:grid-cols-3">
             <div>View: <span class="text-[var(--parchment)]" data-ref="transfer-view-label">{transferViewLabel(filmMode)}</span></div>
             <div>Dirty area: <span class="text-[var(--parchment)]" data-ref="transfer-dirty-area">{transferDirtyArea}</span></div>
             <div>Max error: <span class="text-[var(--parchment)]" data-ref="transfer-max-error">{formatPercent(maxConservationError)}</span></div>
+          </div>
+
+          <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45 px-3 py-2 text-sm text-[var(--parchment-aged)]">
+            Draw here for live streak feedback. Seeding updates during the stroke, while growth and phenotype stay downstream.
           </div>
 
           <details class="rounded-xl border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45">
@@ -921,6 +879,7 @@
           <canvas
             bind:this={founderCanvas}
             class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+            data-ref="seeding-canvas"
             width={SIM.displaySize}
             height={SIM.displaySize}
           ></canvas>
@@ -982,6 +941,7 @@
           <canvas
             bind:this={growthCanvas}
             class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+            data-ref="growth-canvas"
             width={SIM.displaySize}
             height={SIM.displaySize}
           ></canvas>
