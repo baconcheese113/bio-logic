@@ -4,12 +4,15 @@
     drawFilmMap,
     drawFounderMap,
     drawNutrientWasteMap,
+    drawRenderMap,
     type BiomassViewMode,
     type FilmViewMode,
     type FounderViewMode,
     type NutrientViewMode,
+    type RenderViewMode,
   } from './debug-renderer';
   import { computeGrowth } from './growth-engine';
+  import { computeRenderMaps } from './render-synth';
   import { seedDirtyFounderRegion, seedFounderGrid } from './seeding-engine';
   import {
     applyTransferAction,
@@ -59,6 +62,7 @@
   let filmMode = $state<FilmViewMode>('total');
   let founderMode = $state<FounderViewMode>('total');
   let growthMode = $state<GrowthPanelMode>('coverage-total');
+  let renderMode = $state<RenderViewMode>('shaded');
   let seedingMetrics = $state<SeedingMetrics>(
     createSeedingMetrics(initialSeeded.founders, null, initialSeeded.dirtyRect),
   );
@@ -74,6 +78,7 @@
   let filmCanvas: HTMLCanvasElement | null = null;
   let founderCanvas: HTMLCanvasElement | null = null;
   let growthCanvas: HTMLCanvasElement | null = null;
+  let renderCanvas: HTMLCanvasElement | null = null;
 
   const loadPreview = $derived(normalizeSpeciesLoads(sliderValues, speciesConfig.length));
   const selectedSpecies = $derived(speciesConfig[selectedSpeciesIndex] ?? speciesConfig[0]);
@@ -111,6 +116,11 @@
   const biomass = $derived.by(() =>
     computeGrowth(biomassFounders, speciesConfig, session.targetTime, resolution),
   );
+  const renderMaps = $derived.by(() => {
+    transferVersion;
+    const currentBiomass = biomass;
+    return computeRenderMaps(transferSnapshot.film, currentBiomass, speciesConfig, resolution);
+  });
   const growthStats = $derived.by(() => {
     const cellCount = biomass.totalCoverage.length;
     let confluentCells = 0;
@@ -127,6 +137,34 @@
       confluence: confluentCells / Math.max(1, cellCount),
       nutrientMean: nutrientSum / Math.max(1, cellCount),
       wasteMean: wasteSum / Math.max(1, cellCount),
+    };
+  });
+  const renderStats = $derived.by(() => {
+    const maps = renderMaps;
+    let insideCells = 0;
+    let heightPeak = 0;
+    let roughnessSum = 0;
+    let wetSum = 0;
+    let alphaCells = 0;
+    let betaCells = 0;
+
+    for (let index = 0; index < maps.height.length; index += 1) {
+      if (maps.albedo[index * 4 + 3] === 0) continue;
+
+      insideCells += 1;
+      if (maps.height[index] > heightPeak) heightPeak = maps.height[index];
+      roughnessSum += maps.roughness[index];
+      wetSum += maps.wetMask[index];
+      if (maps.hemolysisAlpha[index] > 0.05) alphaCells += 1;
+      if (maps.hemolysisBeta[index] > 0.05) betaCells += 1;
+    }
+
+    return {
+      heightPeak,
+      roughnessMean: roughnessSum / Math.max(1, insideCells),
+      wetMean: wetSum / Math.max(1, insideCells),
+      alphaCells,
+      betaCells,
     };
   });
   const sectorRows = $derived.by(() => {
@@ -202,6 +240,14 @@
       speciesIndex,
       species: speciesConfig,
     });
+  });
+
+  $effect(() => {
+    const maps = renderMaps;
+    const mode = renderMode;
+    if (!renderCanvas) return;
+
+    drawRenderMap(renderCanvas, maps, { mode });
   });
 
   function handleLoadSample() {
@@ -391,6 +437,26 @@
         return 'waste';
     }
   }
+
+  function renderViewLabel(mode: RenderViewMode): string {
+    switch (mode) {
+      case 'height':
+        return 'height';
+      case 'albedo':
+        return 'albedo';
+      case 'roughness':
+        return 'roughness';
+      case 'wet':
+        return 'wet mask';
+      case 'groove':
+        return 'groove mask';
+      case 'hemolysis':
+        return 'hemolysis';
+      case 'shaded':
+      default:
+        return 'shaded';
+    }
+  }
 </script>
 
 <div
@@ -403,7 +469,7 @@
         <p class="font-[var(--font-heading)] text-xs uppercase tracking-[0.3em] text-[var(--brass)]">Codex Streak</p>
         <h1 class="font-[var(--font-heading)] text-2xl text-[var(--parchment)]">Single Dashboard</h1>
         <p class="text-sm text-[var(--parchment-aged)]">
-          Streak once, then inspect transfer, seeding, and growth without leaving the page.
+          Streak once, then inspect transfer, seeding, growth, and render without leaving the page.
         </p>
       </div>
 
@@ -430,7 +496,7 @@
         <div class="space-y-4 bg-[var(--bg-dark)] p-4">
           <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--parchment-aged)]">
             <p class="max-w-2xl">
-              Drag directly on the plate. Each completed stroke updates the founder snapshot and the growth simulation.
+              Drag directly on the plate. Each completed stroke updates the founder snapshot, the growth simulation, and the render maps.
             </p>
             <div class="flex flex-wrap gap-4 text-xs uppercase tracking-[0.18em]">
               <span>Scenario: <span class="text-[var(--parchment)]">{selectedScenario?.name ?? 'Live session'}</span></span>
@@ -558,7 +624,7 @@
       </aside>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-3">
+    <div class="grid gap-4 xl:grid-cols-4">
       <section class="panel overflow-hidden" data-ref="transfer-card">
         <div class="panel-header">Transfer</div>
         <div class="space-y-3 bg-[var(--bg-dark)] p-4">
@@ -724,6 +790,60 @@
                 </div>
                 <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-xs text-[var(--parchment-aged)]">
                   Growth only re-snapshots founders on completed strokes, so incubation scrubbing stays responsive while you draw.
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel overflow-hidden" data-ref="render-card">
+        <div class="panel-header">Render</div>
+        <div class="space-y-3 bg-[var(--bg-dark)] p-4">
+          <canvas
+            bind:this={renderCanvas}
+            class="aspect-square w-full rounded-xl border border-[var(--brass-dark)] bg-black/40"
+            data-ref="render-canvas"
+            width={SIM.displaySize}
+            height={SIM.displaySize}
+          ></canvas>
+
+          <div class="grid gap-2 text-xs text-[var(--parchment-aged)] sm:grid-cols-3">
+            <div>View: <span class="text-[var(--parchment)]" data-ref="render-view-label">{renderViewLabel(renderMode)}</span></div>
+            <div>Height peak: <span class="text-[var(--parchment)]" data-ref="render-height-peak">{formatDecimal(renderStats.heightPeak)}</span></div>
+            <div>Wet mean: <span class="text-[var(--parchment)]" data-ref="render-wet-mean">{formatDecimal(renderStats.wetMean)}</span></div>
+          </div>
+
+          <details class="rounded-xl border border-[var(--brass-dark)] bg-[var(--bg-medium)]/45">
+            <summary class="cursor-pointer px-3 py-2 font-[var(--font-heading)] text-xs uppercase tracking-[0.18em] text-[var(--brass)]">
+              Diagnostics
+            </summary>
+            <div class="space-y-3 border-t border-[var(--brass-dark)] p-3">
+              <div class="flex flex-wrap gap-1.5">
+                <button class={['btn btn-sm', renderMode === 'shaded' && 'active']} onclick={() => renderMode = 'shaded'}>Shaded</button>
+                <button class={['btn btn-sm', renderMode === 'height' && 'active']} onclick={() => renderMode = 'height'}>Height</button>
+                <button class={['btn btn-sm', renderMode === 'albedo' && 'active']} onclick={() => renderMode = 'albedo'}>Albedo</button>
+                <button class={['btn btn-sm', renderMode === 'roughness' && 'active']} onclick={() => renderMode = 'roughness'}>Roughness</button>
+                <button class={['btn btn-sm', renderMode === 'wet' && 'active']} onclick={() => renderMode = 'wet'}>Wet</button>
+                <button class={['btn btn-sm', renderMode === 'groove' && 'active']} onclick={() => renderMode = 'groove'}>Groove</button>
+                <button class={['btn btn-sm', renderMode === 'hemolysis' && 'active']} onclick={() => renderMode = 'hemolysis'}>Hemolysis</button>
+              </div>
+
+              <div class="grid gap-2 text-sm text-[var(--parchment-aged)]">
+                <div class="flex items-center justify-between rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2">
+                  <span>Roughness mean</span>
+                  <span class="font-[var(--font-mono)] text-[var(--parchment)]">{formatDecimal(renderStats.roughnessMean)}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2">
+                  <span>Beta halo cells</span>
+                  <span class="font-[var(--font-mono)] text-[var(--parchment)]">{renderStats.betaCells}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2">
+                  <span>Alpha halo cells</span>
+                  <span class="font-[var(--font-mono)] text-[var(--parchment)]">{renderStats.alphaCells}</span>
+                </div>
+                <div class="rounded-lg border border-[var(--brass-dark)] bg-[var(--bg-darkest)]/70 px-3 py-2 text-xs text-[var(--parchment-aged)]">
+                  RenderSynth stays downstream of the biology: wetness and grooves come from transfer, while height and hemolysis only emerge from grown coverage.
                 </div>
               </div>
             </div>

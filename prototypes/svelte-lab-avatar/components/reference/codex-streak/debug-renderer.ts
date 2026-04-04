@@ -1,4 +1,4 @@
-import { clamp01, expandRect, type BiomassState, type FilmState, type FounderGrid, type Rect, type SpeciesDef, type TransferDeltaMaps } from './streak-types';
+import { clamp01, expandRect, type BiomassState, type FilmState, type FounderGrid, type Rect, type RenderMaps, type SpeciesDef, type TransferDeltaMaps } from './streak-types';
 
 export type FilmViewMode =
   | 'total'
@@ -522,6 +522,7 @@ function mixColor(
 
 export type BiomassViewMode = 'biomass-total' | 'biomass-species' | 'coverage-total' | 'coverage-species';
 export type NutrientViewMode = 'nutrient' | 'waste';
+export type RenderViewMode = 'shaded' | 'height' | 'albedo' | 'roughness' | 'wet' | 'groove' | 'hemolysis';
 
 interface BiomassRenderOptions {
   mode: BiomassViewMode;
@@ -531,6 +532,10 @@ interface BiomassRenderOptions {
 
 interface NutrientRenderOptions {
   mode: NutrientViewMode;
+}
+
+interface RenderMapOptions {
+  mode: RenderViewMode;
 }
 
 const NUTRIENT_COLOR = hexToRgb('#4ade80');  // green = full
@@ -632,4 +637,157 @@ export function drawNutrientWasteMap(
   }
 
   paintImage(ctx, imageData, canvas.width, canvas.height, true);
+}
+
+export function drawRenderMap(
+  canvas: HTMLCanvasElement,
+  maps: RenderMaps,
+  options: RenderMapOptions,
+): void {
+  const resolution = maps.resolution;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = `rgb(${BACKGROUND_COLOR.join(',')})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.createImageData(resolution, resolution);
+  const pixels = imageData.data;
+  const heightMax = findMax(maps.height);
+
+  for (let y = 0; y < resolution; y += 1) {
+    for (let x = 0; x < resolution; x += 1) {
+      const index = y * resolution + x;
+      const offset = index * 4;
+
+      if (!isInsidePlateCell(x, y, resolution) || maps.albedo[offset + 3] === 0) {
+        paintPixel(pixels, offset, BACKGROUND_COLOR, 255);
+        continue;
+      }
+
+      const color = resolveRenderMapColor(maps, options.mode, x, y, index, heightMax);
+      paintPixel(pixels, offset, color, 255);
+    }
+  }
+
+  paintImage(ctx, imageData, canvas.width, canvas.height, true);
+}
+
+function resolveRenderMapColor(
+  maps: RenderMaps,
+  mode: RenderViewMode,
+  x: number,
+  y: number,
+  index: number,
+  heightMax: number,
+): [number, number, number] {
+  switch (mode) {
+    case 'height': {
+      const value = heightMax <= 0.000001 ? 0 : clamp01(maps.height[index] / heightMax);
+      const channel = Math.round(value * 255);
+      return [channel, channel, channel];
+    }
+    case 'albedo':
+      return [
+        maps.albedo[index * 4],
+        maps.albedo[index * 4 + 1],
+        maps.albedo[index * 4 + 2],
+      ];
+    case 'roughness': {
+      const value = clamp01(maps.roughness[index]);
+      return mixColor(BACKGROUND_COLOR, [221, 214, 200], value);
+    }
+    case 'wet':
+      return mixColor(BACKGROUND_COLOR, FLUID_COLOR, clamp01(maps.wetMask[index]));
+    case 'groove':
+      return mixColor(BACKGROUND_COLOR, [205, 170, 120], clamp01(maps.grooveMask[index]));
+    case 'hemolysis':
+      return resolveHemolysisColor(maps.hemolysisAlpha[index], maps.hemolysisBeta[index]);
+    case 'shaded':
+    default:
+      return shadeRenderMap(maps, x, y, index);
+  }
+}
+
+function resolveHemolysisColor(alpha: number, beta: number): [number, number, number] {
+  let color = mixColor(BACKGROUND_COLOR, [155, 130, 80], clamp01(alpha));
+  color = mixColor(color, [210, 190, 150], clamp01(beta));
+  return color;
+}
+
+function shadeRenderMap(
+  maps: RenderMaps,
+  x: number,
+  y: number,
+  index: number,
+): [number, number, number] {
+  const resolution = maps.resolution;
+  const normal = sampleNormal(maps, x, y, resolution);
+  const light = normalizeVector(-0.28, -0.32, 1);
+  const view = normalizeVector(0, 0, 1);
+  const half = normalizeVector(light.x + view.x, light.y + view.y, light.z + view.z);
+  const diffuse = Math.max(0, dot3(normal, light));
+  const specularPower = 14 + (1 - clamp01(maps.roughness[index])) * 26;
+  const specular =
+    Math.pow(Math.max(0, dot3(normal, half)), specularPower) *
+    (0.02 + clamp01(maps.wetMask[index]) * 0.08);
+  const wetSheen = clamp01(maps.wetMask[index]) * 0.03;
+  const ambient = 0.56 + clamp01(maps.hemolysisBeta[index]) * 0.03 + clamp01(maps.hemolysisAlpha[index]) * 0.02;
+  const lighting = Math.min(1.08, ambient + diffuse * 0.34 + specular * 0.45 + wetSheen - maps.grooveMask[index] * 0.04);
+
+  return [
+    Math.round(clamp01((maps.albedo[index * 4] / 255) * lighting + specular * 0.03) * 255),
+    Math.round(clamp01((maps.albedo[index * 4 + 1] / 255) * lighting + specular * 0.03) * 255),
+    Math.round(clamp01((maps.albedo[index * 4 + 2] / 255) * lighting + specular * 0.03) * 255),
+  ];
+}
+
+function sampleNormal(
+  maps: RenderMaps,
+  x: number,
+  y: number,
+  resolution: number,
+): { x: number; y: number; z: number } {
+  const hL = sampleSurfaceHeight(maps, Math.max(0, x - 1), y, resolution);
+  const hR = sampleSurfaceHeight(maps, Math.min(resolution - 1, x + 1), y, resolution);
+  const hU = sampleSurfaceHeight(maps, x, Math.max(0, y - 1), resolution);
+  const hD = sampleSurfaceHeight(maps, x, Math.min(resolution - 1, y + 1), resolution);
+  return normalizeVector((hL - hR) * 0.55, (hU - hD) * 0.55, 1);
+}
+
+function sampleSurfaceHeight(
+  maps: RenderMaps,
+  x: number,
+  y: number,
+  resolution: number,
+): number {
+  const index = y * resolution + x;
+  return maps.height[index] * 0.65 + maps.wetMask[index] * 0.01 - maps.grooveMask[index] * 0.035;
+}
+
+function findMax(values: Float32Array): number {
+  let maxValue = 0;
+  for (let index = 0; index < values.length; index += 1) {
+    if (values[index] > maxValue) maxValue = values[index];
+  }
+  return maxValue;
+}
+
+function isInsidePlateCell(x: number, y: number, resolution: number): boolean {
+  const nx = (x + 0.5) / resolution - 0.5;
+  const ny = (y + 0.5) / resolution - 0.5;
+  return nx * nx + ny * ny <= 0.25;
+}
+
+function dot3(
+  left: { x: number; y: number; z: number },
+  right: { x: number; y: number; z: number },
+): number {
+  return left.x * right.x + left.y * right.y + left.z * right.z;
+}
+
+function normalizeVector(x: number, y: number, z: number): { x: number; y: number; z: number } {
+  const length = Math.hypot(x, y, z) || 1;
+  return { x: x / length, y: y / length, z: z / length };
 }

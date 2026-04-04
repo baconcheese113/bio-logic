@@ -17,6 +17,7 @@ export interface SpeciesDef {
   id: string;
   name: string;
   color: string;
+  renderColor?: string;
   hemolysisType: HemolysisType;
   isolatedRadius: [number, number];
   lagRange: [number, number];
@@ -238,6 +239,7 @@ export const DEFAULT_SPECIES = [
     id: 'staph-aureus',
     name: 'S. aureus',
     color: '#d9b25f',
+    renderColor: '#e3d1a1',
     hemolysisType: 'beta',
     isolatedRadius: [0.018, 0.028],
     lagRange: [2, 5],
@@ -250,6 +252,7 @@ export const DEFAULT_SPECIES = [
     id: 'e-coli',
     name: 'E. coli',
     color: '#cdd4d8',
+    renderColor: '#d8d1c2',
     hemolysisType: 'gamma',
     isolatedRadius: [0.015, 0.024],
     lagRange: [1.5, 4],
@@ -262,6 +265,7 @@ export const DEFAULT_SPECIES = [
     id: 'strep-pyogenes',
     name: 'S. pyogenes',
     color: '#d4d0c6',
+    renderColor: '#e6dccf',
     hemolysisType: 'beta',
     isolatedRadius: [0.009, 0.015],
     lagRange: [2.5, 6],
@@ -466,5 +470,30 @@ export function createBiomassState(speciesCount: number, resolution: number = SI
     totalCoverage: new Float32Array(cellCount),
     nutrient: new Float32Array(cellCount).fill(1),
     waste: new Float32Array(cellCount),
+  };
+}
+
+export interface RenderMaps {
+  resolution: number;
+  height: Float32Array;
+  albedo: Uint8ClampedArray;
+  roughness: Float32Array;
+  wetMask: Float32Array;
+  grooveMask: Float32Array;
+  hemolysisAlpha: Float32Array;
+  hemolysisBeta: Float32Array;
+}
+
+export function createRenderMaps(resolution: number = SIM.defaultResolution): RenderMaps {
+  const cellCount = resolution * resolution;
+  return {
+    resolution,
+    height: new Float32Array(cellCount),
+    albedo: new Uint8ClampedArray(cellCount * 4),
+    roughness: new Float32Array(cellCount),
+    wetMask: new Float32Array(cellCount),
+    grooveMask: new Float32Array(cellCount),
+    hemolysisAlpha: new Float32Array(cellCount),
+    hemolysisBeta: new Float32Array(cellCount),
   };
 }
