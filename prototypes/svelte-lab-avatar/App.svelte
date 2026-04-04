@@ -21,6 +21,7 @@
   import ModalOverlay from './components/ui/ModalOverlay.svelte';
   import ItemSlot from './components/ui/ItemSlot.svelte';
   import ReferenceView from './components/reference/ReferenceView.svelte';
+  import CodexStreakDashboard from './components/reference/codex-streak/pipeline-harness.svelte';
 
   // ── Reactive state ──
 
@@ -35,12 +36,32 @@
   let diagnosisPatientId = $state<string | null>(null);
   let cabinetOpenId = $state<string | null>(null);
 
+  const CODEX_STREAK_DASHBOARD_ROUTE = '#/reference/codex-streak/pipeline';
+  const legacyCodexStreakRoutes = new Set([
+    '#/reference/codex-streak',
+    '#/reference/codex-streak/transfer',
+    '#/reference/codex-streak/seeding',
+    '#/reference/codex-streak/growth',
+  ]);
+
   // ── Hash route ──
   let currentRoute = $state(window.location.hash);
   $effect(() => {
     const handler = () => currentRoute = window.location.hash;
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
+  });
+
+  const displayRoute = $derived(
+    legacyCodexStreakRoutes.has(currentRoute)
+      ? CODEX_STREAK_DASHBOARD_ROUTE
+      : currentRoute,
+  );
+
+  $effect(() => {
+    if (currentRoute === displayRoute) return;
+    const canonicalUrl = `${window.location.pathname}${window.location.search}${CODEX_STREAK_DASHBOARD_ROUTE}`;
+    window.history.replaceState(null, '', canonicalUrl);
   });
 
   // ── Tick loop ──
@@ -151,7 +172,9 @@
 </script>
 
 <div class="app-container">
-  {#if currentRoute === '#/reference'}
+  {#if displayRoute === CODEX_STREAK_DASHBOARD_ROUTE}
+    <CodexStreakDashboard />
+  {:else if displayRoute === '#/reference'}
     <ReferenceView />
   {:else if viewingFixture}
     <WorkbenchView
@@ -229,7 +252,7 @@
             </div>
             <p class="mb-md text-parchment-aged">Take a supply:</p>
             <div class="flex flex-col gap-sm">
-              {#each cabinet.items as item}
+              {#each cabinet.items as item (item.id)}
                 <ItemSlot {item} onClick={() => handleCabinetTake(item)} />
               {/each}
             </div>

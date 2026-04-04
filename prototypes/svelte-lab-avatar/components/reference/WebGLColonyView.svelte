@@ -10,13 +10,25 @@
   const REF_IMAGE_URL =
     '/prototypes/svelte-lab-avatar/components/reference/s-aureus-real.png';
 
+  interface Props {
+    compact?: boolean;
+    showControls?: boolean;
+    canvasSize?: number;
+  }
+
+  let {
+    compact = false,
+    showControls = true,
+    canvasSize = 600,
+  }: Props = $props();
+
   let canvas: HTMLCanvasElement;
   let webglFailed = $state(false);
 
   function getRendererOpts(): RendererOpts & { useReferenceImage?: boolean } {
     const params = new URLSearchParams(window.location.search);
     const seedStr = params.get('seed');
-    const paths = params.get('paths');
+    const paths = params.get('paths') || 'image';
     return {
       seed: seedStr ? Number(seedStr) : undefined,
       useReferencePaths: paths === 'reference',
@@ -125,7 +137,7 @@
   });
 </script>
 
-<div class="layout">
+<div class:compact class="layout" style={`--plate-size:${canvasSize}px;`}>
   <div class="canvas-wrap">
     {#if webglFailed}
       <div class="error">WebGL 2 is required for this renderer.</div>
@@ -133,57 +145,59 @@
     <canvas bind:this={canvas} class="plate-canvas"></canvas>
   </div>
 
-  <div class="panel">
-    <section>
-      <h3>Light Direction</h3>
-      <label><span class="lbl">X</span><input type="range" min="-2" max="2" step="0.01" bind:value={lightX} /><span class="val">{lightX.toFixed(2)}</span></label>
-      <label><span class="lbl">Y</span><input type="range" min="-2" max="2" step="0.01" bind:value={lightY} /><span class="val">{lightY.toFixed(2)}</span></label>
-      <label><span class="lbl">Z</span><input type="range" min="0.1" max="5" step="0.01" bind:value={lightZ} /><span class="val">{lightZ.toFixed(2)}</span></label>
-    </section>
+  {#if showControls}
+    <div class="panel">
+      <section>
+        <h3>Light Direction</h3>
+        <label><span class="lbl">X</span><input type="range" min="-2" max="2" step="0.01" bind:value={lightX} /><span class="val">{lightX.toFixed(2)}</span></label>
+        <label><span class="lbl">Y</span><input type="range" min="-2" max="2" step="0.01" bind:value={lightY} /><span class="val">{lightY.toFixed(2)}</span></label>
+        <label><span class="lbl">Z</span><input type="range" min="0.1" max="5" step="0.01" bind:value={lightZ} /><span class="val">{lightZ.toFixed(2)}</span></label>
+      </section>
 
-    <section>
-      <h3>Agar Material <span class="swatch" style:background={agarPreview}></span></h3>
-      <label><span class="lbl">Color R</span><input type="range" min="0" max="1" step="0.01" bind:value={agarR} /><span class="val">{agarR.toFixed(2)}</span></label>
-      <label><span class="lbl">Color G</span><input type="range" min="0" max="1" step="0.01" bind:value={agarG} /><span class="val">{agarG.toFixed(2)}</span></label>
-      <label><span class="lbl">Color B</span><input type="range" min="0" max="1" step="0.01" bind:value={agarB} /><span class="val">{agarB.toFixed(2)}</span></label>
-      <label><span class="lbl">Roughness</span><input type="range" min="0.01" max="1" step="0.01" bind:value={agarRoughness} /><span class="val">{agarRoughness.toFixed(2)}</span></label>
-      <label><span class="lbl">Specular</span><input type="range" min="0" max="3" step="0.01" bind:value={agarSpecular} /><span class="val">{agarSpecular.toFixed(2)}</span></label>
-      <label><span class="lbl">Clearcoat</span><input type="range" min="0" max="1" step="0.01" bind:value={agarClearcoat} /><span class="val">{agarClearcoat.toFixed(2)}</span></label>
-      <label><span class="lbl">CC Rough</span><input type="range" min="0.01" max="1" step="0.01" bind:value={agarClearcoatRough} /><span class="val">{agarClearcoatRough.toFixed(2)}</span></label>
-      <label><span class="lbl">Translucency</span><input type="range" min="0" max="1" step="0.01" bind:value={agarTranslucency} /><span class="val">{agarTranslucency.toFixed(2)}</span></label>
-      <label><span class="lbl">Hemolysis</span><input type="range" min="0" max="2" step="0.01" bind:value={hemoIntensity} /><span class="val">{hemoIntensity.toFixed(2)}</span></label>
-    </section>
+      <section>
+        <h3>Agar Material <span class="swatch" style:background={agarPreview}></span></h3>
+        <label><span class="lbl">Color R</span><input type="range" min="0" max="1" step="0.01" bind:value={agarR} /><span class="val">{agarR.toFixed(2)}</span></label>
+        <label><span class="lbl">Color G</span><input type="range" min="0" max="1" step="0.01" bind:value={agarG} /><span class="val">{agarG.toFixed(2)}</span></label>
+        <label><span class="lbl">Color B</span><input type="range" min="0" max="1" step="0.01" bind:value={agarB} /><span class="val">{agarB.toFixed(2)}</span></label>
+        <label><span class="lbl">Roughness</span><input type="range" min="0.01" max="1" step="0.01" bind:value={agarRoughness} /><span class="val">{agarRoughness.toFixed(2)}</span></label>
+        <label><span class="lbl">Specular</span><input type="range" min="0" max="3" step="0.01" bind:value={agarSpecular} /><span class="val">{agarSpecular.toFixed(2)}</span></label>
+        <label><span class="lbl">Clearcoat</span><input type="range" min="0" max="1" step="0.01" bind:value={agarClearcoat} /><span class="val">{agarClearcoat.toFixed(2)}</span></label>
+        <label><span class="lbl">CC Rough</span><input type="range" min="0.01" max="1" step="0.01" bind:value={agarClearcoatRough} /><span class="val">{agarClearcoatRough.toFixed(2)}</span></label>
+        <label><span class="lbl">Translucency</span><input type="range" min="0" max="1" step="0.01" bind:value={agarTranslucency} /><span class="val">{agarTranslucency.toFixed(2)}</span></label>
+        <label><span class="lbl">Hemolysis</span><input type="range" min="0" max="2" step="0.01" bind:value={hemoIntensity} /><span class="val">{hemoIntensity.toFixed(2)}</span></label>
+      </section>
 
-    <section>
-      <h3>Colony Material <span class="swatch" style:background={colonyPreview}></span></h3>
-      <label><span class="lbl">Color R</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyR} /><span class="val">{colonyR.toFixed(2)}</span></label>
-      <label><span class="lbl">Color G</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyG} /><span class="val">{colonyG.toFixed(2)}</span></label>
-      <label><span class="lbl">Color B</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyB} /><span class="val">{colonyB.toFixed(2)}</span></label>
-      <label><span class="lbl">Roughness</span><input type="range" min="0.01" max="1" step="0.01" bind:value={colonyRoughness} /><span class="val">{colonyRoughness.toFixed(2)}</span></label>
-      <label><span class="lbl">Specular</span><input type="range" min="0" max="3" step="0.01" bind:value={colonySpecular} /><span class="val">{colonySpecular.toFixed(2)}</span></label>
-      <label><span class="lbl">Clearcoat</span><input type="range" min="0" max="0.5" step="0.005" bind:value={colonyClearcoat} /><span class="val">{colonyClearcoat.toFixed(3)}</span></label>
-      <label><span class="lbl">CC Rough</span><input type="range" min="0.01" max="1" step="0.01" bind:value={colonyClearcoatRough} /><span class="val">{colonyClearcoatRough.toFixed(2)}</span></label>
-      <label><span class="lbl">Micro-bump</span><input type="range" min="0" max="1" step="0.005" bind:value={colonyMicroBump} /><span class="val">{colonyMicroBump.toFixed(3)}</span></label>
-      <label><span class="lbl">Opacity</span><input type="range" min="0" max="3" step="0.01" bind:value={colonyOpacity} /><span class="val">{colonyOpacity.toFixed(2)}</span></label>
-      <label><span class="lbl">Edge Glow</span><input type="range" min="0" max="1" step="0.005" bind:value={edgeGlow} /><span class="val">{edgeGlow.toFixed(3)}</span></label>
-    </section>
+      <section>
+        <h3>Colony Material <span class="swatch" style:background={colonyPreview}></span></h3>
+        <label><span class="lbl">Color R</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyR} /><span class="val">{colonyR.toFixed(2)}</span></label>
+        <label><span class="lbl">Color G</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyG} /><span class="val">{colonyG.toFixed(2)}</span></label>
+        <label><span class="lbl">Color B</span><input type="range" min="0" max="1" step="0.01" bind:value={colonyB} /><span class="val">{colonyB.toFixed(2)}</span></label>
+        <label><span class="lbl">Roughness</span><input type="range" min="0.01" max="1" step="0.01" bind:value={colonyRoughness} /><span class="val">{colonyRoughness.toFixed(2)}</span></label>
+        <label><span class="lbl">Specular</span><input type="range" min="0" max="3" step="0.01" bind:value={colonySpecular} /><span class="val">{colonySpecular.toFixed(2)}</span></label>
+        <label><span class="lbl">Clearcoat</span><input type="range" min="0" max="0.5" step="0.005" bind:value={colonyClearcoat} /><span class="val">{colonyClearcoat.toFixed(3)}</span></label>
+        <label><span class="lbl">CC Rough</span><input type="range" min="0.01" max="1" step="0.01" bind:value={colonyClearcoatRough} /><span class="val">{colonyClearcoatRough.toFixed(2)}</span></label>
+        <label><span class="lbl">Micro-bump</span><input type="range" min="0" max="1" step="0.005" bind:value={colonyMicroBump} /><span class="val">{colonyMicroBump.toFixed(3)}</span></label>
+        <label><span class="lbl">Opacity</span><input type="range" min="0" max="3" step="0.01" bind:value={colonyOpacity} /><span class="val">{colonyOpacity.toFixed(2)}</span></label>
+        <label><span class="lbl">Edge Glow</span><input type="range" min="0" max="1" step="0.005" bind:value={edgeGlow} /><span class="val">{edgeGlow.toFixed(3)}</span></label>
+      </section>
 
-    <section>
-      <h3>Geometry</h3>
-      <label><span class="lbl">Bump</span><input type="range" min="0" max="30" step="0.1" bind:value={bumpStrength} /><span class="val">{bumpStrength.toFixed(1)}</span></label>
-      <label><span class="lbl">Height Scale</span><input type="range" min="0" max="5" step="0.01" bind:value={heightScale} /><span class="val">{heightScale.toFixed(2)}</span></label>
-    </section>
+      <section>
+        <h3>Geometry</h3>
+        <label><span class="lbl">Bump</span><input type="range" min="0" max="30" step="0.1" bind:value={bumpStrength} /><span class="val">{bumpStrength.toFixed(1)}</span></label>
+        <label><span class="lbl">Height Scale</span><input type="range" min="0" max="5" step="0.01" bind:value={heightScale} /><span class="val">{heightScale.toFixed(2)}</span></label>
+      </section>
 
-    <section>
-      <h3>Post-processing</h3>
-      <label><span class="lbl">Ambient</span><input type="range" min="0" max="1" step="0.01" bind:value={ambient} /><span class="val">{ambient.toFixed(2)}</span></label>
-      <label><span class="lbl">Underlight</span><input type="range" min="0" max="1" step="0.01" bind:value={underlight} /><span class="val">{underlight.toFixed(2)}</span></label>
-      <label><span class="lbl">AO</span><input type="range" min="0" max="1" step="0.005" bind:value={aoStrength} /><span class="val">{aoStrength.toFixed(3)}</span></label>
-      <label><span class="lbl">Vignette</span><input type="range" min="0" max="1" step="0.005" bind:value={vignetteStrength} /><span class="val">{vignetteStrength.toFixed(3)}</span></label>
-      <label><span class="lbl">Exposure</span><input type="range" min="0.2" max="3" step="0.01" bind:value={exposure} /><span class="val">{exposure.toFixed(2)}</span></label>
-      <label><span class="lbl">Grain</span><input type="range" min="0" max="0.1" step="0.001" bind:value={grainAmount} /><span class="val">{grainAmount.toFixed(3)}</span></label>
-    </section>
-  </div>
+      <section>
+        <h3>Post-processing</h3>
+        <label><span class="lbl">Ambient</span><input type="range" min="0" max="1" step="0.01" bind:value={ambient} /><span class="val">{ambient.toFixed(2)}</span></label>
+        <label><span class="lbl">Underlight</span><input type="range" min="0" max="1" step="0.01" bind:value={underlight} /><span class="val">{underlight.toFixed(2)}</span></label>
+        <label><span class="lbl">AO</span><input type="range" min="0" max="1" step="0.005" bind:value={aoStrength} /><span class="val">{aoStrength.toFixed(3)}</span></label>
+        <label><span class="lbl">Vignette</span><input type="range" min="0" max="1" step="0.005" bind:value={vignetteStrength} /><span class="val">{vignetteStrength.toFixed(3)}</span></label>
+        <label><span class="lbl">Exposure</span><input type="range" min="0.2" max="3" step="0.01" bind:value={exposure} /><span class="val">{exposure.toFixed(2)}</span></label>
+        <label><span class="lbl">Grain</span><input type="range" min="0" max="0.1" step="0.001" bind:value={grainAmount} /><span class="val">{grainAmount.toFixed(3)}</span></label>
+      </section>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -199,11 +213,20 @@
   }
 
   .plate-canvas {
-    width: 600px;
-    height: 600px;
+    width: var(--plate-size, 600px);
+    height: var(--plate-size, 600px);
     border-radius: 50%;
     cursor: crosshair;
     background: #111;
+  }
+
+  .compact {
+    display: block;
+  }
+
+  .compact .canvas-wrap {
+    width: min(100%, var(--plate-size, 600px));
+    margin: 0 auto;
   }
 
   .error {

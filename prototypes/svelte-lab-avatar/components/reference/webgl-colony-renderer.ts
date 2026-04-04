@@ -415,6 +415,8 @@ in vec2 v;
 out vec4 o;
 
 uniform sampler2D u_height;
+uniform sampler2D u_colorMap;
+uniform float u_hasColorMap;
 uniform vec3  u_lightPos;
 uniform float u_time;
 uniform vec2  u_res;
@@ -582,7 +584,10 @@ void main() {
   vec3 colEdge = sssCol * edgeMask * u_edgeGlow;
 
   float colRefl = clamp(colSpecH + colCC, 0.0, 0.95);
-  vec3 colonyLit = u_colColor * colDiff * (1.0 - colRefl * 0.3) + colEdge;
+  // Per-pixel colony color from species map when available
+  vec4 cmSample = texture(u_colorMap, uv);
+  vec3 colBase = mix(u_colColor, cmSample.rgb, u_hasColorMap * cmSample.a);
+  vec3 colonyLit = colBase * colDiff * (1.0 - colRefl * 0.3) + colEdge;
   colonyLit += vec3(colSpecH + colCC);
 
   // ════════════════════════════════════════════
@@ -667,6 +672,7 @@ export interface RendererOpts {
   seed?: number;
   useReferencePaths?: boolean;
   heightMap?: Float32Array;
+  colorMap?: Uint8Array;
 }
 
 const REF_CROP = { centerX: 0.50, centerY: 0.47, radiusFrac: 0.40 };
@@ -831,6 +837,20 @@ export function createColonyRenderer(
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+  // Color map texture (species colors — optional)
+  const colorTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, colorTex);
+  const hasColorMap = opts?.colorMap ? 1.0 : 0.0;
+  const colorData = opts?.colorMap ?? new Uint8Array(SIZE * SIZE * 4);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA, SIZE, SIZE, 0,
+    gl.RGBA, gl.UNSIGNED_BYTE, colorData,
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
   const buf = gl.createBuffer();
@@ -882,9 +902,13 @@ export function createColonyRenderer(
   };
 
   gl.uniform1i(u('u_height'), 0);
+  gl.uniform1i(u('u_colorMap'), 1);
+  gl.uniform1f(u('u_hasColorMap'), hasColorMap);
   gl.uniform2f(u('u_res'), SIZE, SIZE);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, heightTex);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, colorTex);
   gl.viewport(0, 0, SIZE, SIZE);
 
   return {
@@ -919,6 +943,7 @@ export function createColonyRenderer(
     },
     destroy() {
       gl.deleteTexture(heightTex);
+      gl.deleteTexture(colorTex);
       gl.deleteBuffer(buf);
       gl.deleteVertexArray(vao);
       gl.deleteProgram(prog);
