@@ -106,6 +106,7 @@
           class:interaction-target={wb.heldItemId !== null && wb.hoveredItemId === placement.item.id && wb.heldItemId !== placement.item.id}
           style:grid-column="{placement.col + 1} / span {placement.cols}"
           style:grid-row="{placement.row + 1} / span {placement.rows}"
+          data-ref={`workbench-item-${placement.item.id}`}
           onpointerenter={(e) => {
             wb.hoveredItemId = placement.item.id;
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();

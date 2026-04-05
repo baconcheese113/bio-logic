@@ -32,14 +32,17 @@ export class WorkbenchState {
 
   #getItems: () => Item[];
   #getSamples: () => Sample[];
+  #getCurrentTick: () => number;
 
-  constructor(getItems: () => Item[], getSamples: () => Sample[]) {
+  constructor(getItems: () => Item[], getSamples: () => Sample[], getCurrentTick: () => number) {
     this.#getItems = getItems;
     this.#getSamples = getSamples;
+    this.#getCurrentTick = getCurrentTick;
   }
 
   get items() { return this.#getItems(); }
   get samples() { return this.#getSamples(); }
+  get currentTick() { return this.#getCurrentTick(); }
 
   get heldItem(): Item | null {
     if (!this.heldItemId) return null;

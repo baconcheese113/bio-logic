@@ -5,6 +5,11 @@
  * See docs/taxonomy.md for full reference.
  */
 
+import type {
+  Action as CodexPlateAction,
+  PlateMedium as CodexPlateMedium,
+  SpeciesDef as CodexSpeciesDef,
+} from '../components/reference/codex-streak/streak-types';
 import type { ItemType, ItemState } from '../components/workbench/item-defs';
 export type { ItemType, ItemState };
 
@@ -186,7 +191,7 @@ export type SampleLocation =
 // ============================================================
 
 export type SubstanceType =
-  | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool'
+  | 'blood' | 'sputum' | 'csf' | 'urine' | 'stool' | 'wound-swab' | 'throat-swab' | 'slide'
   | 'nutrient-agar' | 'blood-agar' | 'gelatin' | 'macconkey'
   | 'agar-powder' | 'gelatin-powder' | 'peptone'
   | 'defibrinated-blood' | 'distilled-water'
@@ -199,10 +204,36 @@ export interface SubstanceContents {
   meta?: SubstanceMeta;
 }
 
+export interface CulturePlateMeta {
+  kind: 'culture';
+  phase: PlatePhase;
+  medium: CodexPlateMedium;
+  plateSeed: number;
+  speciesConfig: CodexSpeciesDef[];
+  actionLog: CodexPlateAction[];
+  contaminationEvents: number;
+  totalOpenSeconds: number;
+  incubationStartedAtTick: number | null;
+}
+
+export interface SampleMeta {
+  kind: 'sample';
+  patientId: string;
+  collectedAtTick: number;
+  condition: SampleCondition;
+  organismId?: string;
+  cultureFindings?: CultureFindings;
+}
+
+export interface PreparedMediaMeta {
+  kind: 'prepared-media';
+  cooledAtTick: number;
+}
+
 type SubstanceMeta =
-  | { kind: 'culture'; organismId: string; phase: PlatePhase; densityGrid?: number[][] }
-  | { kind: 'sample'; patientId: string; collectedAtTick: number; condition: SampleCondition }
-  | { kind: 'prepared-media'; cooledAtTick: number };
+  | CulturePlateMeta
+  | SampleMeta
+  | PreparedMediaMeta;
 
 
 // ============================================================
@@ -223,13 +254,14 @@ export interface Item {
 //  CULTURE PLATE STATE (backward compat, derivable from Item)
 // ============================================================
 
-type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
+export type PlatePhase = 'empty' | 'poured' | 'cooling' | 'ready' | 'streaked' | 'incubating' | 'grown';
 
 interface CulturePlateState {
   id: string;
   mediaType: MediaType | null;
   phase: PlatePhase;
   label: string;
+  meta: CulturePlateMeta | null;
 }
 
 /** Extract CulturePlateState from an Item, or null if not a culture plate */
@@ -240,11 +272,11 @@ export function getCulturePlate(item: Item): CulturePlateState | null {
     const mediaType = (['blood-agar', 'nutrient-agar', 'gelatin', 'macconkey'] as MediaType[]).includes(item.contents.substance as MediaType)
       ? item.contents.substance as MediaType
       : null;
-    return { id: item.id, mediaType, phase: meta.phase, label: MEDIA_RECIPES[mediaType ?? 'nutrient-agar'].label };
+    return { id: item.id, mediaType, phase: meta.phase, label: MEDIA_RECIPES[mediaType ?? 'nutrient-agar'].label, meta };
   }
   if (meta?.kind === 'prepared-media') {
     const mediaType = item.contents.substance as MediaType;
-    return { id: item.id, mediaType, phase: 'ready', label: MEDIA_RECIPES[mediaType].label };
+    return { id: item.id, mediaType, phase: 'ready', label: MEDIA_RECIPES[mediaType].label, meta: null };
   }
   return null;
 }

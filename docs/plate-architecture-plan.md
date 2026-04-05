@@ -448,7 +448,7 @@ This makes incremental updates efficient and provides a provable guarantee that 
 
 ```
 components/reference/claude-streak/
-├── pipeline-harness.svelte         — Canonical single dashboard route with plate, controls, and per-phase cards
+├── PipelineHarness.svelte          — Canonical single dashboard route with plate, controls, and per-phase cards
 ├── streak-types.ts                 — Types, SpeciesDef, SIM constants, calibration targets
 ├── deterministic-rng.ts            — SplitMix32, hash, deterministic Poisson
 ├── transfer-engine.ts              — Sector-based loop ↔ film, mass ledger
@@ -544,9 +544,9 @@ Controlled via a `debugLog` toggle in the debug panel. Verbose mode (per-stamp d
 ## Phased Implementation
 
 ### Phase 1: Transfer Engine + Sector Loop + Debug
-**Files**: `streak-types.ts`, `deterministic-rng.ts`, `transfer-engine.ts`, `debug-renderer.ts`, `validation.ts`, `pipeline-harness.svelte`, wire `App.svelte`
+**Files**: `streak-types.ts`, `deterministic-rng.ts`, `transfer-engine.ts`, `debug-renderer.ts`, `validation.ts`, `PipelineHarness.svelte`, wire `App.svelte`
 
-**Primary dev surface**: the `Transfer` card inside `pipeline-harness.svelte` at `#/reference/codex-streak/pipeline` — streak directly on the plate, then inspect film density, loop sector bars, and conservation metrics in place.
+**Primary dev surface**: the `Transfer` card inside `PipelineHarness.svelte` at `#/reference/codex-streak/pipeline` — streak directly on the plate, then inspect film density, loop sector bars, and conservation metrics in place.
 
 **Acceptance criteria**:
 - [ ] Multi-species sample loaded onto 4 loop sectors
@@ -560,7 +560,7 @@ Controlled via a `debugLog` toggle in the debug panel. Verbose mode (per-stamp d
 - [ ] Calibration: streak width profile approximately matches reference image metrics
 
 ### Phase 2: Seeding Engine
-**Files**: `seeding-engine.ts`, update `pipeline-harness.svelte`, update `debug-renderer.ts`, update `validation.ts`
+**Files**: `seeding-engine.ts`, update `PipelineHarness.svelte`, update `debug-renderer.ts`, update `validation.ts`
 
 **Primary dev surface**: the `Seeding` card inside the dashboard — verify founder heatmaps, locality, and deterministic replay against the live transfer state.
 
@@ -576,7 +576,7 @@ Controlled via a `debugLog` toggle in the debug panel. Verbose mode (per-stamp d
 - [ ] Calibration: colony count vs distance from inoculum approximately matches reference
 
 ### Phase 3: Growth Engine
-**Files**: `growth-engine.ts`, update `pipeline-harness.svelte`, update `debug-renderer.ts`, update `validation.ts`
+**Files**: `growth-engine.ts`, update `PipelineHarness.svelte`, update `debug-renderer.ts`, update `validation.ts`
 
 **Primary dev surface**: the `Growth` card inside the dashboard — scrub incubation time and switch between biomass, coverage, nutrient, and waste views without leaving the page.
 
@@ -593,7 +593,7 @@ Controlled via a `debugLog` toggle in the debug panel. Verbose mode (per-stamp d
 - [ ] Calibration: colony size distribution and confluent fraction approximately match reference
 
 ### Phase 4: Render Synth + Renderer
-**Files**: `render-synth.ts`, `plate-canvas-renderer.ts`, update `pipeline-harness.svelte`, update `validation.ts`
+**Files**: `render-synth.ts`, `plate-canvas-renderer.ts`, update `PipelineHarness.svelte`, update `validation.ts`
 
 **Primary dev surface**: the canonical dashboard route, keeping final render inputs observable from the same workflow surface.
 
@@ -656,7 +656,7 @@ Controlled via a `debugLog` toggle in the debug panel. Verbose mode (per-stamp d
 3. `transfer-engine.ts` — 4-sector loop ↔ film with mass ledger + structured logging
 4. `validation.ts` — TransferMetrics computation
 5. `debug-renderer.ts` — film heatmap + loop sector bars + cross-section profile + mass ledger
-6. `pipeline-harness.svelte` — single dashboard with plate, controls, and per-phase cards
+6. `PipelineHarness.svelte` — single dashboard with plate, controls, and per-phase cards
 7. Wire into `App.svelte`: legacy codex-streak routes redirect to `#/reference/codex-streak/pipeline`
 
 The single dashboard is the **entry point for development** — streak directly on the plate, then inspect transfer, seeding, and growth on one page.

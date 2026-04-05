@@ -1,289 +1,242 @@
-<!--
-  CulturePlateItem.svelte — Culture plate on the workbench grid.
-
-  Phases:
-    streaking  — interactive plate: tilt lid (Q), lock lid (E), streak with loop
-    colonies   — shows ColonyPlateView after "Done Streaking" is clicked
-
-  Controls (streaking phase):
-    Q hold      = enter lid-tilt mode; mouse position controls tilt angle
-    Q + E hold  = lock lid at current tilt (E acts as a clamp)
-    Q release   = lid decays back to closed
-    Left click  = apply pressure (while loop is held)
-    Pointer on dish = streak while loop is held + lid open + inoculum present
-
-  Physics reuse: streak-physics.ts (density grid, applyStreakSegment)
-  Render reuse : plate-renderer.ts (redrawPlate, drawStreakSegment)
-  Colony reuse : colony-generator.ts + ColonyView.svelte
--->
 <script lang="ts">
-  import type { Item, CultureFindings, MediaType } from '../../../lib/types';
+  import type { CulturePlateMeta, Item } from '../../../lib/types';
   import { getCulturePlate } from '../../../lib/types';
-  import { MEDIA_COLORS, SIM, GRID_SIZE, PLATE_RADIUS } from './simulation-types';
-  import type { ColonySeed } from './simulation-types';
-  import { ORGANISMS, cultureFindings } from './organism-defs';
+  import {
+    applyContaminationToFounders,
+    buildPickupLoadsFromBiomass,
+    cloneSpeciesConfig,
+    contaminationBurden,
+    createCultureMeta,
+    cultureMediumForMediaType,
+    ensureContaminantSpecies,
+    getSpeciesSourceLabel,
+    incubationHoursFromTicks,
+    startCultureIncubation,
+  } from './codex-culture-bridge';
   import { getWorkbench } from '../../workbench/workbench-context.svelte';
-  import { createPlateState, applyStreakSegment } from './streak-physics';
-  import { redrawPlate, drawStreakSegment } from './plate-renderer';
-  import { genHeightMap, REFERENCE_PATHS } from '../../reference/webgl-colony-renderer';
-  import { generateSeedsFromGrid, computeColoniesAtTime, computeGridQuality } from './colony-generator';
-  import type { StreakQuality } from './colony-generator';
-  import ColonyView from './ColonyView.svelte';
+  import {
+    drawFilmMap,
+    type FilmViewMode,
+  } from '../../reference/codex-streak/debug-renderer';
+  import { computeGrowth } from '../../reference/codex-streak/growth-engine';
+  import { computeRenderMaps } from '../../reference/codex-streak/render-synth';
+  import { seedDirtyFounderRegion, seedFounderGrid } from '../../reference/codex-streak/seeding-engine';
+  import {
+    DEBUG_LOG_DEFAULT,
+    DEFAULT_SPECIES,
+    SIM,
+    createFilmState,
+    createFounderGrid,
+    createPlateSession,
+    createTransferSnapshot,
+    rectArea,
+    type Action,
+    type FilmState,
+    type FounderGrid,
+    type SpeciesDef,
+    type TransferSnapshot,
+    type Vec2,
+  } from '../../reference/codex-streak/streak-types';
+  import { applyTransferAction, replayTransferSession } from '../../reference/codex-streak/transfer-engine';
+  import WebGLRenderPlate from '../../reference/codex-streak/WebGLRenderPlate.svelte';
 
-  interface Props { item: Item; }
+  interface Props {
+    item: Item;
+  }
+
   let { item }: Props = $props();
 
   const wb = getWorkbench();
-  const plate = $derived(getCulturePlate(item));
-  const mediaType = $derived<MediaType>(plate?.mediaType ?? 'nutrient-agar');
-  const mediaColor = $derived(MEDIA_COLORS[mediaType].base);
+  const resolution = SIM.defaultResolution;
+  const filmMode: FilmViewMode = 'total';
+  const fallbackSpeciesConfig = cloneSpeciesConfig([DEFAULT_SPECIES[0]]);
 
-  // --- Canvas constants ---
-  const PLATE_SIZE = 400;
-  const PLATE_CENTER = PLATE_SIZE / 2;
+  let cellEl = $state<HTMLDivElement | null>(null);
+  let transferCanvas = $state<HTMLCanvasElement | null>(null);
 
-  let cellEl = $state<HTMLDivElement>();
-  let plateCanvas = $state<HTMLCanvasElement>();
-  let debugCanvas = $state<HTMLCanvasElement>();
-  let showDebug = $state(false);
-  let showReference = $state(false);
-  let referenceHeightMap = $state<Float32Array | undefined>(undefined);
+  let initialized = false;
+  let cultureMeta = $state<CulturePlateMeta | null>(null);
+  let transferSnapshot = $state.raw<TransferSnapshot>(createTransferSnapshot(fallbackSpeciesConfig.length, resolution));
+  let founderGrid = $state.raw<FounderGrid>(createFounderGrid(fallbackSpeciesConfig.length, resolution));
+  let transferVersion = $state(0);
 
-  function renderDebugOverlay() {
-    if (!debugCanvas) return;
-    const ctx = debugCanvas.getContext('2d');
-    if (!ctx) return;
-    const scale = PLATE_SIZE / GRID_SIZE; // 4px per grid cell
-    const imageData = ctx.createImageData(PLATE_SIZE, PLATE_SIZE);
-    const d = imageData.data;
-    const cells = plateState.grid.cells;
-    for (let gy = 0; gy < GRID_SIZE; gy++) {
-      for (let gx = 0; gx < GRID_SIZE; gx++) {
-        const density = cells[gy * GRID_SIZE + gx];
-        if (density < SIM.DENSITY_NONE) continue;
-        const t = Math.min(1, density / SIM.DENSITY_MAX);
-        // blue → cyan → green → yellow → red
-        let r = 0, g = 0, b = 0;
-        if (t < 0.25)      { r = 0;   g = Math.round(t / 0.25 * 255); b = 255; }
-        else if (t < 0.5)  { r = 0;   g = 255; b = Math.round((1 - (t - 0.25) / 0.25) * 255); }
-        else if (t < 0.75) { r = Math.round((t - 0.5) / 0.25 * 255); g = 255; b = 0; }
-        else               { r = 255; g = Math.round((1 - (t - 0.75) / 0.25) * 255); b = 0; }
-        const baseX = Math.floor(gx * scale);
-        const baseY = Math.floor(gy * scale);
-        for (let py = 0; py < scale; py++) {
-          for (let px = 0; px < scale; px++) {
-            const idx = ((baseY + py) * PLATE_SIZE + (baseX + px)) * 4;
-            d[idx] = r; d[idx + 1] = g; d[idx + 2] = b; d[idx + 3] = 200;
-          }
-        }
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  // --- Plate physics state (local to this component) ---
-  let plateState = $state(createPlateState());
-
-  // Active organism — drives colony appearance. Future: driven by held sample's organism ID.
-  const activeOrganism = $derived(ORGANISMS['staph-aureus']);
-  const activeFindingsForMedia = $derived(
-    cultureFindings(activeOrganism, mediaType)
-    ?? { growth: true, gramType: 'positive' as const, colonyColor: 'cream' as const, hemolysis: 'beta' as const }
-  );
-
-  // --- Phase ---
-  type PlatePhase = 'streaking' | 'colonies';
-  let phase = $state<PlatePhase>('streaking');
-  // Stable seed positions derived from the density grid (time-independent).
-  // Changing incubationHours re-derives colonies without re-seeding.
-  let plateSeeds = $state<ColonySeed[]>([]);
-  let incubationHours = $state(24);
-  const colonies = $derived(computeColoniesAtTime(plateSeeds, incubationHours));
-  let snappedFindings = $state<CultureFindings | null>(null);
-  const quality = $derived<StreakQuality | null>(
-    plateSeeds.length > 0 ? computeGridQuality(plateState.grid, colonies) : null
-  );
-
-  // --- Lid tilt ---
   let lidTiltX = $state(0);
   let lidTiltY = $state(0);
   let holdingQ = $state(false);
   let holdingE = $state(false);
 
+  let isDrawing = $state(false);
+  let activePointerId = $state<number | null>(null);
+  let lastPoint = $state<Vec2 | null>(null);
+
+  let isPicking = $state(false);
+  let activePickupPointerId = $state<number | null>(null);
+  let pickupPoints = $state<Vec2[]>([]);
+
+  const plate = $derived(getCulturePlate(item));
+  const plateLabel = $derived(plate?.label ?? 'Petri Dish');
+  const baseSpeciesConfig = $derived(cultureMeta?.speciesConfig?.length ? cultureMeta.speciesConfig : fallbackSpeciesConfig);
+  const sessionMedium = $derived(cultureMeta?.medium ?? cultureMediumForMediaType(plate?.mediaType ?? null));
+  const platePhase = $derived(cultureMeta?.phase ?? plate?.phase ?? 'ready');
   const exposure = $derived(Math.min(1, Math.sqrt(lidTiltX ** 2 + lidTiltY ** 2)));
-
-  // --- Held loop ---
-  const heldLoopState = $derived.by(() => {
-    const h = wb.heldItem;
-    if (!h?.state || h.state.kind !== 'inoculation-loop') return null;
-    return h.state;
+  const transferDirtyRect = $derived.by(() => {
+    transferVersion;
+    return transferSnapshot.lastStrokeReport?.dirtyRect ?? transferSnapshot.dirtyRect;
   });
-
-  const canStreak = $derived(
-    holdingQ &&
-    exposure >= SIM.LID_MIN_STREAK &&
-    heldLoopState !== null &&
-    heldLoopState.temperature <= SIM.KILL_THRESHOLD &&
-    wb.pressureLevel >= SIM.MIN_STREAK_PRESSURE   // loop must press down to contact agar
+  const transferDirtyArea = $derived(rectArea(transferDirtyRect));
+  const contaminationLevel = $derived(
+    contaminationBurden(cultureMeta?.contaminationEvents ?? 0, cultureMeta?.totalOpenSeconds ?? 0),
   );
-
-  // --- Streak tracking (plain vars — no reactivity needed) ---
-  let isOverDish = false;
-  let lastNormX = 0;
-  let lastNormY = 0;
-  let lastMoveTime = 0;
-
-  // --- Init canvas on mount ---
-  $effect(() => {
-    if (!plateCanvas) return;
-    const ctx = plateCanvas.getContext('2d');
-    if (ctx) redrawPlate(ctx, PLATE_SIZE, PLATE_RADIUS, mediaType, plateState.grid);
+  const hasInoculum = $derived(cultureMeta?.actionLog.some((action) => action.type === 'loadSample') ?? false);
+  const hasCompletedStroke = $derived(cultureMeta?.actionLog.some((action) => action.type === 'endStroke') ?? false);
+  const incubationHours = $derived(
+    incubationHoursFromTicks(wb.currentTick, cultureMeta?.incubationStartedAtTick ?? null),
+  );
+  const showIncubatedRender = $derived(platePhase === 'incubating' || platePhase === 'grown');
+  const pickablePlate = $derived(showIncubatedRender && incubationHours >= 6);
+  const displaySpeciesConfig = $derived.by(() => {
+    if (!showIncubatedRender || contaminationLevel <= 0.02) return cloneSpeciesConfig(baseSpeciesConfig);
+    return ensureContaminantSpecies(baseSpeciesConfig);
+  });
+  const displayFilm = $derived.by(() => expandFilmState(transferSnapshot.film, displaySpeciesConfig.length));
+  const displayFounders = $derived.by(() => {
+    const expanded = expandFounderGrid(founderGrid, displaySpeciesConfig.length);
+    if (!showIncubatedRender) return expanded;
+    return applyContaminationToFounders(
+      expanded,
+      displaySpeciesConfig,
+      cultureMeta?.contaminationEvents ?? 0,
+      cultureMeta?.totalOpenSeconds ?? 0,
+      cultureMeta?.plateSeed ?? 0,
+    );
+  });
+  const biomass = $derived.by(() =>
+    computeGrowth(displayFounders, displaySpeciesConfig, sessionMedium, incubationHours, resolution),
+  );
+  const renderMaps = $derived.by(() =>
+    computeRenderMaps(displayFilm, biomass, displaySpeciesConfig, sessionMedium, resolution),
+  );
+  const heldLoopState = $derived.by(() => {
+    const held = wb.heldItem;
+    if (!held?.state || held.state.kind !== 'inoculation-loop') return null;
+    return held.state;
+  });
+  const loopHasInoculum = $derived(
+    heldLoopState !== null &&
+      heldLoopState.volume > 0 &&
+      heldLoopState.speciesLoads.length > 0 &&
+      heldLoopState.speciesConfig.length > 0,
+  );
+  const canSterileCrossStreak = $derived(
+    heldLoopState !== null &&
+      heldLoopState.isSterile &&
+      heldLoopState.volume <= 0.001 &&
+      heldLoopState.temperature <= 0.3 &&
+      hasCompletedStroke,
+  );
+  const canDeposit = $derived(
+    !showIncubatedRender &&
+      holdingQ &&
+      exposure >= 0.15 &&
+      heldLoopState !== null &&
+      heldLoopState.temperature <= 0.3 &&
+      (loopHasInoculum || canSterileCrossStreak),
+  );
+  const canPick = $derived(
+    pickablePlate &&
+      holdingQ &&
+      exposure >= 0.15 &&
+      heldLoopState !== null &&
+      heldLoopState.temperature <= 0.3 &&
+      heldLoopState.volume <= 0.001,
+  );
+  const incubationReady = $derived(
+    !showIncubatedRender &&
+      cultureMeta !== null &&
+      cultureMeta.actionLog.some((action) => action.type === 'endStroke'),
+  );
+  const plateSummary = $derived.by(() => {
+    if (!hasInoculum) {
+      return `${plateLabel} - sterile ready plate`;
+    }
+    if (!showIncubatedRender) {
+      return `${plateLabel} - streaked sample`;
+    }
+    return `${plateLabel} - ${incubationHours.toFixed(1)}h incubation`;
+  });
+  const lidHint = $derived.by(() => {
+    if (!holdingQ) {
+      return showIncubatedRender
+        ? 'Hold Q and move the mouse to lift the cover for colony pickup.'
+        : 'Hold Q and move the mouse to lift the cover before streaking.';
+    }
+    if (holdingE) {
+      return `Cover locked at ${Math.round(exposure * 100)}% open.`;
+    }
+    if (heldLoopState?.temperature && heldLoopState.temperature > 0.3) {
+      return 'Loop is too hot. Let it cool before touching the plate.';
+    }
+    if (canDeposit) return 'Drag across the dish to streak the plate.';
+    if (canPick) return 'Drag the empty loop across grown colonies to pick them up.';
+    if (showIncubatedRender && heldLoopState && heldLoopState.volume > 0.001) {
+      return 'Use an empty sterile loop to pick colonies from this plate.';
+    }
+    if (!showIncubatedRender && canSterileCrossStreak) {
+      return 'Sterile loop ready. Drag through an earlier streak to pick up and redeposit cells.';
+    }
+    if (!showIncubatedRender && heldLoopState && heldLoopState.volume <= 0.001) {
+      return 'Dip the loop into a sample first, or pick colonies from another plate.';
+    }
+    if (exposure < 0.15) return 'Open the cover a little more to reach the agar surface.';
+    return `Cover ${Math.round(exposure * 100)}% open. Hold E to keep it there.`;
   });
 
-  // --- Canvas coordinate helpers ---
-  function getCanvasPos(e: PointerEvent): { x: number; y: number } | null {
-    if (!plateCanvas) return null;
-    const r = plateCanvas.getBoundingClientRect();
-    return {
-      x: (e.clientX - r.left) * (PLATE_SIZE / r.width),
-      y: (e.clientY - r.top) * (PLATE_SIZE / r.height),
-    };
-  }
+  $effect(() => {
+    if (initialized) return;
+    if (item.type !== 'empty-dish' || !item.contents) return;
 
-  function canvasToNorm(cx: number, cy: number) {
-    return {
-      x: (cx - (PLATE_CENTER - PLATE_RADIUS)) / (PLATE_RADIUS * 2),
-      y: (cy - (PLATE_CENTER - PLATE_RADIUS)) / (PLATE_RADIUS * 2),
-    };
-  }
+    const existingMeta = item.contents.meta?.kind === 'culture' ? item.contents.meta : null;
+    const nextMeta = existingMeta ?? createCultureMeta(
+      cultureMediumForMediaType(plate?.mediaType ?? null),
+      fallbackSpeciesConfig,
+    );
 
-  function isInsidePlate(cx: number, cy: number): boolean {
-    const dx = cx - PLATE_CENTER;
-    const dy = cy - PLATE_CENTER;
-    return dx * dx + dy * dy <= PLATE_RADIUS * PLATE_RADIUS;
-  }
-
-  // --- Streak pointer events (proximity-based — no click required) ---
-  function handleDishPointerEnter(e: PointerEvent) {
-    // Initialize tracking position so the first move has a valid "from" point
-    const pos = getCanvasPos(e);
-    if (!pos) return;
-    const norm = canvasToNorm(pos.x, pos.y);
-    lastNormX = norm.x;
-    lastNormY = norm.y;
-    lastMoveTime = performance.now();
-    isOverDish = true;
-  }
-
-  function handleDishPointerMove(e: PointerEvent) {
-    if (!isOverDish || !wb.heldItemId || !heldLoopState) return;
-    const pos = getCanvasPos(e);
-    if (!pos) return;
-    const norm = canvasToNorm(pos.x, pos.y);
-    const now = performance.now();
-
-    const dx = norm.x - lastNormX;
-    const dy = norm.y - lastNormY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const dtMs = Math.max(1, now - lastMoveTime);
-    const speedNorm = (dist / dtMs) * 1000;
-
-    // Streak fires automatically whenever conditions are met — no click required
-    if (canStreak && dist > 0 && isInsidePlate(pos.x, pos.y)) {
-      const result = applyStreakSegment(
-        plateState,
-        { x: lastNormX, y: lastNormY },
-        { x: norm.x, y: norm.y },
-        heldLoopState.volume,
-        heldLoopState.concentration,
-        heldLoopState.temperature,
-        wb.pressureLevel,
-        speedNorm,
-        heldLoopState.profile,
-      );
-
-      wb.mutateItem(wb.heldItemId, (loop) => {
-        if (loop.state?.kind === 'inoculation-loop') {
-          loop.state.volume = result.volume;
-          loop.state.concentration = result.concentration;
-          loop.state.temperature = result.temperature;
-          loop.state.profile = result.profile;
+    if (!existingMeta) {
+      wb.mutateItem(item.id, (nextItem) => {
+        if (nextItem.contents) {
+          nextItem.contents.meta = nextMeta;
         }
       });
-
-      const ctx = plateCanvas?.getContext('2d');
-      if (ctx) {
-        drawStreakSegment(
-          ctx, PLATE_SIZE, PLATE_RADIUS,
-          { x: lastNormX, y: lastNormY }, { x: norm.x, y: norm.y },
-          result.volume * result.concentration, wb.pressureLevel, heldLoopState.temperature, mediaType,
-        );
-      }
-
-      if (showDebug) renderDebugOverlay();
     }
 
-    // Always update tracking so re-entry has a correct start position
-    lastNormX = norm.x;
-    lastNormY = norm.y;
-    lastMoveTime = now;
-  }
+    cultureMeta = nextMeta;
+    rebuildFromMeta(nextMeta);
+    initialized = true;
+  });
 
-  function handleDishPointerLeave() {
-    isOverDish = false;
-  }
+  $effect(() => {
+    transferVersion;
+    if (!transferCanvas) return;
 
-  // --- Global pointer move for lid tilting ---
-  function handleWindowPointerMove(e: PointerEvent) {
-    // Only update tilt when Q held AND E not held (E clamps the lid position).
-    // Use the tile center as origin and a larger reference radius so dragging
-    // outside the tile gives fine-grained control anywhere on screen.
-    if (holdingQ && !holdingE && cellEl) {
-      const r = cellEl.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const ref = Math.max(r.width, r.height) * 0.75;
-      lidTiltX = Math.max(-1, Math.min(1, (e.clientX - cx) / ref));
-      lidTiltY = Math.max(-1, Math.min(1, (cy - e.clientY) / ref));
-    }
-  }
+    drawFilmMap(transferCanvas, transferSnapshot.film, baseSpeciesConfig, {
+      mode: filmMode,
+      speciesIndex: 0,
+      dirtyRect: transferDirtyRect,
+      deltaMaps: transferSnapshot.deltaMaps,
+    });
+  });
 
-  // --- Key handlers ---
-  function handleKeyDown(e: KeyboardEvent) {
-    // Q requires hovering the plate to enter lid-tilt mode
-    if ((e.key === 'q' || e.key === 'Q') && !holdingQ && wb.hoveredItemId === item.id) {
-      holdingQ = true;
-    }
-    // E freezes the lid regardless of mouse position — once Q is held the player
-    // may have dragged the mouse far from the tile
-    if ((e.key === 'e' || e.key === 'E') && holdingQ) {
-      holdingE = true;
-    }
-  }
-
-  function handleKeyUp(e: KeyboardEvent) {
-    if (e.key === 'q' || e.key === 'Q') {
-      holdingQ = false;
-      holdingE = false; // releasing Q also drops the E clamp
-      startDecay();
-    }
-    if (e.key === 'e' || e.key === 'E') {
-      holdingE = false;
-    }
-  }
-
-  // --- Lid decay RAF (imperative — not reactive) ---
   let decayRafId: number | null = null;
 
   function startDecay() {
     if (decayRafId !== null) return;
     if (lidTiltX === 0 && lidTiltY === 0) return;
-    let last = performance.now();
 
-    function tick(now: number) {
+    let last = performance.now();
+    const tick = (now: number) => {
       const dt = (now - last) / 16.67;
       last = now;
-      const decay = Math.pow(SIM.LID_TILT_DECAY, dt);
+      const decay = Math.pow(0.92, dt);
       lidTiltX *= decay;
       lidTiltY *= decay;
       if (Math.abs(lidTiltX) < 0.005) lidTiltX = 0;
@@ -293,7 +246,7 @@
       } else {
         decayRafId = null;
       }
-    }
+    };
 
     decayRafId = requestAnimationFrame(tick);
   }
@@ -302,70 +255,325 @@
     if (decayRafId !== null) cancelAnimationFrame(decayRafId);
   });
 
-  // --- Contamination accumulation while lid is held open ---
-  // Runs as a RAF while Q is held so exposure time and random events accumulate.
   $effect(() => {
-    if (!holdingQ) return;
-    let rafId: number;
+    if (!cultureMeta || !holdingQ || showIncubatedRender) return;
+
+    let rafId = 0;
     let last = performance.now();
 
-    function tick(now: number) {
+    const tick = (now: number) => {
       const dt = (now - last) / 16.67;
       last = now;
-      const exp = exposure; // read current derived value each frame
-      if (exp > 0.01) {
-        plateState.totalOpenSeconds += dt / 60;
-        const chancePerFrame = SIM.CONTAM_BASE + exp * SIM.CONTAM_RATE;
-        if (Math.random() < chancePerFrame * dt) plateState.contaminationEvents++;
+      if (exposure > 0.01) {
+        cultureMeta.totalOpenSeconds += dt / 60;
+        const chancePerFrame = 0.0005 + exposure * 0.002;
+        if (Math.random() < chancePerFrame * dt) {
+          cultureMeta.contaminationEvents += 1;
+        }
       }
       rafId = requestAnimationFrame(tick);
-    }
+    };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   });
 
-  // --- Lid hint text ---
-  const lidHint = $derived.by(() => {
-    if (!holdingQ) return 'Hold Q + move mouse to tilt lid';
-    if (holdingE)  return `Lid locked at ${Math.round(exposure * 100)}% · Release E to adjust`;
-    // Ready to streak but no pressure yet
-    if (heldLoopState && heldLoopState.temperature <= SIM.KILL_THRESHOLD && exposure >= SIM.LID_MIN_STREAK && wb.pressureLevel < SIM.MIN_STREAK_PRESSURE) {
-      return 'Click and drag to streak';
-    }
-    return `Lid ${Math.round(exposure * 100)}% open · Hold E to lock`;
+  $effect(() => {
+    if (!cultureMeta || cultureMeta.phase !== 'incubating') return;
+    if (incubationHours < 18) return;
+    cultureMeta.phase = 'grown';
+    persistCultureMeta();
   });
 
-  // --- Done → generate colonies immediately ---
-  function handleDone() {
-    const findings = activeFindingsForMedia;
-    snappedFindings = findings;
-    plateSeeds = generateSeedsFromGrid({
-      grid: plateState.grid,
-      findings,
-      mediaType,
-      contaminationEvents: plateState.contaminationEvents,
-      lidExposure: plateState.totalOpenSeconds,
-    });
-    phase = 'colonies';
+  function handleKeyDown(event: KeyboardEvent) {
+    if ((event.key === 'q' || event.key === 'Q') && !holdingQ && wb.hoveredItemId === item.id) {
+      holdingQ = true;
+    }
+    if ((event.key === 'e' || event.key === 'E') && holdingQ) {
+      holdingE = true;
+    }
   }
 
-  // --- Colony debug stats ---
-  const colonyDebug = $derived.by(() => {
-    if (!quality || colonies.length === 0) return null;
-    const cells = plateState.grid.cells;
-    let gridMax = 0, cellsConfluent = 0, cellsDense = 0, cellsIsolated = 0;
-    for (let i = 0; i < cells.length; i++) {
-      const v = cells[i];
-      if (v > gridMax) gridMax = v;
-      if (v >= SIM.DENSITY_CONFLUENT) cellsConfluent++;
-      else if (v >= SIM.DENSITY_DENSE) cellsDense++;
-      else if (v >= SIM.DENSITY_ISOLATED) cellsIsolated++;
+  function handleKeyUp(event: KeyboardEvent) {
+    if (event.key === 'q' || event.key === 'Q') {
+      holdingQ = false;
+      holdingE = false;
+      startDecay();
     }
-    const d = colonies.filter(x => x.densityLevel === 'dense').length;
-    const iso = colonies.filter(x => x.densityLevel === 'isolated' && !x.isContaminant).length;
-    return { gridMax, cellsConfluent, cellsDense, cellsIsolated, c: plateSeeds.filter(s => s.densityLevel === 'dense').length, d, iso };
-  });
+    if (event.key === 'e' || event.key === 'E') {
+      holdingE = false;
+    }
+  }
+
+  function handleWindowPointerMove(event: PointerEvent) {
+    if (!holdingQ || holdingE || !cellEl) return;
+    const bounds = cellEl.getBoundingClientRect();
+    const cx = bounds.left + bounds.width / 2;
+    const cy = bounds.top + bounds.height / 2;
+    const reference = Math.max(bounds.width, bounds.height) * 0.75;
+    lidTiltX = Math.max(-1, Math.min(1, (event.clientX - cx) / reference));
+    lidTiltY = Math.max(-1, Math.min(1, (cy - event.clientY) / reference));
+  }
+
+  function handleTransferPointerDown(event: PointerEvent) {
+    if (!canDeposit || !cultureMeta) return;
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
+    if (!point) return;
+    if (!syncLoopIntoPlate()) return;
+
+    selectedPlateForInteraction();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    isDrawing = true;
+    activePointerId = event.pointerId;
+    lastPoint = point;
+    appendAction({ type: 'beginStroke', timestamp: wb.currentTick });
+  }
+
+  function handleTransferPointerMove(event: PointerEvent) {
+    if (!isDrawing || activePointerId !== event.pointerId || !lastPoint) return;
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
+    if (!point) return;
+
+    appendAction({
+      type: 'strokeSegment',
+      from: lastPoint,
+      to: point,
+      pressure: event.pressure > 0 ? event.pressure : 0.58,
+      timestamp: wb.currentTick,
+    });
+    lastPoint = point;
+  }
+
+  function handleTransferPointerFinish(event: PointerEvent) {
+    if (!isDrawing || activePointerId !== event.pointerId) return;
+    finishTransferStroke();
+  }
+
+  function handleTransferPointerCancel() {
+    if (!isDrawing) return;
+    finishTransferStroke();
+  }
+
+  function handlePickupPointerDown(event: PointerEvent) {
+    if (!canPick) return;
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
+    if (!point) return;
+
+    selectedPlateForInteraction();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    isPicking = true;
+    activePickupPointerId = event.pointerId;
+    pickupPoints = [point];
+  }
+
+  function handlePickupPointerMove(event: PointerEvent) {
+    if (!isPicking || activePickupPointerId !== event.pointerId) return;
+    if (!(event.currentTarget instanceof HTMLCanvasElement)) return;
+    const point = toPlatePoint(event, event.currentTarget);
+    if (!point) return;
+    pickupPoints = [...pickupPoints, point];
+  }
+
+  function handlePickupPointerFinish(event: PointerEvent) {
+    if (!isPicking || activePickupPointerId !== event.pointerId) return;
+    finishPickup();
+  }
+
+  function handlePickupPointerCancel() {
+    if (!isPicking) return;
+    finishPickup();
+  }
+
+  function finishTransferStroke() {
+    appendAction({ type: 'endStroke', timestamp: wb.currentTick });
+    syncHeldLoopFromTransfer();
+    isDrawing = false;
+    activePointerId = null;
+    lastPoint = null;
+  }
+
+  function finishPickup() {
+    if (wb.heldItemId && heldLoopState) {
+      const pickupLoads = buildPickupLoadsFromBiomass(
+        displaySpeciesConfig,
+        biomass.biomass,
+        biomass.resolution,
+        pickupPoints,
+      );
+      const totalPickup = pickupLoads.reduce((sum, value) => sum + value, 0);
+
+      if (totalPickup > 0.000001) {
+        const dominantIndex = pickupLoads.reduce(
+          (bestIndex, value, index, values) => value > values[bestIndex] ? index : bestIndex,
+          0,
+        );
+
+        wb.mutateItem(wb.heldItemId, (loopItem) => {
+          if (loopItem.state?.kind !== 'inoculation-loop') return;
+          loopItem.state.volume = 0.35;
+          loopItem.state.concentration = 100;
+          loopItem.state.isSterile = false;
+          loopItem.state.speciesLoads = pickupLoads;
+          loopItem.state.speciesConfig = cloneSpeciesConfig(displaySpeciesConfig);
+          loopItem.state.sourceLabel = displaySpeciesConfig[dominantIndex]?.name ?? 'Picked colonies';
+        });
+      }
+    }
+
+    isPicking = false;
+    activePickupPointerId = null;
+    pickupPoints = [];
+  }
+
+  function handleStartIncubation() {
+    if (!cultureMeta || !incubationReady) return;
+    startCultureIncubation(cultureMeta, wb.currentTick);
+    persistCultureMeta();
+  }
+
+  function rebuildFromMeta(meta: CulturePlateMeta) {
+    const species = meta.speciesConfig.length > 0 ? cloneSpeciesConfig(meta.speciesConfig) : fallbackSpeciesConfig;
+    meta.speciesConfig = species;
+
+    const session = createPlateSession(species, meta.plateSeed, meta.medium);
+    session.actionLog = [...meta.actionLog];
+    const snapshot = replayTransferSession(session, resolution, DEBUG_LOG_DEFAULT);
+    const seeded = seedFounderGrid(snapshot.film, species, meta.plateSeed);
+
+    transferSnapshot = snapshot;
+    founderGrid = seeded.founders;
+    transferVersion += 1;
+  }
+
+  function appendAction(action: Action) {
+    if (!cultureMeta) return;
+
+    cultureMeta.actionLog = [...cultureMeta.actionLog, action];
+    applyTransferAction(transferSnapshot, action, cultureMeta.speciesConfig, DEBUG_LOG_DEFAULT);
+    transferVersion += 1;
+
+    if (action.type === 'strokeSegment') {
+      founderGrid = seedDirtyFounderRegion(
+        founderGrid,
+        transferSnapshot.film,
+        cultureMeta.speciesConfig,
+        cultureMeta.plateSeed,
+        transferSnapshot.dirtyRect,
+      ).founders;
+    } else if (action.type === 'endStroke' && cultureMeta.phase === 'ready') {
+      cultureMeta.phase = 'streaked';
+    }
+
+    persistCultureMeta();
+  }
+
+  function syncLoopIntoPlate(): boolean {
+    if (!cultureMeta || !heldLoopState) return false;
+
+    if (loopHasInoculum) {
+      if (cultureMeta.actionLog.length === 0) {
+        cultureMeta.speciesConfig = cloneSpeciesConfig(heldLoopState.speciesConfig);
+        rebuildFromMeta(cultureMeta);
+      } else if (!sameSpeciesOrder(cultureMeta.speciesConfig, heldLoopState.speciesConfig)) {
+        return false;
+      }
+
+      appendAction({ type: 'sterilize', timestamp: wb.currentTick });
+      appendAction({ type: 'loadSample', speciesLoads: [...heldLoopState.speciesLoads], timestamp: wb.currentTick + 1 });
+      return true;
+    }
+
+    if (!canSterileCrossStreak) return false;
+    appendAction({ type: 'sterilize', timestamp: wb.currentTick });
+    return true;
+  }
+
+  function syncHeldLoopFromTransfer() {
+    if (!wb.heldItemId || !cultureMeta) return;
+    const speciesTotals = cultureMeta.speciesConfig.map((_, speciesIndex) =>
+      transferSnapshot.loop.sectors.reduce((sum, sector) => sum + sector.load[speciesIndex] + sector.captured[speciesIndex], 0),
+    );
+    const totalMass = speciesTotals.reduce((sum, value) => sum + value, 0);
+    const normalizedLoads = totalMass > 0
+      ? speciesTotals.map((value) => value / totalMass)
+      : [];
+
+    wb.mutateItem(wb.heldItemId, (loopItem) => {
+      if (loopItem.state?.kind !== 'inoculation-loop') return;
+      loopItem.state.volume = Math.min(1, totalMass / (SIM.baseSectorLoad * SIM.sectorCount));
+      loopItem.state.concentration = totalMass > 0.000001 ? 100 : 0;
+      loopItem.state.isSterile = transferSnapshot.loop.isSterile && totalMass <= 0.000001;
+      loopItem.state.speciesLoads = normalizedLoads;
+      loopItem.state.speciesConfig = cloneSpeciesConfig(cultureMeta.speciesConfig);
+      loopItem.state.sourceLabel = normalizedLoads.length > 0
+        ? getSpeciesSourceLabel(cultureMeta.speciesConfig, cultureMeta.medium)
+        : null;
+    });
+  }
+
+  function toPlatePoint(event: PointerEvent, canvas: HTMLCanvasElement): Vec2 | null {
+    const bounds = canvas.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width;
+    const y = (event.clientY - bounds.top) / bounds.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+    const dx = x - 0.5;
+    const dy = y - 0.5;
+    if (dx * dx + dy * dy > 0.25) return null;
+    return { x, y };
+  }
+
+  function expandFilmState(source: FilmState, speciesCount: number): FilmState {
+    if (source.filmMass.length === speciesCount) return source;
+    const expanded = createFilmState(speciesCount, source.resolution);
+    expanded.agarWetness.set(source.agarWetness);
+    expanded.depositFluid.set(source.depositFluid);
+    expanded.groove.set(source.groove);
+
+    for (let speciesIndex = 0; speciesIndex < Math.min(source.filmMass.length, speciesCount); speciesIndex += 1) {
+      expanded.filmMass[speciesIndex].set(source.filmMass[speciesIndex]);
+    }
+
+    return expanded;
+  }
+
+  function expandFounderGrid(source: FounderGrid, speciesCount: number): FounderGrid {
+    if (source.counts.length === speciesCount) return source;
+    const expanded = createFounderGrid(speciesCount, source.resolution);
+
+    for (let speciesIndex = 0; speciesIndex < Math.min(source.counts.length, speciesCount); speciesIndex += 1) {
+      expanded.counts[speciesIndex].set(source.counts[speciesIndex]);
+      expanded.lag[speciesIndex].set(source.lag[speciesIndex]);
+      expanded.growthRate[speciesIndex].set(source.growthRate[speciesIndex]);
+    }
+
+    return expanded;
+  }
+
+  function sameSpeciesOrder(left: readonly SpeciesDef[], right: readonly SpeciesDef[]): boolean {
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index]?.id !== right[index]?.id) return false;
+    }
+    return true;
+  }
+
+  function selectedPlateForInteraction() {
+    if (wb.hoveredItemId !== item.id) {
+      wb.hoveredItemId = item.id;
+    }
+  }
+
+  function persistCultureMeta() {
+    if (!cultureMeta) return;
+    wb.mutateItem(item.id, (nextItem) => {
+      if (nextItem.contents) {
+        nextItem.contents.meta = cultureMeta;
+      }
+    });
+  }
 </script>
 
 <svelte:window
@@ -374,246 +582,233 @@
   onpointermove={handleWindowPointerMove}
 />
 
-<div class="relative flex flex-col items-center justify-center w-full h-full gap-1 pb-6" bind:this={cellEl}>
-  {#if phase === 'streaking'}
-    <div class="relative flex items-center justify-center w-full flex-1 min-h-0">
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="dish"
-        onpointerenter={handleDishPointerEnter}
-        onpointermove={handleDishPointerMove}
-        onpointerleave={handleDishPointerLeave}
-        style:touch-action="none"
-      >
-        {#if plate && plate.phase !== 'empty'}
-          <div class="media" style:background={mediaColor}></div>
-        {/if}
-        <canvas
-          bind:this={plateCanvas}
-          width={PLATE_SIZE}
-          height={PLATE_SIZE}
-          class="streak-canvas"
-        ></canvas>
-        {#if showDebug}
-          <canvas
-            bind:this={debugCanvas}
-            width={PLATE_SIZE}
-            height={PLATE_SIZE}
-            class="streak-canvas debug-overlay"
-          ></canvas>
-        {/if}
-      </div>
+<div class="plate-root" bind:this={cellEl} data-ref="game-culture-plate">
+  <div class="plate-header">
+    <span class="phase-chip" data-ref="game-culture-phase">{platePhase}</span>
+    <span class="summary" data-ref="game-culture-summary">{plateSummary}</span>
+  </div>
 
-      <!-- 3D tilting lid overlay -->
-      <div class="absolute inset-0 flex items-center justify-center pointer-events-none" style:z-index="2">
-        <div
-          class="lid-disc"
-          style:transform="perspective(400px) rotateX({lidTiltY * 25}deg) rotateY({lidTiltX * 25}deg)"
-          style:opacity={1 - exposure * 0.7}
-        >
-          <span class="text-xs text-center select-none lid-hint">{lidHint}</span>
-        </div>
-      </div>
+  <div class="plate-stage">
+    {#if showIncubatedRender}
+      <WebGLRenderPlate
+        maps={renderMaps}
+        medium={sessionMedium}
+        preset="observation"
+        lighting="grazing"
+        ariaLabel="Incubated culture plate"
+        canvasClass={`aspect-square w-full rounded-full border border-[var(--brass-dark)] bg-black/35 ${canPick ? 'touch-none cursor-crosshair' : ''}`}
+        dataRef="game-culture-grown-canvas"
+        onPointerDown={handlePickupPointerDown}
+        onPointerMove={handlePickupPointerMove}
+        onPointerUp={handlePickupPointerFinish}
+        onPointerCancel={handlePickupPointerFinish}
+        onLostPointerCapture={handlePickupPointerCancel}
+      />
+    {:else}
+      <canvas
+        bind:this={transferCanvas}
+        class="transfer-canvas"
+        data-ref="game-culture-transfer-canvas"
+        width={SIM.displaySize}
+        height={SIM.displaySize}
+        onpointerdown={handleTransferPointerDown}
+        onpointermove={handleTransferPointerMove}
+        onpointerup={handleTransferPointerFinish}
+        onpointercancel={handleTransferPointerFinish}
+        onlostpointercapture={handleTransferPointerCancel}
+      ></canvas>
+    {/if}
+
+    <div
+      class="lid-overlay"
+      style:transform={`perspective(420px) rotateX(${lidTiltY * 25}deg) rotateY(${lidTiltX * 25}deg)`}
+      style:opacity={1 - exposure * 0.7}
+    >
+      <div class="lid-hint">{lidHint}</div>
     </div>
+  </div>
 
-    <!-- Pressure indicator — shown when Q held with loop -->
-    {#if holdingQ && heldLoopState}
-      <div class="flex flex-col items-center gap-0.5 pointer-events-none">
-        <div class="pressure-track">
-          <div class="pressure-fill" style:width="{wb.pressureLevel * 100}%"></div>
-        </div>
-        <span class="text-parchment-aged whitespace-nowrap pressure-label">
-          {wb.pressureLevel > 0.5 ? 'Heavy' : wb.pressureLevel > 0.1 ? 'Light' : 'No'} pressure
-          {#if heldLoopState.temperature > SIM.KILL_THRESHOLD}
-            · Too hot — wait to cool
-          {:else if exposure < SIM.LID_MIN_STREAK}
-            · Open lid more
-          {:else if heldLoopState.volume === 0}
-            · Cross a streak to pick up
-          {/if}
-        </span>
-      </div>
-    {/if}
+  <div class="plate-metrics">
+    <span data-ref="game-culture-dirty-area">Dirty area {transferDirtyArea}</span>
+    <span data-ref="game-culture-contamination">Contam. {(contaminationLevel * 100).toFixed(0)}%</span>
+    <span data-ref="game-culture-incubation">{incubationHours.toFixed(1)}h</span>
+  </div>
 
-    {#if plateState.hasAnyDeposit}
-      <button class="btn-sm btn-primary" onclick={handleDone}>
-        Done Streaking →
-      </button>
-    {/if}
-    <button
-      class="btn-sm debug-toggle"
-      class:active={showDebug}
-      onclick={() => { showDebug = !showDebug; if (showDebug) renderDebugOverlay(); }}
-    >density</button>
-    {#if showDebug}
-      <div class="debug-stats">
-        Grid: {plateState.totalGridBacteria.toFixed(1)}
-        | Loop: {(heldLoopState ? heldLoopState.volume * heldLoopState.concentration : 0).toFixed(1)}
-        | Init: {plateState.initialBacteriaLoaded.toFixed(1)}
-        | Contam: {plateState.contaminationEvents}
+  {#if holdingQ && heldLoopState}
+    <div class="pressure-wrap">
+      <div class="pressure-track">
+        <div class="pressure-fill" style:width={`${wb.pressureLevel * 100}%`}></div>
       </div>
-    {/if}
-
-  {:else}
-    <!-- Colony view -->
-    <div class="flex flex-col items-center justify-center gap-1 w-full h-full overflow-hidden">
-      <ColonyView {colonies} {mediaType} streakGrid={plateState.grid.cells} {incubationHours} heightMap={showReference ? referenceHeightMap : undefined} />
-      {#if quality}
-        <div class="quality-badge grade-{quality.overallGrade}">
-          {quality.overallGrade} · {quality.isolatedColonyCount} isolated
-        </div>
-      {/if}
-      <!-- Incubation time slider (0–96h) -->
-      <div class="flex items-center gap-2 w-full px-3">
-        <span class="incubation-label">0h</span>
-        <input
-          type="range" min="0" max="96" step="1"
-          bind:value={incubationHours}
-          class="incubation-slider flex-1"
-        />
-        <span class="incubation-label">{incubationHours}h</span>
-      </div>
-      <button
-        class="btn-sm debug-toggle"
-        class:active={showReference}
-        onclick={() => { showReference = !showReference; if (showReference && !referenceHeightMap) referenceHeightMap = genHeightMap(Math.random, REFERENCE_PATHS); }}
-      >reference</button>
-      {#if colonyDebug}
-        <div class="debug-stats" style="font-size:0.6rem;line-height:1.4">
-          Grid max: {colonyDebug.gridMax.toFixed(3)} | cells conf:{colonyDebug.cellsConfluent} dense:{colonyDebug.cellsDense} iso:{colonyDebug.cellsIsolated}<br>
-          Colonies conf:{colonyDebug.c} dense:{colonyDebug.d} iso:{colonyDebug.iso}
-        </div>
-      {/if}
+      <span class="pressure-label">
+        {wb.pressureLevel > 0.5 ? 'Heavy' : wb.pressureLevel > 0.1 ? 'Light' : 'No'} pressure
+      </span>
     </div>
   {/if}
+
+  <div class="plate-actions">
+    {#if incubationReady}
+      <button class="btn btn-sm btn-primary" data-ref="game-culture-start-incubation" onclick={handleStartIncubation}>
+        Incubate 24h
+      </button>
+    {/if}
+    {#if showIncubatedRender}
+      <span class="plate-note" data-ref="game-culture-grown-note">
+        {#if pickablePlate}
+          Use an empty loop to pick colonies.
+        {:else}
+          Incubating...
+        {/if}
+      </span>
+    {:else}
+      <span class="plate-note">
+        Transfer view stays live while you streak.
+      </span>
+    {/if}
+  </div>
 </div>
 
 <style>
-  .incubation-slider {
-    accent-color: #d4a840;
-    height: 3px;
-    cursor: pointer;
-  }
-  .incubation-label {
-    font-size: 0.62rem;
-    color: var(--color-parchment-aged, #a8987a);
-    min-width: 2.4rem;
-    text-align: center;
-  }
-
-  .quality-badge {
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: rgba(0,0,0,0.3);
-    color: #ccc;
-  }
-  .quality-badge.grade-excellent { color: #6cbf6c; }
-  .quality-badge.grade-good      { color: #a8d060; }
-  .quality-badge.grade-fair      { color: #d4b84a; }
-  .quality-badge.grade-poor      { color: #d07050; }
-  .quality-badge.grade-none      { color: #888; }
-
-  .dish {
-    width: min(90%, 280px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    border: 2px solid rgba(180, 160, 120, 0.5);
-    background: #e8e0d0;
+  .plate-root {
     position: relative;
-    overflow: hidden;
-    box-shadow:
-      var(--shadow-md),
-      0 0 12px rgba(0,0,0,0.3),
-      0 0 1px rgba(180, 140, 60, 0.15),
-      inset 0 2px 4px rgba(0, 0, 0, 0.15),
-      inset 0 -1px 2px rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.5rem 0.35rem 1.2rem;
+    color: var(--parchment);
   }
 
-  .media {
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-    opacity: 0.85;
+  .plate-header {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
   }
 
-  /* Canvas fills the dish responsively; internal resolution stays 400×400 */
-  .streak-canvas {
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-    width: calc(100% - 6px);
-    height: calc(100% - 6px);
-    pointer-events: none;
+  .phase-chip {
+    border: var(--border-thin);
+    border-radius: 999px;
+    background: var(--bg-medium);
+    padding: 0.1rem 0.45rem;
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
   }
 
-  .debug-overlay {
-    opacity: 0.65;
-    mix-blend-mode: screen;
+  .summary {
+    min-width: 0;
+    text-align: right;
+    font-size: 0.58rem;
+    line-height: 1.3;
+    color: var(--parchment-aged);
   }
 
-  .debug-toggle {
-    font-size: 0.6rem;
-    opacity: 0.4;
-    padding: 1px 6px;
-    letter-spacing: 0.08em;
+  .plate-stage {
+    position: relative;
+    display: flex;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
   }
 
-  .debug-toggle.active {
-    opacity: 1;
-    color: #6cba6c;
-  }
-
-  .debug-stats {
-    font-size: 0.55rem;
-    font-family: monospace;
-    color: #6cba6c;
-    opacity: 0.8;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  .lid-disc {
-    width: min(90%, 280px);
+  .transfer-canvas {
+    width: min(100%, 280px);
     aspect-ratio: 1;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 35%,
-      rgba(180, 170, 155, 0.88),
-      rgba(140, 130, 115, 0.78)
-    );
-    border: 2px solid rgba(180, 150, 80, 0.35);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 3px rgba(255,255,255,0.1);
+    border: 1px solid var(--brass-dark);
+    background: rgba(0, 0, 0, 0.35);
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .lid-overlay {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.08s, opacity 0.08s;
   }
 
   .lid-hint {
-    color: rgba(255,255,255,0.65);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-    padding: var(--space-sm);
+    width: min(100%, 250px);
+    border-radius: 999px;
+    background: rgba(226, 223, 215, 0.22);
+    border: 1px solid rgba(226, 223, 215, 0.28);
+    padding: 0.35rem 0.75rem;
+    font-size: 0.62rem;
+    line-height: 1.35;
+    text-align: center;
+    color: rgba(245, 240, 230, 0.92);
+    backdrop-filter: blur(2px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+
+  .plate-metrics {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    font-size: 0.56rem;
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--parchment-aged);
+  }
+
+  .plate-metrics span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pressure-wrap {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
   }
 
   .pressure-track {
-    width: 80px;
-    height: 4px;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 2px;
+    width: 88%;
+    height: 0.26rem;
     overflow: hidden;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(201, 162, 39, 0.2);
   }
 
   .pressure-fill {
     height: 100%;
-    background: linear-gradient(90deg, #6cba6c, #e0a840, #d06c6c);
-    border-radius: 2px;
-    transition: width 0.05s;
+    background: linear-gradient(90deg, var(--brass-dark), var(--brass));
   }
 
   .pressure-label {
-    font-size: 0.65rem;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    font-size: 0.58rem;
+    color: var(--parchment-aged);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .plate-actions {
+    display: flex;
+    width: 100%;
+    min-height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    text-align: center;
+  }
+
+  .plate-note {
+    font-size: 0.58rem;
+    color: var(--parchment-aged);
   }
 </style>

@@ -7,6 +7,7 @@
 <script lang="ts">
   import type { Item, SampleType } from '../../lib/types';
   import { SAMPLE_COLORS } from '../../lib/types';
+  import { buildLoopPayloadFromSampleMeta } from './culture/codex-culture-bridge';
   import { getWorkbench } from '../workbench/workbench-context.svelte';
 
   interface Props { item: Item; }
@@ -31,6 +32,7 @@
     heldLoopState !== null &&
     heldLoopState.isSterile &&
     heldLoopState.volume === 0 &&
+    heldLoopState.temperature <= 0.3 &&
     item.contents !== undefined
   );
 
@@ -40,6 +42,9 @@
 
   function handleDip() {
     if (!canDip || !wb.heldItemId || !item.contents) return;
+    const payload = buildLoopPayloadFromSampleMeta(
+      item.contents.meta?.kind === 'sample' ? item.contents.meta : undefined,
+    );
     wb.mutateItem(wb.heldItemId, (loop) => {
       loop.state = {
         kind: 'inoculation-loop',
@@ -47,6 +52,9 @@
         concentration: 100,
         temperature: loop.state?.kind === 'inoculation-loop' ? loop.state.temperature : 0,
         isSterile: true,
+        speciesLoads: payload.speciesLoads,
+        speciesConfig: payload.speciesConfig,
+        sourceLabel: payload.sourceLabel,
       };
     });
   }
@@ -55,7 +63,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div class="flex flex-col items-center gap-1 p-1" class:can-dip={canDip} class:needs-dip={needsDip && !canDip}
-  onclick={handleDip} style:cursor={canDip ? 'pointer' : undefined}>
+  onclick={handleDip} style:cursor={canDip ? 'pointer' : undefined} data-ref={`bench-sample-vial-${item.id}`}>
   <svg viewBox="0 0 40 100">
     <!-- Cap -->
     <rect x="13" y="2" width="14" height="8" rx="2"
@@ -73,7 +81,7 @@
     <path d="M14 65 Q14 72 20 72 Q26 72 26 65"
       fill="rgba(200,220,240,0.2)" stroke="rgba(150,170,190,0.4)" stroke-width="0.5" />
     <!-- Graduation marks -->
-    {#each [25, 35, 45, 55] as y}
+    {#each [25, 35, 45, 55] as y (y)}
       <line x1="14" y1={y} x2="16" y2={y} stroke="rgba(150,170,190,0.3)" stroke-width="0.3" />
     {/each}
 
@@ -122,12 +130,4 @@
     color: rgba(255, 200, 80, 0.85);
   }
 
-  .ripple {
-    animation: ripple-out 0.4s ease-out infinite;
-  }
-
-  @keyframes ripple-out {
-    from { rx: 3; opacity: 0.8; }
-    to   { rx: 6; opacity: 0; }
-  }
 </style>

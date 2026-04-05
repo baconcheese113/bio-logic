@@ -98,7 +98,24 @@ export function collectSample(
     label: `${sampleType.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')} - ${patient.name}`,
   };
 
-  player.carrying = [...player.carrying, { id: sampleId, type: 'sample-vial' as const, quantity: 1 }];
+  player.carrying = [...player.carrying, {
+    id: sampleId,
+    type: 'sample-vial' as const,
+    quantity: 1,
+    contents: {
+      substance: sampleType,
+      volume: 0.5,
+      sealed: false,
+      meta: {
+        kind: 'sample',
+        patientId: patient.id,
+        collectedAtTick: state.currentTick,
+        condition: 'fresh',
+        organismId: patient.correctOrganism,
+        cultureFindings: patient.findings.culture,
+      },
+    },
+  }];
   state.samples = [...state.samples, newSample];
   state.patients = state.patients.map(p =>
     p.id === patientId ? { ...p, collectedSamples: [...p.collectedSamples, sampleType] } : p

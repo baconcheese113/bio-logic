@@ -95,6 +95,7 @@
   class="flex flex-col items-center gap-1 cursor-pointer p-1"
   class:held={isHeld}
   onclick={handleClick}
+  data-ref={`bench-loop-${item.id}`}
 >
   <svg viewBox="0 0 50 120">
     <!-- Handle -->

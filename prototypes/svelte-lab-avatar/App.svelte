@@ -21,7 +21,7 @@
   import ModalOverlay from './components/ui/ModalOverlay.svelte';
   import ItemSlot from './components/ui/ItemSlot.svelte';
   import ReferenceView from './components/reference/ReferenceView.svelte';
-  import CodexStreakDashboard from './components/reference/codex-streak/pipeline-harness.svelte';
+  import CodexStreakDashboard from './components/reference/codex-streak/PipelineHarness.svelte';
 
   // ── Reactive state ──
 
@@ -31,7 +31,7 @@
   // UI-only selection state
   let selectedFixtureId = $state<string | null>(null);
   let selectedPatientId = $state<string | null>(null);
-  let viewingFixtureId = $state<string | null>('workbench-centrifuge');
+  let viewingFixtureId = $state<string | null>(null);
   let notebookOpen = $state(false);
   let diagnosisPatientId = $state<string | null>(null);
   let cabinetOpenId = $state<string | null>(null);
@@ -180,6 +180,7 @@
     <WorkbenchView
       fixture={viewingFixture}
       samples={viewingSamples}
+      currentTick={labState.currentTick}
       onClose={() => viewingFixtureId = null}
     />
   {:else}

@@ -265,9 +265,10 @@ function createFixtures(): Fixture[] {
       name: 'Culture Bench',
       position: { x: 9, y: 2 },
       items: [
-        { ...makeItem('bunsen-burner'), state: { kind: 'bunsen-burner' as const, lit: true } },
-        { ...makeItem('inoculation-loop'), state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false } },
-        { ...makeItem('empty-dish'), contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
+        { ...makeItem('bunsen-burner'), gridPosition: { col: 0, row: 0 }, state: { kind: 'bunsen-burner' as const, lit: true } },
+        { ...makeItem('incubator'), gridPosition: { col: 1, row: 0 }, state: { kind: 'incubator' as const, targetHours: 24 } },
+        { ...makeItem('inoculation-loop'), gridPosition: { col: 1, row: 1 }, state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false, speciesLoads: [], speciesConfig: [], sourceLabel: null } },
+        { ...makeItem('empty-dish'), gridPosition: { col: 2, row: 0 }, contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
       ],
     },
     {
@@ -283,11 +284,12 @@ function createFixtures(): Fixture[] {
       name: 'Centrifuge Bench',
       position: { x: 5, y: 3 },
       items: [
-        makeItem('hand-centrifuge'),
-        { ...makeItem('bunsen-burner'), state: { kind: 'bunsen-burner' as const, lit: true } },
-        { ...makeItem('inoculation-loop'), state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false } },
-        { ...makeItem('empty-dish'), contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
-        { ...makeItem('sample-vial'), contents: { substance: 'blood' as const, volume: 0.5, sealed: false, meta: { kind: 'sample' as const, patientId: 'mock-patient', collectedAtTick: 0, condition: 'fresh' as const } } },
+        { ...makeItem('hand-centrifuge'), gridPosition: { col: 0, row: 0 } },
+        { ...makeItem('bunsen-burner'), gridPosition: { col: 2, row: 0 }, state: { kind: 'bunsen-burner' as const, lit: true } },
+        { ...makeItem('incubator'), gridPosition: { col: 3, row: 0 }, state: { kind: 'incubator' as const, targetHours: 24 } },
+        { ...makeItem('inoculation-loop'), gridPosition: { col: 3, row: 1 }, state: { kind: 'inoculation-loop' as const, volume: 0, concentration: 0, temperature: 0, isSterile: false, speciesLoads: [], speciesConfig: [], sourceLabel: null } },
+        { ...makeItem('empty-dish'), gridPosition: { col: 0, row: 1 }, contents: { substance: 'blood-agar' as const, volume: 1, sealed: false, meta: { kind: 'prepared-media' as const, cooledAtTick: 0 } } },
+        { ...makeItem('sample-vial'), gridPosition: { col: 2, row: 2 }, contents: { substance: 'blood' as const, volume: 0.5, sealed: false, meta: { kind: 'sample' as const, patientId: 'mock-patient', collectedAtTick: 0, condition: 'fresh' as const, organismId: 'staphylococcus-aureus', cultureFindings: { growth: true, hemolysis: 'beta' as const, colonyColor: 'golden' as const, gramType: 'positive' as const } } } },
       ],
     },
     {

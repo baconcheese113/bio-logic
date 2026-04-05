@@ -1,5 +1,5 @@
 <script lang="ts">
-  import WebglRenderPlate from './webgl-render-plate.svelte';
+  import WebGLRenderPlate from './WebGLRenderPlate.svelte';
   import {
     drawBiomassMap,
     drawFilmMap,
@@ -601,7 +601,7 @@
           </div>
 
           <div class="rounded-2xl border border-[var(--brass-dark)] bg-[radial-gradient(circle_at_top,#633231,#2b1b1a_60%,#120f0d)] p-3">
-            <WebglRenderPlate
+            <WebGLRenderPlate
               maps={observationRenderMaps}
               medium={session.medium}
               preset="observation"
@@ -997,7 +997,7 @@
         <div class="panel-header">Render</div>
         <div class="space-y-3 bg-[var(--bg-dark)] p-4">
           {#if showWebglRender}
-            <WebglRenderPlate
+            <WebGLRenderPlate
               maps={renderMaps}
               medium={session.medium}
               preset="diagnostic"
