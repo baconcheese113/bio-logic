@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "type": "module",
   "description": "A papers,please and car mechanic simulator inspired game built with TypeScript and Phaser",
-  "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.{ts,json,css,md}\""
+    "knip": "knip",
+    "lint": "eslint prototypes",
+    "lint:fix": "eslint prototypes --fix",
+    "format": "prettier --write \"src/**/*.{ts,json,css,md}\"",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "keywords": [
     "phaser",
@@ -21,22 +23,27 @@
   "author": "bacon",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^24.5.2",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
     "eslint": "^9.35.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-svelte": "^3.15.0",
+    "globals": "^17.3.0",
+    "knip": "^5.83.1",
     "prettier": "^3.6.2",
     "svelte": "^5.43.5",
+    "svelte-eslint-parser": "^1.4.1",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.2",
     "vite": "^7.1.6"
   },
-  "dependencies": {
-    "phaser": "^3.90.0"
-  },
   "volta": {
     "node": "24.11.1"
+  },
+  "dependencies": {
+    "pixi.js": "^8.16.0"
   }
 }
