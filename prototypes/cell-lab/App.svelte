@@ -3,13 +3,32 @@
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
   import type { BioPart, SimulationResult, TestResult } from './lib/types';
+  import type { DeskItem } from './lib/lab-types';
+  import { LAB_PUZZLES } from './lib/lab-puzzles';
 
   import CellView from './components/CellView.svelte';
   import DnaStrand from './components/DnaStrand.svelte';
   import InstrumentPanel from './components/InstrumentPanel.svelte';
   import PartsLibrary from './components/PartsLibrary.svelte';
+  import PcrInstrument from './components/PcrInstrument.svelte';
+  import GelView from './components/GelView.svelte';
+  import DeskSurface from './components/DeskSurface.svelte';
+
+  // Unified puzzle nav: strand puzzles then lab puzzles
+  const STRAND_COUNT = PUZZLES.length;
+  const allPuzzleLabels = [
+    ...PUZZLES.map(p => ({ id: p.id, title: p.title })),
+    ...LAB_PUZZLES.map(p => ({ id: p.id, title: p.title })),
+  ];
 
   let puzzleIndex = $state(0);
+  const isLabPuzzle = $derived(puzzleIndex >= STRAND_COUNT);
+  const labPuzzleOffset = $derived(puzzleIndex - STRAND_COUNT);
+
+  // Sidebar tab
+  let sidebarTab = $state<'parts' | 'instruments'>('parts');
+
+  // ── Strand puzzle state ──────────────────────────────────────────
   let strand = $state<(string | null)[]>(new Array(PUZZLES[0].strandSlots).fill(null));
   let testResults = $state<TestResult[]>([]);
   let showingResult = $state(false);
@@ -23,25 +42,43 @@
   let activeConditionIndex = $state(0);
   let selectedInstrument = $state<'protein-detector' | 'brightness-meter' | null>(null);
 
-  const puzzle = $derived(PUZZLES[puzzleIndex]);
-  const hasInstrument = $derived(puzzle.detectableProteins !== undefined);
+  const puzzle = $derived(PUZZLES[Math.min(puzzleIndex, STRAND_COUNT - 1)]);
+  const hasInstrument = $derived(!isLabPuzzle && puzzle.detectableProteins !== undefined);
   const hasMultipleConditions = $derived(
-    new Set(puzzle.tests.map(t => JSON.stringify(t.signals))).size > 1,
+    !isLabPuzzle && new Set(puzzle.tests.map(t => JSON.stringify(t.signals))).size > 1,
   );
-  const isReadonly = $derived(!!puzzle.prefilled && !!puzzle.hiddenGenes);
-  const isDebug = $derived(!!puzzle.prefilled && !puzzle.hiddenGenes);
+  const isReadonly = $derived(!isLabPuzzle && !!puzzle.prefilled && !!puzzle.hiddenGenes);
+  const isDebug = $derived(!isLabPuzzle && !!puzzle.prefilled && !puzzle.hiddenGenes);
   const availableParts = $derived(
+    isLabPuzzle ? [] :
     puzzle.availablePartIds
       .map(id => PARTS_MAP.get(id))
       .filter((p): p is BioPart => p !== undefined),
   );
   const strandEmpty = $derived(strand.every(s => s === null));
   const availableInstruments = $derived(
+    isLabPuzzle ? [] :
     [
       ...(puzzle.detectableProteins ? ['protein-detector'] as const : []),
       ...(puzzle.brightnessMeter ? ['brightness-meter'] as const : []),
     ]
   );
+
+  // ── Lab puzzle state ─────────────────────────────────────────────
+  const labPuzzle = $derived(LAB_PUZZLES[Math.max(0, labPuzzleOffset)]);
+  let labInstrument = $state<'pcr' | 'gel' | 'cell'>('cell');
+  let deskItems = $state<DeskItem[]>([]);
+  let gelLanes = $state<{ label: string; bands: number[] }[]>([]);
+  let labTubeCount = $state(0);
+  let wrongGuesses = $state<Set<string>>(new Set());
+  const MAX_GUESSES = 3;
+
+  // Cross-area tube drag state
+  let tubeDrag = $state<{ id: string; label: string; x: number; y: number } | null>(null);
+
+  // ── Shared title/goal derived from current puzzle ────────────────
+  const currentTitle = $derived(isLabPuzzle ? labPuzzle.title : puzzle.title);
+  const currentGoal = $derived(isLabPuzzle ? labPuzzle.briefing : puzzle.goal);
 
   function updateStrand(next: (string | null)[]) {
     strand = next;
@@ -80,7 +117,6 @@
 
     allSimResults = results.map(r => r.result);
 
-    // Start scan animation, then reveal results
     scanning = true;
     scanIndex = 0;
     showingResult = false;
@@ -95,7 +131,6 @@
         showingResult = true;
 
         if (hasInstrument) {
-          // Instrument puzzles: tests start hidden, completion checked on probe
           revealedTests = new Set();
           puzzleComplete = false;
           activeConditionIndex = 0;
@@ -110,7 +145,6 @@
   }
 
   function handleProbe(protein: string) {
-    // Reveal all tests whose expect mentions this protein
     const newRevealed = new Set(revealedTests);
     testResults.forEach((_, i) => {
       const expectKeys = Object.keys(puzzle.tests[i].expect);
@@ -120,27 +154,56 @@
     });
     revealedTests = newRevealed;
 
-    // Check if all tests are revealed AND pass
     if (revealedTests.size === testResults.length) {
       puzzleComplete = testResults.every(r => r.passed);
     }
   }
 
   function goToPuzzle(index: number) {
-    const p = PUZZLES[index];
     puzzleIndex = index;
-    strand = p.prefilled ? [...p.prefilled] : new Array(p.strandSlots).fill(null);
-    showingResult = false;
-    scanning = false;
-    scanIndex = -1;
-    testResults = [];
-    displayResult = null;
     puzzleComplete = false;
     showHint = false;
-    revealedTests = new Set();
-    allSimResults = [];
-    activeConditionIndex = 0;
-    selectedInstrument = null;
+
+    if (index < STRAND_COUNT) {
+      const p = PUZZLES[index];
+      strand = p.prefilled ? [...p.prefilled] : new Array(p.strandSlots).fill(null);
+      showingResult = false;
+      scanning = false;
+      scanIndex = -1;
+      testResults = [];
+      displayResult = null;
+      revealedTests = new Set();
+      allSimResults = [];
+      activeConditionIndex = 0;
+      selectedInstrument = null;
+      sidebarTab = 'parts';
+      labInstrument = 'cell';
+    } else {
+      const lp = LAB_PUZZLES[index - STRAND_COUNT];
+      labInstrument = 'pcr';
+      gelLanes = [];
+      labTubeCount = 0;
+      wrongGuesses = new Set();
+      sidebarTab = 'instruments';
+      deskItems = [
+        {
+          id: 'ref-book',
+          type: 'reference-book',
+          label: 'Gene Reference',
+          data: { ...lp.reference, page: 0 },
+          x: 10,
+          y: 10,
+        },
+        {
+          id: 'answer-sheet',
+          type: 'answer-sheet',
+          label: 'Answer Sheet',
+          data: { genes: lp.reference.geneTable.map(g => g.name) },
+          x: 300,
+          y: 10,
+        },
+      ];
+    }
   }
 
   function clearStrand() {
@@ -148,8 +211,80 @@
   }
 
   function nextPuzzle() {
-    if (puzzleIndex >= PUZZLES.length - 1) return;
+    if (puzzleIndex >= allPuzzleLabels.length - 1) return;
     goToPuzzle(puzzleIndex + 1);
+  }
+
+  // Lab helpers
+  function handlePcrResult(bandSize: number | null, failReason?: string) {
+    labTubeCount++;
+    const item: DeskItem = {
+      id: `tube-${labTubeCount}`,
+      type: 'pcr-tube',
+      label: `PCR #${labTubeCount}`,
+      data: { bandSize, failReason },
+      x: 10 + (labTubeCount - 1) * 160,
+      y: 180,
+    };
+    deskItems = [...deskItems, item];
+  }
+
+  function handleLoadGel(tubeId: string) {
+    const item = deskItems.find(d => d.id === tubeId);
+    if (!item || item.type !== 'pcr-tube') return;
+    const data = item.data as { bandSize: number | null };
+    if (!data.bandSize) return;
+    gelLanes = [...gelLanes, { label: item.label, bands: [data.bandSize] }];
+    labInstrument = 'gel';
+  }
+
+  function handleTubeGrab(tubeId: string, e: PointerEvent) {
+    const item = deskItems.find(d => d.id === tubeId);
+    if (!item) return;
+    tubeDrag = { id: tubeId, label: item.label, x: e.clientX, y: e.clientY };
+
+    const onMove = (ev: PointerEvent) => {
+      if (tubeDrag) tubeDrag = { ...tubeDrag, x: ev.clientX, y: ev.clientY };
+    };
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const wellEl = el?.closest('[data-gel-well]');
+      if (wellEl && tubeDrag) {
+        handleLoadGel(tubeDrag.id);
+      }
+      tubeDrag = null;
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
+  function handleDeskMove(id: string, x: number, y: number) {
+    deskItems = deskItems.map(d => d.id === id ? { ...d, x, y } : d);
+  }
+
+  function handleDeskAnswer(gene: string) {
+    if (wrongGuesses.has(gene) || wrongGuesses.size >= MAX_GUESSES) return;
+    const correct = labPuzzle.acceptedAnswers.some(
+      a => a.toLowerCase() === gene.toLowerCase()
+    );
+    if (correct) {
+      puzzleComplete = true;
+    } else {
+      wrongGuesses = new Set([...wrongGuesses, gene]);
+    }
+  }
+
+  function handlePageFlip(id: string, dir: 1 | -1) {
+    deskItems = deskItems.map(d => {
+      if (d.id !== id || d.type !== 'reference-book') return d;
+      const data = d.data as { page?: number };
+      const page = (data.page ?? 0) + dir;
+      return { ...d, data: { ...d.data, page } };
+    });
   }
 </script>
 
@@ -157,146 +292,215 @@
   <!-- Header -->
   <header class="header">
     <nav class="puzzle-nav">
-      {#each PUZZLES as p, i}
+      {#each allPuzzleLabels as p, i}
         <button
           class="puzzle-pip"
           class:active={i === puzzleIndex}
+          class:lab-pip={i >= STRAND_COUNT}
           onclick={() => goToPuzzle(i)}
           title={p.title}
         >{p.id}</button>
       {/each}
     </nav>
-    <h1 class="puzzle-title">{puzzle.title}</h1>
-    <p class="puzzle-goal">{puzzle.goal}</p>
+    <h1 class="puzzle-title">{currentTitle}</h1>
+    <p class="puzzle-goal">{currentGoal}</p>
   </header>
 
-  <!-- Body: sidebar + cell -->
+  <!-- Body: sidebar + instrument/cell + desk -->
   <div class="body">
     <aside class="sidebar">
-      {#if availableParts.length > 0}
-        <PartsLibrary parts={availableParts} disabled={showingResult} onadd={addPartToFirstSlot} />
-      {/if}
+      <!-- Sidebar tabs -->
+      <div class="sidebar-tabs">
+        <button
+          class="sidebar-tab"
+          class:active={sidebarTab === 'parts'}
+          onclick={() => sidebarTab = 'parts'}
+        >Parts</button>
+        <button
+          class="sidebar-tab"
+          class:active={sidebarTab === 'instruments'}
+          onclick={() => sidebarTab = 'instruments'}
+        >Instruments</button>
+      </div>
 
-      {#if puzzle.hint}
-        <button class="hint-btn" onclick={() => showHint = !showHint}>
-          {showHint ? 'Hide Hint' : 'Show Hint'}
-        </button>
-        {#if showHint}
-          <p class="hint-text">{puzzle.hint}</p>
+      {#if sidebarTab === 'parts'}
+        {#if availableParts.length > 0}
+          <PartsLibrary parts={availableParts} disabled={showingResult} onadd={addPartToFirstSlot} />
+        {:else}
+          <p class="sidebar-empty">No parts for this puzzle.</p>
         {/if}
-      {/if}
-    </aside>
 
-    <section class="cell-area">
-      <CellView result={displayResult} running={showingResult} />
-
-      {#if showingResult && hasMultipleConditions}
-        <div class="condition-switcher">
-          {#each puzzle.tests as test, i}
+        {#if !isLabPuzzle && puzzle.hint}
+          <button class="hint-btn" onclick={() => showHint = !showHint}>
+            {showHint ? 'Hide Hint' : 'Show Hint'}
+          </button>
+          {#if showHint}
+            <p class="hint-text">{puzzle.hint}</p>
+          {/if}
+        {/if}
+      {:else}
+        <div class="instrument-list">
+          <button
+            class="instrument-tab"
+            class:active={labInstrument === 'cell'}
+            onclick={() => labInstrument = 'cell'}
+          >🔬 Cell View</button>
+          {#if isLabPuzzle}
             <button
-              class="condition-tab"
-              class:active={activeConditionIndex === i}
-              onclick={() => { activeConditionIndex = i; displayResult = allSimResults[i] ?? null; }}
-            >
-              {#if Object.keys(test.signals).length === 0}
-                No signals
-              {:else}
-                {Object.keys(test.signals).join(' + ')}
-              {/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-
-      {#if showingResult && availableInstruments.length > 0}
-        <div class="instrument-selector">
-          {#each availableInstruments as inst}
+              class="instrument-tab"
+              class:active={labInstrument === 'pcr'}
+              onclick={() => labInstrument = 'pcr'}
+            >🧬 PCR Machine</button>
             <button
-              class="instrument-btn"
-              class:active={selectedInstrument === inst}
-              onclick={() => { selectedInstrument = selectedInstrument === inst ? null : inst; }}
-            >
-              {inst === 'protein-detector' ? '🔬 Protein Detector' : '📊 Brightness Meter'}
-            </button>
-          {/each}
-        </div>
-      {/if}
-
-      {#if selectedInstrument === 'brightness-meter' && displayResult && puzzle.brightnessMeter}
-        <div class="brightness-meter">
-          <span class="meter-title">📊 Brightness</span>
-          {#each puzzle.brightnessMeter as protein}
-            <div class="meter-row">
-              <span class="meter-label">{protein}</span>
-              <div class="meter-bar-track">
-                <div class="meter-bar-fill" style:width="{Math.min((displayResult.proteins[protein] ?? 0) / 6, 1) * 100}%"></div>
-              </div>
-              <span class="meter-value">{displayResult.proteins[protein] ?? 0}</span>
-            </div>
-          {/each}
-        </div>
-      {/if}
-
-      {#if testResults.length > 0}
-        <div class="test-results">
-          {#each testResults as t, i}
-            {#if hasInstrument && !revealedTests.has(i)}
-              <div class="test-row hidden-test">
-                <span class="test-icon">🔬</span>
-                <span class="test-label">{t.label}</span>
-              </div>
-            {:else}
-              <div class="test-row" class:pass={t.passed} class:fail={!t.passed}>
-                <span class="test-icon">{t.passed ? '✓' : '✗'}</span>
-                <span class="test-label">{t.label}</span>
-              </div>
-            {/if}
-          {/each}
-        </div>
-      {/if}
-
-      {#if selectedInstrument === 'protein-detector' && puzzle.detectableProteins}
-        <InstrumentPanel
-          detectableProteins={puzzle.detectableProteins}
-          simulationResults={allSimResults}
-          onprobe={handleProbe}
-        />
-      {/if}
-
-      {#if puzzleComplete}
-        <div class="success-banner">
-          Puzzle Complete!
-          {#if puzzleIndex < PUZZLES.length - 1}
-            <button class="next-btn" onclick={nextPuzzle}>Next Puzzle →</button>
-          {:else}
-            <span class="final-msg">You finished all puzzles! 🧬</span>
+              class="instrument-tab"
+              class:active={labInstrument === 'gel'}
+              onclick={() => labInstrument = 'gel'}
+            >⚡ Gel Box</button>
           {/if}
         </div>
       {/if}
-    </section>
+    </aside>
+
+    <div class="main-column">
+      <!-- Instrument / Cell view area -->
+      <section class="instrument-area">
+        {#if labInstrument === 'cell'}
+          <CellView result={displayResult} running={showingResult} />
+
+          {#if showingResult && hasMultipleConditions}
+            <div class="condition-switcher">
+              {#each puzzle.tests as test, i}
+                <button
+                  class="condition-tab"
+                  class:active={activeConditionIndex === i}
+                  onclick={() => { activeConditionIndex = i; displayResult = allSimResults[i] ?? null; }}
+                >
+                  {#if Object.keys(test.signals).length === 0}
+                    No signals
+                  {:else}
+                    {Object.keys(test.signals).join(' + ')}
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
+
+          {#if showingResult && availableInstruments.length > 0}
+            <div class="instrument-selector">
+              {#each availableInstruments as inst}
+                <button
+                  class="instrument-btn"
+                  class:active={selectedInstrument === inst}
+                  onclick={() => { selectedInstrument = selectedInstrument === inst ? null : inst; }}
+                >
+                  {inst === 'protein-detector' ? '🔬 Protein Detector' : '📊 Brightness Meter'}
+                </button>
+              {/each}
+            </div>
+          {/if}
+
+          {#if selectedInstrument === 'brightness-meter' && displayResult && puzzle.brightnessMeter}
+            <div class="brightness-meter">
+              <span class="meter-title">📊 Brightness</span>
+              {#each puzzle.brightnessMeter as protein}
+                <div class="meter-row">
+                  <span class="meter-label">{protein}</span>
+                  <div class="meter-bar-track">
+                    <div class="meter-bar-fill" style:width="{Math.min((displayResult.proteins[protein] ?? 0) / 6, 1) * 100}%"></div>
+                  </div>
+                  <span class="meter-value">{displayResult.proteins[protein] ?? 0}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          {#if testResults.length > 0}
+            <div class="test-results">
+              {#each testResults as t, i}
+                {#if hasInstrument && !revealedTests.has(i)}
+                  <div class="test-row hidden-test">
+                    <span class="test-icon">🔬</span>
+                    <span class="test-label">{t.label}</span>
+                  </div>
+                {:else}
+                  <div class="test-row" class:pass={t.passed} class:fail={!t.passed}>
+                    <span class="test-icon">{t.passed ? '✓' : '✗'}</span>
+                    <span class="test-label">{t.label}</span>
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+
+          {#if selectedInstrument === 'protein-detector' && puzzle.detectableProteins}
+            <InstrumentPanel
+              detectableProteins={puzzle.detectableProteins}
+              simulationResults={allSimResults}
+              onprobe={handleProbe}
+            />
+          {/if}
+        {:else if labInstrument === 'pcr' && isLabPuzzle}
+          <PcrInstrument plasmid={labPuzzle.plasmid} onresult={handlePcrResult} />
+        {:else if labInstrument === 'gel' && isLabPuzzle}
+          <GelView lanes={gelLanes} dragActive={tubeDrag !== null} />
+        {/if}
+
+        {#if puzzleComplete}
+          <div class="success-banner">
+            Puzzle Complete!
+            {#if puzzleIndex < allPuzzleLabels.length - 1}
+              <button class="next-btn" onclick={nextPuzzle}>Next Puzzle →</button>
+            {:else}
+              <span class="final-msg">You finished all puzzles! 🧬</span>
+            {/if}
+          </div>
+        {/if}
+      </section>
+
+      <!-- Desk area (always visible) -->
+      <section class="desk-section">
+        <DeskSurface
+          items={deskItems}
+          onmove={handleDeskMove}
+          ontubegrab={handleTubeGrab}
+          onanswer={handleDeskAnswer}
+          onpageflip={handlePageFlip}
+          wrongGuesses={wrongGuesses}
+          maxGuesses={MAX_GUESSES}
+          draggedTubeId={tubeDrag?.id}
+        />
+      </section>
+    </div>
   </div>
 
-  <!-- Strand editor -->
+  <!-- Bottom: strand + controls (always visible) -->
   <section class="strand-section">
     <DnaStrand
       {strand}
       onupdate={updateStrand}
-      disabled={scanning || (showingResult && !isDebug)}
+      disabled={isLabPuzzle || scanning || (showingResult && !isDebug)}
       {scanIndex}
-      readonly={isReadonly}
+      readonly={isReadonly || isLabPuzzle}
       hiddenGenes={puzzle.hiddenGenes ?? false}
     />
   </section>
 
-  <!-- Controls -->
   <footer class="controls">
-    <button class="ctrl-btn clear" onclick={clearStrand} disabled={strandEmpty && !showingResult}>
-      Clear
+    <button class="ctrl-btn clear" onclick={clearStrand} disabled={(strandEmpty && !showingResult) || isLabPuzzle}>
+      Reset
     </button>
-    <button class="ctrl-btn run" onclick={runCell} disabled={strandEmpty || showingResult || scanning}>
+    <button class="ctrl-btn run" onclick={runCell} disabled={strandEmpty || showingResult || scanning || isLabPuzzle}>
       ▶ Run Cell
     </button>
   </footer>
+
+  {#if tubeDrag}
+    <div
+      class="tube-ghost"
+      style:left="{tubeDrag.x}px"
+      style:top="{tubeDrag.y}px"
+    >🧪 {tubeDrag.label}</div>
+  {/if}
 </main>
 
 <style>
@@ -351,6 +555,15 @@
     color: var(--parchment);
   }
 
+  .puzzle-pip.lab-pip {
+    border-color: #5a7a5a;
+  }
+
+  .puzzle-pip.lab-pip.active {
+    background: #3a5a3a;
+    border-color: #7a9a7a;
+  }
+
   .puzzle-title {
     font-family: var(--font-heading);
     font-size: 1.3rem;
@@ -371,7 +584,7 @@
     gap: 16px;
     padding: 16px;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .sidebar {
@@ -380,14 +593,64 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow-y: auto;
   }
 
-  .cell-area {
+  .sidebar-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .sidebar-tab {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--brass-dark);
+    border-radius: 6px;
+    background: var(--bg-medium);
+    color: var(--parchment-aged);
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .sidebar-tab:hover {
+    border-color: var(--brass);
+    color: var(--parchment);
+  }
+
+  .sidebar-tab.active {
+    background: var(--brass-dark);
+    border-color: var(--brass);
+    color: var(--parchment);
+  }
+
+  .sidebar-empty {
+    font-size: 0.8rem;
+    color: var(--parchment-aged);
+    padding: 8px;
+    margin: 0;
+  }
+
+  .main-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .instrument-area {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
+    min-width: 0;
+    min-height: 0;
   }
 
   /* Hint */
@@ -602,6 +865,24 @@
     font-size: 0.85rem;
   }
 
+  /* Tube ghost (cross-area drag) */
+  .tube-ghost {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 1000;
+    background: var(--bg-dark);
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--parchment);
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    opacity: 0.9;
+  }
+
   /* Strand section */
   .strand-section {
     padding: 14px 20px;
@@ -652,5 +933,49 @@
   .ctrl-btn.run:hover:not(:disabled) {
     background: var(--brass);
     color: var(--bg-darkest);
+  }
+
+  /* Desk section */
+  .desk-section {
+    flex: 1;
+    display: flex;
+    min-height: 180px;
+    border-top: 1px solid var(--brass-dark);
+  }
+
+  /* Lab sidebar instruments */
+  .instrument-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .instrument-tab {
+    padding: 8px 12px;
+    border: 1px solid var(--brass-dark);
+    border-radius: 6px;
+    background: var(--bg-medium);
+    color: var(--parchment-aged);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+
+  .instrument-tab:hover:not(:disabled) {
+    border-color: var(--brass);
+    color: var(--parchment);
+  }
+
+  .instrument-tab.active {
+    background: var(--brass-dark);
+    border-color: var(--brass);
+    color: var(--parchment);
+  }
+
+  .instrument-tab:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 </style>
