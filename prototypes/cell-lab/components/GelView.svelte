@@ -6,9 +6,11 @@
     lanes: GelLane[];
     wellCount?: number;
     dragActive?: boolean;
+    excisedBands?: Set<string>;
+    onexcise?: (laneIndex: number, bandBp: number) => void;
   }
 
-  let { lanes, wellCount = 5, dragActive = false }: Props = $props();
+  let { lanes, wellCount = 5, dragActive = false, excisedBands, onexcise }: Props = $props();
 
   const maxBp = Math.max(...GEL_LADDER);
   const minBp = Math.min(...GEL_LADDER);
@@ -18,6 +20,18 @@
     const logMin = Math.log(minBp);
     const logBp = Math.log(Math.max(bp, minBp));
     return ((logMax - logBp) / (logMax - logMin)) * 100;
+  }
+
+  function bandKey(laneIdx: number, bp: number) {
+    return `${laneIdx}-${bp}`;
+  }
+
+  /** Band thickness varies by size — larger fragments appear slightly thicker */
+  function bandHeight(bp: number): number {
+    const log = Math.log(bp);
+    const logMin = Math.log(100);
+    const logMax = Math.log(5000);
+    return 2 + 4 * ((log - logMin) / (logMax - logMin));
   }
 </script>
 
@@ -63,9 +77,25 @@
       <div class="gel-lane">
         {#if lanes[i]}
           {#each lanes[i].bands as bp}
-            <div class="gel-band" style:top="{bandY(bp)}%">
-              <div class="band-line sample-line"></div>
-            </div>
+            {@const key = bandKey(i, bp)}
+            {@const isExcised = excisedBands?.has(key)}
+            {#if isExcised}
+              <div class="gel-band" style:top="{bandY(bp)}%">
+                <div class="band-line excised-line" style:height="{bandHeight(bp)}px"></div>
+              </div>
+            {:else}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="gel-band"
+                class:clickable={!!onexcise}
+                style:top="{bandY(bp)}%"
+                onclick={() => onexcise?.(i, bp)}
+                title={onexcise ? `Click to excise band` : undefined}
+              >
+                <div class="band-line sample-line" style:height="{bandHeight(bp)}px"></div>
+              </div>
+            {/if}
           {/each}
         {/if}
       </div>
@@ -206,9 +236,22 @@
   }
 
   .sample-line {
-    height: 4px;
     background: rgba(120, 255, 120, 0.7);
     box-shadow: 0 0 8px rgba(120, 255, 120, 0.3);
+  }
+
+  .excised-line {
+    background: transparent;
+    border: 1px dashed rgba(200, 200, 200, 0.25);
+  }
+
+  .clickable {
+    cursor: pointer;
+  }
+
+  .clickable:hover .sample-line {
+    background: rgba(180, 255, 180, 1);
+    box-shadow: 0 0 14px rgba(120, 255, 120, 0.6);
   }
 
   .gel-hint {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DeskItem, PcrResult, GelResult, ReferenceData } from '../lib/lab-types';
+  import type { DeskItem, PcrResult, GelResult, ReferenceData, ExcisedBandData } from '../lib/lab-types';
   import { GEL_LADDER } from '../lib/lab-puzzles';
 
   interface Props {
@@ -27,8 +27,12 @@
     const item = items.find(d => d.id === id);
     if (!item || !deskEl) return;
 
-    // PCR tubes with bands are grabbed for instrument loading
+    // PCR tubes with bands and excised bands are grabbed for instrument loading / repositioning
     if (item.type === 'pcr-tube' && isPcr(item.data) && item.data.bandSize) {
+      ontubegrab(item.id, e);
+      return;
+    }
+    if (item.type === 'excised-band') {
       ontubegrab(item.id, e);
       return;
     }
@@ -60,6 +64,10 @@
 
   function isRef(data: DeskItem['data']): data is ReferenceData & { page?: number } {
     return 'geneTable' in data;
+  }
+
+  function isExcised(data: DeskItem['data']): data is ExcisedBandData {
+    return 'bandBp' in data && 'sequence' in data;
   }
 
   function isAnswerSheet(data: DeskItem['data']): data is { genes: string[] } {
@@ -97,7 +105,7 @@
       <!-- Title bar -->
       <div class="item-title-bar">
         <span class="item-icon">
-          {item.type === 'pcr-tube' ? '🧪' : item.type === 'gel-photo' ? '⚡' : item.type === 'reference-book' ? '📖' : '📝'}
+          {item.type === 'pcr-tube' ? '🧪' : item.type === 'gel-photo' ? '⚡' : item.type === 'reference-book' ? '📖' : item.type === 'excised-band' ? '🔬' : '📝'}
         </span>
         <span class="item-label">{item.label}</span>
       </div>
@@ -128,7 +136,7 @@
               <div class="gel-lane sample">
                 <span class="lane-lbl">{lane.label}</span>
                 {#each lane.bands as bp}
-                  <div class="gel-band sample-band" style:top="{bandY(bp)}%" title="{bp} bp"></div>
+                  <div class="gel-band sample-band" style:top="{bandY(bp)}%"></div>
                 {/each}
               </div>
             {/each}
@@ -140,32 +148,61 @@
       {#if item.type === 'reference-book' && isRef(item.data)}
         {@const page = (item.data as ReferenceData & { page?: number }).page ?? 0}
         {@const perPage = 12}
-        {@const totalPages = Math.ceil(item.data.geneTable.length / perPage)}
-        {@const pageGenes = item.data.geneTable.slice(page * perPage, (page + 1) * perPage)}
+        {@const geneTablePages = Math.ceil(item.data.geneTable.length / perPage)}
+        {@const seqEntries = item.data.geneSequences ? Object.entries(item.data.geneSequences) : []}
+        {@const seqPerPage = 8}
+        {@const seqPages = seqEntries.length > 0 ? Math.ceil(seqEntries.length / seqPerPage) : 0}
+        {@const totalPages = geneTablePages + seqPages}
+        {@const isSeqPage = page >= geneTablePages}
+        {@const seqPageIdx = page - geneTablePages}
         <div class="card-body book-card">
           <div class="book-page">
-            {#if item.data.notes && page === 0}
-              <div class="book-notes">
-                {#each item.data.notes as note}
-                  <p class="book-note">📌 {note}</p>
-                {/each}
-              </div>
-              <hr class="book-divider" />
+            {#if !isSeqPage}
+              {@const pageGenes = item.data.geneTable.slice(page * perPage, (page + 1) * perPage)}
+              {#if item.data.notes && page === 0}
+                <div class="book-notes">
+                  {#each item.data.notes as note}
+                    <p class="book-note">📌 {note}</p>
+                  {/each}
+                </div>
+                <hr class="book-divider" />
+              {/if}
+              <table class="gene-tbl">
+                <thead><tr><th>Gene</th><th>Full Name</th><th>bp</th></tr></thead>
+                <tbody>
+                  {#each pageGenes as gene}
+                    <tr><td>{gene.name}</td><td class="full-name">{gene.fullName ?? ''}</td><td>{gene.length}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else}
+              {@const pageSeqs = seqEntries.slice(seqPageIdx * seqPerPage, (seqPageIdx + 1) * seqPerPage)}
+              {#if seqPageIdx === 0}
+                <p class="book-note">🧬 Gene Sequences (first 12 bases)</p>
+                <hr class="book-divider" />
+              {/if}
+              <table class="gene-tbl seq-tbl">
+                <thead><tr><th>Gene</th><th>Sequence</th></tr></thead>
+                <tbody>
+                  {#each pageSeqs as [name, seq]}
+                    <tr><td>{name}</td><td class="seq-cell">{seq.slice(0, 12)}…</td></tr>
+                  {/each}
+                </tbody>
+              </table>
             {/if}
-            <table class="gene-tbl">
-              <thead><tr><th>Gene</th><th>bp</th></tr></thead>
-              <tbody>
-                {#each pageGenes as gene}
-                  <tr><td>{gene.name}</td><td>{gene.length}</td></tr>
-                {/each}
-              </tbody>
-            </table>
           </div>
           <div class="page-nav">
             <button class="page-btn" disabled={page <= 0} onclick={() => onpageflip(item.id, -1)}>◀</button>
             <span class="page-num">p. {page + 1} / {totalPages}</span>
             <button class="page-btn" disabled={page >= totalPages - 1} onclick={() => onpageflip(item.id, 1)}>▶</button>
           </div>
+        </div>
+      {/if}
+
+      <!-- Excised Band card -->
+      {#if item.type === 'excised-band' && isExcised(item.data)}
+        <div class="card-body pcr-card">
+          <span class="pcr-status">Excised gel band</span>
         </div>
       {/if}
 
@@ -284,6 +321,7 @@
     color: #f87171;
   }
 
+
   /* Gel card */
   .mini-gel {
     display: flex;
@@ -350,7 +388,8 @@
 
   .book-page {
     padding: 12px 14px 8px;
-    min-height: 180px;
+    height: 280px;
+    overflow-y: auto;
     background:
       linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 3%, transparent 97%, rgba(0,0,0,0.05) 100%),
       repeating-linear-gradient(transparent, transparent 23px, rgba(0,0,0,0.04) 23px, rgba(0,0,0,0.04) 24px);
@@ -396,8 +435,21 @@
     color: #2a2a2a;
   }
 
+  .full-name {
+    font-family: var(--font-body);
+    font-size: 0.55rem;
+    color: #6a5a4a;
+    font-style: italic;
+  }
+
   .gene-tbl tbody tr:nth-child(even) {
     background: rgba(0, 0, 0, 0.03);
+  }
+
+  .seq-cell {
+    font-family: var(--font-mono, 'Courier New', monospace);
+    font-size: 10px;
+    letter-spacing: 1px;
   }
 
   .page-nav {

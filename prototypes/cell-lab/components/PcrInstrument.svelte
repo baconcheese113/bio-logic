@@ -31,8 +31,8 @@
   // Computed primer stats
   const fwdPos = $derived(Math.round(fwdFrac * plasmid.totalLength));
   const revPos = $derived(Math.round(revFrac * plasmid.totalLength));
-  const fwdGc = $derived(estimateGc(fwdPos, fwdLength, plasmid.totalLength));
-  const revGc = $derived(estimateGc(revPos, revLength, plasmid.totalLength));
+  const fwdGc = $derived(estimateGc(fwdPos, plasmid.totalLength));
+  const revGc = $derived(estimateGc(revPos, plasmid.totalLength));
   const fwdTm = $derived(Math.round(estimateTm(fwdLength, fwdGc)));
   const revTm = $derived(Math.round(estimateTm(revLength, revGc)));
 

@@ -3,8 +3,8 @@
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
   import type { BioPart, SimulationResult, TestResult } from './lib/types';
-  import type { DeskItem } from './lib/lab-types';
-  import { LAB_PUZZLES } from './lib/lab-puzzles';
+  import type { DeskItem, PcrResult, ExcisedBandData } from './lib/lab-types';
+  import { LAB_PUZZLES, GENE_SEQUENCES } from './lib/lab-puzzles';
 
   import CellView from './components/CellView.svelte';
   import DnaStrand from './components/DnaStrand.svelte';
@@ -12,6 +12,7 @@
   import PartsLibrary from './components/PartsLibrary.svelte';
   import PcrInstrument from './components/PcrInstrument.svelte';
   import GelView from './components/GelView.svelte';
+  import SequencerView from './components/SequencerView.svelte';
   import DeskSurface from './components/DeskSurface.svelte';
 
   // Unified puzzle nav: strand puzzles then lab puzzles
@@ -66,11 +67,13 @@
 
   // ── Lab puzzle state ─────────────────────────────────────────────
   const labPuzzle = $derived(LAB_PUZZLES[Math.max(0, labPuzzleOffset)]);
-  let labInstrument = $state<'pcr' | 'gel' | 'cell'>('cell');
+  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer'>('cell');
   let deskItems = $state<DeskItem[]>([]);
   let gelLanes = $state<{ label: string; bands: number[] }[]>([]);
   let labTubeCount = $state(0);
   let wrongGuesses = $state<Set<string>>(new Set());
+  let excisedBands = $state<Set<string>>(new Set());
+  let sequencerBand = $state<ExcisedBandData | null>(null);
   const MAX_GUESSES = 3;
 
   // Cross-area tube drag state
@@ -184,13 +187,15 @@
       gelLanes = [];
       labTubeCount = 0;
       wrongGuesses = new Set();
+      excisedBands = new Set();
+      sequencerBand = null;
       sidebarTab = 'instruments';
       deskItems = [
         {
           id: 'ref-book',
           type: 'reference-book',
           label: 'Gene Reference',
-          data: { ...lp.reference, page: 0 },
+          data: { ...lp.reference, geneSequences: lp.geneSequences, page: 0 },
           x: 10,
           y: 10,
         },
@@ -218,11 +223,14 @@
   // Lab helpers
   function handlePcrResult(bandSize: number | null, failReason?: string) {
     labTubeCount++;
+    const extraBands = (bandSize && labPuzzle.contaminantBands)
+      ? labPuzzle.contaminantBands.map(b => b.bp)
+      : [];
     const item: DeskItem = {
       id: `tube-${labTubeCount}`,
       type: 'pcr-tube',
       label: `PCR #${labTubeCount}`,
-      data: { bandSize, failReason },
+      data: { bandSize, failReason, extraBands } satisfies PcrResult,
       x: 10 + (labTubeCount - 1) * 160,
       y: 180,
     };
@@ -232,10 +240,42 @@
   function handleLoadGel(tubeId: string) {
     const item = deskItems.find(d => d.id === tubeId);
     if (!item || item.type !== 'pcr-tube') return;
-    const data = item.data as { bandSize: number | null };
+    const data = item.data as PcrResult;
     if (!data.bandSize) return;
-    gelLanes = [...gelLanes, { label: item.label, bands: [data.bandSize] }];
+    const bands = [data.bandSize, ...(data.extraBands ?? [])];
+    gelLanes = [...gelLanes, { label: item.label, bands }];
     labInstrument = 'gel';
+  }
+
+  function handleGelExcise(laneIndex: number, bandBp: number) {
+    const key = `${laneIndex}-${bandBp}`;
+    if (excisedBands.has(key)) return;
+    excisedBands = new Set([...excisedBands, key]);
+
+    // Find the sequence for this band
+    const contaminant = labPuzzle.contaminantBands?.find(b => b.bp === bandBp);
+    const sequence = contaminant?.sequence
+      ?? GENE_SEQUENCES[labPuzzle.actualInsert.name]
+      ?? 'ATGNNNNNNNNNNNNNNNNNNNNNNNNNNNN';
+
+    const exciseCount = excisedBands.size + 1;
+    const sourceLabel = gelLanes[laneIndex]?.label ?? '';
+    const item: DeskItem = {
+      id: `excised-${Date.now()}`,
+      type: 'excised-band',
+      label: `Excised Band #${exciseCount}`,
+      data: { bandBp, sequence, sourceLabel } satisfies ExcisedBandData,
+      x: 10,
+      y: 320,
+    };
+    deskItems = [...deskItems, item];
+  }
+
+  function handleLoadSequencer(itemId: string) {
+    const item = deskItems.find(d => d.id === itemId);
+    if (!item || item.type !== 'excised-band') return;
+    sequencerBand = item.data as ExcisedBandData;
+    labInstrument = 'sequencer';
   }
 
   function handleTubeGrab(tubeId: string, e: PointerEvent) {
@@ -252,8 +292,20 @@
 
       const el = document.elementFromPoint(ev.clientX, ev.clientY);
       const wellEl = el?.closest('[data-gel-well]');
+      const seqEl = el?.closest('[data-seq-well]');
       if (wellEl && tubeDrag) {
         handleLoadGel(tubeDrag.id);
+      } else if (seqEl && tubeDrag) {
+        handleLoadSequencer(tubeDrag.id);
+      } else if (tubeDrag) {
+        // Dropped on desk — reposition the item
+        const deskEl = document.querySelector('.desk');
+        if (deskEl) {
+          const rect = deskEl.getBoundingClientRect();
+          const x = Math.max(0, ev.clientX - rect.left - 70);
+          const y = Math.max(0, ev.clientY - rect.top - 20);
+          handleDeskMove(tubeDrag.id, x, y);
+        }
       }
       tubeDrag = null;
     };
@@ -356,6 +408,13 @@
               class:active={labInstrument === 'gel'}
               onclick={() => labInstrument = 'gel'}
             >⚡ Gel Box</button>
+            {#if labPuzzle.instruments.includes('sequencer')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'sequencer'}
+                onclick={() => labInstrument = 'sequencer'}
+              >🔬 Sequencer</button>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -442,7 +501,14 @@
         {:else if labInstrument === 'pcr' && isLabPuzzle}
           <PcrInstrument plasmid={labPuzzle.plasmid} onresult={handlePcrResult} />
         {:else if labInstrument === 'gel' && isLabPuzzle}
-          <GelView lanes={gelLanes} dragActive={tubeDrag !== null} />
+          <GelView
+            lanes={gelLanes}
+            dragActive={tubeDrag !== null}
+            {excisedBands}
+            onexcise={labPuzzle.instruments.includes('sequencer') ? handleGelExcise : undefined}
+          />
+        {:else if labInstrument === 'sequencer' && isLabPuzzle}
+          <SequencerView loadedBand={sequencerBand} dragActive={tubeDrag !== null} />
         {/if}
 
         {#if puzzleComplete}
@@ -495,11 +561,12 @@
   </footer>
 
   {#if tubeDrag}
+    {@const dragItem = deskItems.find(d => d.id === tubeDrag?.id)}
     <div
       class="tube-ghost"
       style:left="{tubeDrag.x}px"
       style:top="{tubeDrag.y}px"
-    >🧪 {tubeDrag.label}</div>
+    >{dragItem?.type === 'excised-band' ? '🔬' : '🧪'} {tubeDrag.label}</div>
   {/if}
 </main>
 
