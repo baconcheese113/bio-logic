@@ -6,7 +6,7 @@ const MIN_PRIMER_LENGTH = 16;
 const MAX_PRIMER_LENGTH = 30;
 
 /** GC content of a sequence (simplified: use position-based approximation) */
-export function estimateGc(start: number, length: number, totalLength: number): number {
+export function estimateGc(start: number, totalLength: number): number {
   // Vary GC by position to make some regions harder to design primers for
   const pos = start / totalLength;
   const base = 0.45 + 0.15 * Math.sin(pos * Math.PI * 4);
@@ -44,8 +44,8 @@ export function runPcr(
   }
 
   // Validate Tm range (55-65°C)
-  const fwdGc = estimateGc(forward.position, forward.length, plasmid.totalLength);
-  const revGc = estimateGc(reverse.position, reverse.length, plasmid.totalLength);
+  const fwdGc = estimateGc(forward.position, plasmid.totalLength);
+  const revGc = estimateGc(reverse.position, plasmid.totalLength);
   const fwdTm = estimateTm(forward.length, fwdGc);
   const revTm = estimateTm(reverse.length, revGc);
 
