@@ -1,4 +1,4 @@
-import type { GeneEntry, LabPuzzle } from './lab-types';
+import type { BookEntry, GeneEntry, GeneIcon, LabPuzzle } from './lab-types';
 
 /** 30+ genes with unique lengths (rounded to 20 bp) for the reference table */
 const GENE_TABLE: GeneEntry[] = [
@@ -83,6 +83,107 @@ export const GEL_LADDER = [100, 200, 300, 400, 500, 600, 800, 1000, 1500, 2000, 
 
 export { GENE_SEQUENCES };
 
+/** Infer a function-category icon from a gene name. Falls back to 'unknown'. */
+const GENE_ICON_MAP: Record<string, GeneIcon> = {
+  'Insulin': 'structural',
+  'lacZ-α': 'enzyme',
+  'GFP': 'fluorescent', 'RFP': 'fluorescent', 'mCherry': 'fluorescent', 'BFP': 'fluorescent', 'YFP': 'fluorescent',
+  'luciferase': 'enzyme',
+  'β-lactamase': 'resistance', 'kanR': 'resistance', 'cmR': 'resistance', 'ampR': 'resistance',
+  'hygR': 'resistance', 'zeoR': 'resistance', 'bla-TEM': 'resistance', 'CAT': 'resistance', 'nptII': 'resistance',
+  'tetR': 'regulator', 'lacI': 'regulator', 'araC': 'regulator', 'p53': 'regulator', 'myc': 'regulator',
+  'gyrB': 'enzyme', 'recA': 'enzyme', 'trpE': 'enzyme', 'galK': 'enzyme', 'phoA': 'enzyme', 'rpoB': 'enzyme',
+  'BRCA1': 'structural', 'malE': 'structural', 'ompF': 'structural', 'dnaK': 'structural', 'groEL': 'structural',
+  'toxA': 'structural', 'invA': 'structural',
+};
+
+/** Short (≤10-word) role line for each gene. Shown on the book's gene card. */
+const GENE_ROLE_LINES: Record<string, string> = {
+  'Insulin': 'Human hormone, regulates blood sugar',
+  'lacZ-α': 'Enzyme fragment for blue-white screening',
+  'GFP': 'Glows green under UV light',
+  'RFP': 'Glows red under UV light',
+  'mCherry': 'Bright red fluorescent tag',
+  'BFP': 'Glows blue under UV light',
+  'YFP': 'Glows yellow under UV light',
+  'luciferase': 'Makes light with luciferin substrate',
+  'β-lactamase': 'Destroys β-lactam antibiotics like penicillin',
+  'kanR': 'Confers kanamycin antibiotic resistance',
+  'cmR': 'Confers chloramphenicol antibiotic resistance',
+  'tetR': 'Represses genes unless tetracycline present',
+  'ampR': 'Confers ampicillin antibiotic resistance',
+  'hygR': 'Confers hygromycin antibiotic resistance',
+  'zeoR': 'Confers zeocin antibiotic resistance',
+  'gyrB': 'DNA gyrase; species identification marker',
+  'recA': 'DNA repair and recombination enzyme',
+  'p53': 'Tumor suppressor; guardian of the genome',
+  'myc': 'Proto-oncogene; drives cell proliferation',
+  'BRCA1': 'DNA repair; cancer susceptibility gene',
+  'lacI': 'Represses lac operon without lactose',
+  'araC': 'Regulates arabinose metabolism genes',
+  'trpE': 'Tryptophan biosynthesis enzyme',
+  'galK': 'Galactose metabolism enzyme',
+  'phoA': 'Alkaline phosphatase; reporter gene',
+  'malE': 'Maltose-binding; common fusion tag',
+  'ompF': 'Outer membrane porin protein',
+  'dnaK': 'Heat-shock chaperone (Hsp70)',
+  'groEL': 'Heat-shock chaperone (Hsp60)',
+  'rpoB': 'RNA polymerase core subunit',
+  'toxA': 'Pseudomonas exotoxin; pathogenicity marker',
+  'invA': 'Salmonella invasin; pathogenicity marker',
+  'bla-TEM': 'Classic β-lactamase; ampicillin resistance',
+  'CAT': 'Chloramphenicol resistance enzyme',
+  'nptII': 'Neomycin/kanamycin resistance (eukaryotes)',
+};
+
+/** Instrument reference entries. Shared across all puzzles. */
+const INSTRUMENT_ENTRIES: BookEntry[] = [
+  {
+    section: 'instruments', id: 'pcr', name: 'PCR Machine', icon: 'pcr',
+    measures: 'Amplifies DNA between two chosen primers',
+    useWhen: 'You need to copy or detect a specific gene',
+    thumbnail: 'pcr-tube',
+  },
+  {
+    section: 'instruments', id: 'gel', name: 'Gel Electrophoresis', icon: 'gel',
+    measures: 'Separates DNA fragments by size',
+    useWhen: 'You need to check size of a PCR product',
+    thumbnail: 'gel-bands',
+  },
+  {
+    section: 'instruments', id: 'sequencer', name: 'Sanger Sequencer', icon: 'sequencer',
+    measures: 'Reads the base-by-base DNA sequence',
+    useWhen: 'You need exact gene identity',
+    thumbnail: 'chromatogram',
+  },
+];
+
+/** Build visual-first book entries from a puzzle's reference data. */
+export function buildBookEntries(ref: {
+  geneTable: GeneEntry[];
+  geneSequences?: Record<string, string>;
+  notes?: string[];
+}): BookEntry[] {
+  const genes: BookEntry[] = ref.geneTable.map(g => ({
+    section: 'genes' as const,
+    id: g.name,
+    name: g.name,
+    fullName: g.fullName,
+    length: g.length,
+    sequence: ref.geneSequences?.[g.name] ?? '',
+    icon: GENE_ICON_MAP[g.name] ?? 'unknown',
+    roleLine: GENE_ROLE_LINES[g.name] ?? 'Function not annotated',
+  }));
+
+  const caseNotes: BookEntry[] = (ref.notes ?? []).map((bullet, i) => ({
+    section: 'case-notes' as const,
+    id: `note-${i}`,
+    bullet,
+  }));
+
+  return [...genes, ...INSTRUMENT_ENTRIES, ...caseNotes];
+}
+
 export const PUZZLE_VERIFY_INSERT: LabPuzzle = {
   id: 'L1',
   title: 'Verify the Insert',
@@ -101,8 +202,9 @@ export const PUZZLE_VERIFY_INSERT: LabPuzzle = {
   reference: {
     geneTable: GENE_TABLE,
     notes: [
-      'Design primers that flank the insert, run PCR, then load the product on a gel to measure its size.',
-      'Cross-reference the band size against the gene table to identify the gene.',
+      'Design primers that flank the insert',
+      'PCR then gel to measure the band',
+      'Match size against the Genes section',
     ],
   },
   actualInsert: { name: 'GFP', length: 720 },
@@ -129,8 +231,8 @@ export const PUZZLE_CONTAMINATED_SAMPLE: LabPuzzle = {
   reference: {
     geneTable: GENE_TABLE,
     notes: [
-      'Use the PCR machine, gel box, and sequencer to investigate the sample.',
-      'The gene reference table lists known genes and their expected sizes.',
+      'Examine the sample with PCR, gel, and sequencer',
+      'Genes section lists expected sizes per gene',
     ],
   },
   actualInsert: { name: 'GFP', length: 720 },

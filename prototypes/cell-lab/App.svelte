@@ -3,8 +3,8 @@
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
   import type { BioPart, SimulationResult, TestResult } from './lib/types';
-  import type { DeskItem, PcrResult, ExcisedBandData } from './lib/lab-types';
-  import { LAB_PUZZLES, GENE_SEQUENCES } from './lib/lab-puzzles';
+  import type { DeskItem, PcrResult, ExcisedBandData, BookSection } from './lib/lab-types';
+  import { LAB_PUZZLES, GENE_SEQUENCES, buildBookEntries } from './lib/lab-puzzles';
 
   import CellView from './components/CellView.svelte';
   import DnaStrand from './components/DnaStrand.svelte';
@@ -14,6 +14,7 @@
   import GelView from './components/GelView.svelte';
   import SequencerView from './components/SequencerView.svelte';
   import DeskSurface from './components/DeskSurface.svelte';
+  import ReferenceBook from './components/ReferenceBook.svelte';
 
   // Unified puzzle nav: strand puzzles then lab puzzles
   const STRAND_COUNT = PUZZLES.length;
@@ -78,6 +79,12 @@
 
   // Cross-area tube drag state
   let tubeDrag = $state<{ id: string; label: string; x: number; y: number } | null>(null);
+
+  // Reference book open state
+  let bookOpen = $state(false);
+  let bookSection = $state<BookSection>('toc');
+  let bookPage = $state(0);
+  const bookEntries = $derived(isLabPuzzle ? buildBookEntries(labPuzzle.reference) : []);
 
   // ── Shared title/goal derived from current puzzle ────────────────
   const currentTitle = $derived(isLabPuzzle ? labPuzzle.title : puzzle.title);
@@ -190,6 +197,9 @@
       excisedBands = new Set();
       sequencerBand = null;
       sidebarTab = 'instruments';
+      bookOpen = false;
+      bookSection = 'toc';
+      bookPage = 0;
       deskItems = [
         {
           id: 'ref-book',
@@ -330,13 +340,8 @@
     }
   }
 
-  function handlePageFlip(id: string, dir: 1 | -1) {
-    deskItems = deskItems.map(d => {
-      if (d.id !== id || d.type !== 'reference-book') return d;
-      const data = d.data as { page?: number };
-      const page = (data.page ?? 0) + dir;
-      return { ...d, data: { ...d.data, page } };
-    });
+  function handleBookOpen(_id: string) {
+    bookOpen = true;
   }
 </script>
 
@@ -530,11 +535,24 @@
           onmove={handleDeskMove}
           ontubegrab={handleTubeGrab}
           onanswer={handleDeskAnswer}
-          onpageflip={handlePageFlip}
+          onbookopen={handleBookOpen}
           wrongGuesses={wrongGuesses}
           maxGuesses={MAX_GUESSES}
           draggedTubeId={tubeDrag?.id}
         />
+        {#if bookOpen && isLabPuzzle}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="book-backdrop" role="presentation" onclick={() => bookOpen = false}></div>
+          <div class="book-overlay">
+            <ReferenceBook
+              entries={bookEntries}
+              section={bookSection}
+              page={bookPage}
+              onsection={(s) => bookSection = s}
+              onpage={(p) => bookPage = p}
+            />
+          </div>
+        {/if}
       </section>
     </div>
   </div>
@@ -1004,10 +1022,25 @@
 
   /* Desk section */
   .desk-section {
+    position: relative;
     flex: 1;
     display: flex;
     min-height: 180px;
     border-top: 1px solid var(--brass-dark);
+  }
+
+  .book-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  .book-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 50;
   }
 
   /* Lab sidebar instruments */

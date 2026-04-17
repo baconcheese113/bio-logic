@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DeskItem, PcrResult, GelResult, ReferenceData, ExcisedBandData } from '../lib/lab-types';
+  import type { DeskItem, PcrResult, GelResult, ExcisedBandData } from '../lib/lab-types';
   import { GEL_LADDER } from '../lib/lab-puzzles';
 
   interface Props {
@@ -7,13 +7,13 @@
     onmove: (id: string, x: number, y: number) => void;
     ontubegrab: (tubeId: string, e: PointerEvent) => void;
     onanswer: (gene: string) => void;
-    onpageflip: (id: string, dir: 1 | -1) => void;
+    onbookopen: (id: string) => void;
     wrongGuesses: Set<string>;
     maxGuesses: number;
     draggedTubeId?: string | null;
   }
 
-  let { items, onmove, ontubegrab, onanswer, onpageflip, wrongGuesses, maxGuesses, draggedTubeId = null }: Props = $props();
+  let { items, onmove, ontubegrab, onanswer, onbookopen, wrongGuesses, maxGuesses, draggedTubeId = null }: Props = $props();
 
   let deskEl: HTMLDivElement | undefined = $state();
   let dragging = $state<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -60,10 +60,6 @@
 
   function isGel(data: DeskItem['data']): data is GelResult {
     return 'lanes' in data && 'ladder' in data;
-  }
-
-  function isRef(data: DeskItem['data']): data is ReferenceData & { page?: number } {
-    return 'geneTable' in data;
   }
 
   function isExcised(data: DeskItem['data']): data is ExcisedBandData {
@@ -144,58 +140,14 @@
         </div>
       {/if}
 
-      <!-- Reference Book pages -->
-      {#if item.type === 'reference-book' && isRef(item.data)}
-        {@const page = (item.data as ReferenceData & { page?: number }).page ?? 0}
-        {@const perPage = 12}
-        {@const geneTablePages = Math.ceil(item.data.geneTable.length / perPage)}
-        {@const seqEntries = item.data.geneSequences ? Object.entries(item.data.geneSequences) : []}
-        {@const seqPerPage = 8}
-        {@const seqPages = seqEntries.length > 0 ? Math.ceil(seqEntries.length / seqPerPage) : 0}
-        {@const totalPages = geneTablePages + seqPages}
-        {@const isSeqPage = page >= geneTablePages}
-        {@const seqPageIdx = page - geneTablePages}
-        <div class="card-body book-card">
-          <div class="book-page">
-            {#if !isSeqPage}
-              {@const pageGenes = item.data.geneTable.slice(page * perPage, (page + 1) * perPage)}
-              {#if item.data.notes && page === 0}
-                <div class="book-notes">
-                  {#each item.data.notes as note}
-                    <p class="book-note">📌 {note}</p>
-                  {/each}
-                </div>
-                <hr class="book-divider" />
-              {/if}
-              <table class="gene-tbl">
-                <thead><tr><th>Gene</th><th>Full Name</th><th>bp</th></tr></thead>
-                <tbody>
-                  {#each pageGenes as gene}
-                    <tr><td>{gene.name}</td><td class="full-name">{gene.fullName ?? ''}</td><td>{gene.length}</td></tr>
-                  {/each}
-                </tbody>
-              </table>
-            {:else}
-              {@const pageSeqs = seqEntries.slice(seqPageIdx * seqPerPage, (seqPageIdx + 1) * seqPerPage)}
-              {#if seqPageIdx === 0}
-                <p class="book-note">🧬 Gene Sequences (first 12 bases)</p>
-                <hr class="book-divider" />
-              {/if}
-              <table class="gene-tbl seq-tbl">
-                <thead><tr><th>Gene</th><th>Sequence</th></tr></thead>
-                <tbody>
-                  {#each pageSeqs as [name, seq]}
-                    <tr><td>{name}</td><td class="seq-cell">{seq.slice(0, 12)}…</td></tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-          </div>
-          <div class="page-nav">
-            <button class="page-btn" disabled={page <= 0} onclick={() => onpageflip(item.id, -1)}>◀</button>
-            <span class="page-num">p. {page + 1} / {totalPages}</span>
-            <button class="page-btn" disabled={page >= totalPages - 1} onclick={() => onpageflip(item.id, 1)}>▶</button>
-          </div>
+      <!-- Reference Book (closed card — click to open) -->
+      {#if item.type === 'reference-book'}
+        <div class="card-body book-closed">
+          <button
+            class="book-open-btn"
+            onpointerdown={(e) => e.stopPropagation()}
+            onclick={() => onbookopen(item.id)}
+          >Open Reference Book</button>
         </div>
       {/if}
 
@@ -378,115 +330,26 @@
     box-shadow: 0 0 6px rgba(120, 255, 120, 0.3);
   }
 
-  /* Book card */
-  .book-card {
-    background: #f5f0e0;
-    border-radius: 0 0 6px 6px;
-    padding: 0;
-    overflow: hidden;
-  }
-
-  .book-page {
-    padding: 12px 14px 8px;
-    height: 280px;
-    overflow-y: auto;
-    background:
-      linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 3%, transparent 97%, rgba(0,0,0,0.05) 100%),
-      repeating-linear-gradient(transparent, transparent 23px, rgba(0,0,0,0.04) 23px, rgba(0,0,0,0.04) 24px);
-  }
-
-  .book-divider {
-    border: none;
-    border-top: 1px solid rgba(0,0,0,0.12);
-    margin: 6px 0;
-  }
-
-  .book-notes {
-    margin-bottom: 4px;
-  }
-
-  .book-note {
-    font-size: 0.7rem;
-    color: #5a4a3a;
-    margin: 0 0 4px;
-    line-height: 1.5;
-    font-style: italic;
-    font-family: var(--font-body);
-  }
-
-  .gene-tbl {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-  }
-
-  .gene-tbl th {
-    text-align: left;
-    color: #6a5a4a;
-    border-bottom: 1px solid rgba(0,0,0,0.15);
-    padding: 2px 6px;
-    font-size: 0.65rem;
-    font-weight: 700;
-  }
-
-  .gene-tbl td {
-    padding: 2px 6px;
-    color: #2a2a2a;
-  }
-
-  .full-name {
-    font-family: var(--font-body);
-    font-size: 0.55rem;
-    color: #6a5a4a;
-    font-style: italic;
-  }
-
-  .gene-tbl tbody tr:nth-child(even) {
-    background: rgba(0, 0, 0, 0.03);
-  }
-
-  .seq-cell {
-    font-family: var(--font-mono, 'Courier New', monospace);
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
-
-  .page-nav {
+  /* Book closed card */
+  .book-closed {
     display: flex;
-    align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 6px 0;
-    background: #e8e0d0;
-    border-top: 1px solid rgba(0,0,0,0.1);
+    padding: 10px;
   }
 
-  .page-btn {
-    background: #d8d0c0;
-    border: 1px solid rgba(0,0,0,0.15);
-    color: #5a4a3a;
-    padding: 3px 10px;
-    border-radius: 3px;
+  .book-open-btn {
+    background: #d8c6a0;
+    border: 1px solid rgba(120, 90, 40, 0.4);
+    color: #3a2a18;
+    padding: 6px 14px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-family: Georgia, serif;
   }
 
-  .page-btn:hover:not(:disabled) {
-    background: #c8c0b0;
-  }
-
-  .page-btn:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .page-num {
-    font-family: var(--font-body);
-    font-size: 0.7rem;
-    color: #6a5a4a;
-    font-style: italic;
+  .book-open-btn:hover {
+    background: #c8b690;
   }
 
   /* Answer sheet */

@@ -29,13 +29,32 @@ export interface PrimerSet {
   reverseSeq: string;
 }
 
+export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifacts' | 'case-notes';
+
+export type GeneIcon = 'fluorescent' | 'resistance' | 'regulator' | 'enzyme' | 'structural' | 'unknown';
+
+export type InstrumentIcon = 'pcr' | 'gel' | 'sequencer' | 'spectrophotometer' | 'elisa' | 'digest';
+
+export type ThumbnailKey = 'gel-bands' | 'chromatogram' | 'absorbance-curve' | 'pcr-tube' | 'fragment-pattern';
+
+export type BookEntry =
+  | { section: 'genes'; id: string; name: string; fullName?: string; length: number; sequence: string; icon: GeneIcon; roleLine: string }
+  | { section: 'instruments'; id: string; name: string; icon: InstrumentIcon; measures: string; useWhen: string; thumbnail: ThumbnailKey }
+  | { section: 'enzymes'; id: string; name: string; cutSite: string; fragmentPatternKey: ThumbnailKey }
+  | { section: 'artifacts'; id: string; name: string; thumbnail: ThumbnailKey; caption: string }
+  | { section: 'case-notes'; id: string; bullet: string };
+
 export interface ReferenceData {
   geneTable: GeneEntry[];
   notes?: string[];
   /** Gene sequences for sequencer reference (gene name → first N bases) */
   geneSequences?: Record<string, string>;
-  /** Current page index for desk display */
+  /** Current page index within the current section (for desk display) */
   page?: number;
+  /** Currently open section (for desk display) */
+  section?: BookSection;
+  /** Whether the book is currently open on the desk */
+  open?: boolean;
 }
 
 export interface PcrResult {
