@@ -61,7 +61,7 @@
   };
 
   const instrumentEmoji: Record<string, string> = {
-    pcr: '🧬', gel: '⚡', sequencer: '📊', spectrophotometer: '💡', elisa: '🎨', digest: '✂',
+    pcr: '🧬', gel: '⚡', sequencer: '📊', spectrophotometer: '💡', elisa: '🎨', digest: '✂', assembly: '🧩',
   };
 
   function jumpTo(s: BookSection) {
@@ -94,6 +94,12 @@
       <div class="gene-full-name">{g.fullName}</div>
     {/if}
     <div class="gene-role">{g.roleLine}</div>
+    {#if g.sequence}
+      {@const seq = g.sequence}
+      {@const MAX = 48}
+      {@const TAIL = 12}
+      <div class="gene-sequence">{#if seq.length <= MAX}{seq}{:else}{seq.slice(0, MAX - TAIL)}…{seq.slice(-TAIL)}{/if}</div>
+    {/if}
     {#if g.enzymeSites && g.enzymeSites.length > 0}
       <div class="gene-enzymes">
         {#each g.enzymeSites as es}
@@ -443,6 +449,19 @@
     color: #5a4028;
     line-height: 1.3;
     font-family: Georgia, serif;
+  }
+
+  .gene-sequence {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    color: #4a3820;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 3px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
   }
 
   .gene-full-name {

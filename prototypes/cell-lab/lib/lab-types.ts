@@ -33,7 +33,7 @@ export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifac
 
 export type GeneIcon = 'fluorescent' | 'resistance' | 'regulator' | 'enzyme' | 'structural' | 'unknown';
 
-export type InstrumentIcon = 'pcr' | 'gel' | 'sequencer' | 'spectrophotometer' | 'elisa' | 'digest';
+export type InstrumentIcon = 'pcr' | 'gel' | 'sequencer' | 'spectrophotometer' | 'elisa' | 'digest' | 'assembly';
 
 export type ThumbnailKey = 'gel-bands' | 'chromatogram' | 'absorbance-curve' | 'pcr-tube' | 'fragment-pattern';
 
@@ -144,7 +144,21 @@ export interface SamplePcrData {
   gelLaneBudget: number;
 }
 
-export type LabInstrumentType = 'pcr' | 'gel' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer';
+/** Shotgun assembly read */
+export interface AssemblyRead {
+  id: string;
+  sequence: string;
+}
+
+/** Puzzle data for shotgun assembly levels */
+export interface AssemblyPuzzleData {
+  reads: AssemblyRead[];
+  overlapK: number;
+  targetGene: string;
+  fullSequence: string;
+}
+
+export type LabInstrumentType = 'pcr' | 'gel' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly';
 
 /** Sequencer result displayed as chromatogram */
 export interface SequencerResult {
@@ -219,4 +233,6 @@ export interface LabPuzzle {
   answerMappingOptions?: string[];
   /** Starting sample tubes placed on desk at puzzle start */
   startingSamples?: string[];
+  /** Shotgun assembly puzzle data */
+  assemblyData?: AssemblyPuzzleData;
 }

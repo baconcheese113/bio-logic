@@ -50,3 +50,9 @@ Reuse styles from base.css when possible
 - **Minimum font size is 11px.** Nothing smaller — it's not legible.
 - Never use acronyms or jargon in-game that haven't been previously explained to the player.
 - Instrument UI must not reveal puzzle answers (e.g., fragment counts, cut-site locations for the actual insert) before the player runs the experiment and visualizes the result.
+
+## Puzzle Design
+
+- When designing new puzzles, it's important to maintain a large state space (or solution space) to prevent brute-forcing. If a single task has low combinatorial complexity, we can batch multiple challenges into a single submission to exponentially increase the total number of permutations.
+
+  - For example, imagine a puzzle where we ask the player to identify a plasmid by running pcr and then gel electrophoresis. If we only have 5 possible genes in the general bp size range, then that's a solution set of 5, however if we ask them to identify two plasmids and submit together, then there are 25 possible combinations as long as we don't tell the player which answer is wrong.

@@ -86,3 +86,7 @@ Whatever you have. The simulation can be rules-based, not physics-based: "if pro
 
 ## Validation Test
 After building, play puzzles 1-5 yourself. Then have one other person who knows nothing about biology play them. Watch where they get stuck, watch what they say out loud, watch whether they're curious about what the parts do or just mashing buttons. The signal you're looking for: do they spontaneously try things you didn't program a tutorial for? That's the sign the simulation is teaching them something. If they only do exactly what the on-screen prompts say, the simulation isn't speaking to them yet.
+
+## Additional Ideas
+- Player receives new entries in their Reference book as they play and complete levels, not always in order. They might need to skip to a different level to finish it before they're awarded with the reference material, or even instruments/parts, needed to complete the puzzle in this level.
+- Puzzles where the player needs to search the reference book for something, but purely based off the description. Like, needing to make an anti-venom, so first finding the gene/protein to sequence and then doing a 3d puzzle with the synthesized protein to find something that will bind.

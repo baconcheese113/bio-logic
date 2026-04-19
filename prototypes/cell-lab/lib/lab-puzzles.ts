@@ -1,4 +1,5 @@
-import type { BookEntry, GeneEntry, GeneIcon, LabPuzzle, RestrictionEnzyme } from './lab-types';
+import type { AssemblyPuzzleData, BookEntry, GeneEntry, GeneIcon, LabPuzzle, RestrictionEnzyme } from './lab-types';
+import { generateReads, shuffleReads } from './assembly-simulation';
 
 /** 30+ genes with unique lengths (rounded to 20 bp) for the reference table */
 const GENE_TABLE: GeneEntry[] = [
@@ -37,6 +38,13 @@ const GENE_TABLE: GeneEntry[] = [
   { name: 'bla-TEM', fullName: 'β-lactamase TEM-1', length: 860 },
   { name: 'CAT', fullName: 'Chloramphenicol acetyltransferase (type I)', length: 620 },
   { name: 'nptII', fullName: 'Neomycin phosphotransferase II', length: 795 },
+  // Short peptide genes (realistic CDS lengths ~70-135 bp)
+  { name: 'Magainin 2', fullName: 'Antimicrobial peptide (Xenopus laevis)', length: 72 },
+  { name: 'Melittin', fullName: 'Bee venom peptide (Apis mellifera)', length: 84 },
+  { name: 'hBD-1', fullName: 'Human β-defensin 1', length: 108 },
+  { name: 'LL-37', fullName: 'Cathelicidin antimicrobial peptide', length: 114 },
+  { name: 'Cecropin A', fullName: 'Antimicrobial peptide (Hyalophora cecropia)', length: 111 },
+  { name: 'Thymosin β4', fullName: 'Actin-sequestering peptide', length: 135 },
 ];
 
 /** First 30 bases of each gene (for sequencer reference) */
@@ -76,12 +84,31 @@ const GENE_SEQUENCES: Record<string, string> = {
   'bla-TEM':      'ATGAGTCATTTTTCTACTGCGGCAGCATGA',
   'CAT':          'ATGGAGAAAAAAATCACTGGATACACCACCC',
   'nptII':        'ATGATTGAACAAGATGGATTGCACGCAGGT',
+  'Magainin 2':   'ATGGGTAAACTGATCGCTAAGGGCAAAGGT',
+  'Melittin':     'ATGGCGATTCTGAAAATTATTCTGAGTGTG',
+  'hBD-1':        'ATGTCCCTGTTTACTTGTGCTTTGGCCATA',
+  'LL-37':        'ATGAAAGCCTTGAAACTGATCCTGAGCGTT',
+  'Cecropin A':   'ATGAAATGGAAACTGTTCAAAGCTATCGGT',
+  'Thymosin β4':  'ATGTCTGACAAACCCGATATGGCTGAGATC',
 };
 
 /** Standard gel ladder sizes */
 export const GEL_LADDER = [100, 200, 300, 400, 500, 600, 800, 1000, 1500, 2000, 3000, 5000];
 
 export { GENE_SEQUENCES };
+
+/**
+ * Extended gene sequences (~80 bp) for the assembly puzzle.
+ * The player assembles overlapping reads, then matches the contig
+ * against these partial sequences shown in the reference book.
+ */
+const ASSEMBLY_GENE_SEQUENCES: Record<string, string> = {
+  'GFP':     'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGC',
+  'Insulin': 'ATGTTCGTCAACCAGCACCTGTGCGGCTCACACCTGGTGGAAGCTCTCTACCTAGTGTGCGGGGAACGAGGCTTCT',
+  'lacZ-α':  'ATGACCATGATTACGCCAAGCTATTTAGGTGACACTATAGAATACTCAAGCTATGCATCCAACGCGTTGGGAGCTC',
+  'kanR':    'ATGAGCCATATTCAACGGGAAACGTCTTGCTCGAGGCCGCGATTAAATTCCAACATGGATGCTGATTTATATGGGT',
+  'BFP':     'ATGGTGAGCAAGGGCGAGGAGCTGAACGCCATCAGCGACAACGTCTATATCAAGGCCGACAAGCAGAAGAACGGCA',
+};
 
 /** Infer a function-category icon from a gene name. Falls back to 'unknown'. */
 const GENE_ICON_MAP: Record<string, GeneIcon> = {
@@ -95,6 +122,8 @@ const GENE_ICON_MAP: Record<string, GeneIcon> = {
   'gyrB': 'enzyme', 'recA': 'enzyme', 'trpE': 'enzyme', 'galK': 'enzyme', 'phoA': 'enzyme', 'rpoB': 'enzyme',
   'BRCA1': 'structural', 'malE': 'structural', 'ompF': 'structural', 'dnaK': 'structural', 'groEL': 'structural',
   'toxA': 'structural', 'invA': 'structural',
+  'Magainin 2': 'resistance', 'Melittin': 'structural', 'hBD-1': 'resistance',
+  'LL-37': 'resistance', 'Cecropin A': 'resistance', 'Thymosin β4': 'structural',
 };
 
 /** Short (≤10-word) role line for each gene. Shown on the book's gene card. */
@@ -134,6 +163,12 @@ const GENE_ROLE_LINES: Record<string, string> = {
   'bla-TEM': 'Classic β-lactamase; ampicillin resistance',
   'CAT': 'Chloramphenicol resistance enzyme',
   'nptII': 'Neomycin/kanamycin resistance (eukaryotes)',
+  'Magainin 2': 'Frog skin antimicrobial; kills bacteria on contact',
+  'Melittin': 'Bee venom peptide; disrupts cell membranes',
+  'hBD-1': 'Human innate immune defense peptide',
+  'LL-37': 'Human antimicrobial peptide; broad-spectrum',
+  'Cecropin A': 'Insect antimicrobial; first natural antibiotic peptide',
+  'Thymosin β4': 'Wound healing peptide; sequesters actin monomers',
 };
 
 /** Instrument reference entries. Shared across all puzzles. */
@@ -173,6 +208,12 @@ const INSTRUMENT_ENTRIES: BookEntry[] = [
     measures: 'Measures cell density via OD₆₀₀ absorbance',
     useWhen: 'You need to monitor bacterial growth',
     thumbnail: 'absorbance-curve',
+  },
+  {
+    section: 'instruments', id: 'assembly', name: 'Sequence Assembler', icon: 'assembly',
+    measures: 'Reconstructs a full sequence from overlapping reads',
+    useWhen: 'You have short reads and need to assemble the original gene',
+    thumbnail: 'fragment-pattern',
   },
 ];
 
@@ -482,8 +523,137 @@ const REFERENCE_ONLY_ENZYMES: RestrictionEnzyme[] = [
   },
 ];
 
-export const PUZZLE_RESTRICTION_MAP: LabPuzzle = {
+/**
+ * L5 — Assemble the Sequence
+ *
+ * Lesson: Introduce shotgun assembly. The player receives short
+ * overlapping reads from an unknown ~75 bp gene segment and must
+ * find suffix→prefix overlaps to reconstruct the contig. Then
+ * match the assembled sequence against reference book entries.
+ */
+
+/** Deterministic PRNG-based DNA sequence generator. */
+function generateDnaSequence(prefix: string, length: number, seed: number): string {
+  let rng = seed;
+  const bases = 'ATCG';
+  let seq = prefix;
+  while (seq.length < length) {
+    rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+    seq += bases[(rng >>> 16) & 3];
+  }
+  return seq.slice(0, length);
+}
+
+function hashGeneName(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
+/**
+ * Extended assembly gene sequences — 20 genes with lengths 75–100 bp.
+ * The 5 curated sequences are kept; others are generated from their
+ * real 30 bp prefix using a seeded PRNG.
+ */
+const ASSEMBLY_GENE_LENGTHS: [string, number][] = [
+  ['Insulin', 75], ['GFP', 75], ['lacZ-α', 75], ['kanR', 75], ['BFP', 75],
+  ['RFP', 80], ['mCherry', 80], ['YFP', 80], ['zeoR', 75],
+  ['cmR', 85], ['tetR', 85], ['ampR', 85],
+  ['luciferase', 90], ['β-lactamase', 90],
+  ['hygR', 95], ['recA', 95],
+  ['p53', 100], ['nptII', 80], ['lacI', 100], ['araC', 80],
+  // Short peptide genes — assembly length ≈ real gene length
+  ['Magainin 2', 72], ['Melittin', 84], ['hBD-1', 100],
+  ['LL-37', 100], ['Cecropin A', 100], ['Thymosin β4', 100],
+];
+
+const EXPANDED_ASSEMBLY_SEQUENCES: Record<string, string> = {};
+for (const [gene, len] of ASSEMBLY_GENE_LENGTHS) {
+  const curated = ASSEMBLY_GENE_SEQUENCES[gene];
+  if (curated) {
+    EXPANDED_ASSEMBLY_SEQUENCES[gene] = curated.length >= len
+      ? curated.slice(0, len)
+      : generateDnaSequence(curated, len, hashGeneName(gene));
+  } else {
+    const prefix = GENE_SEQUENCES[gene] ?? 'ATG';
+    EXPANDED_ASSEMBLY_SEQUENCES[gene] = generateDnaSequence(prefix, len, hashGeneName(gene));
+  }
+}
+
+/** The subset of gene names that have assembly-length sequences. */
+const ASSEMBLY_GENE_NAMES = ASSEMBLY_GENE_LENGTHS.map(([name]) => name);
+const ASSEMBLY_TARGET = 'Insulin';
+const ASSEMBLY_FULL_SEQ = EXPANDED_ASSEMBLY_SEQUENCES[ASSEMBLY_TARGET];
+const ASSEMBLY_OVERLAP_K = 8;
+const ASSEMBLY_READ_LEN = 25;
+const assemblyReads = shuffleReads(
+  generateReads(ASSEMBLY_FULL_SEQ, ASSEMBLY_READ_LEN, ASSEMBLY_OVERLAP_K, 42),
+  7,
+);
+
+const ASSEMBLY_DATA: AssemblyPuzzleData = {
+  reads: assemblyReads,
+  overlapK: ASSEMBLY_OVERLAP_K,
+  targetGene: ASSEMBLY_TARGET,
+  fullSequence: ASSEMBLY_FULL_SEQ,
+};
+
+export const PUZZLE_ASSEMBLE_SEQUENCE: LabPuzzle = {
   id: 'L5',
+  title: 'Assemble the Sequence',
+  briefing: 'Sanger sequencing can only read DNA in short stretches. We sheared multiple copies of an unknown gene and sequenced the fragments — but now all we have is a pile of overlapping reads. What was the original sequence, and which gene is it?',
+  reference: {
+    geneTable: GENE_TABLE,
+    geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
+  },
+  acceptedAnswers: [ASSEMBLY_TARGET, ASSEMBLY_TARGET.toLowerCase()],
+  question: 'Which gene did the reads come from?',
+  answerOptions: ASSEMBLY_GENE_NAMES,
+  instruments: ['assembly'],
+  geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
+  assemblyData: ASSEMBLY_DATA,
+};
+
+/**
+ * L6 — Fill in the Gaps
+ *
+ * Lesson: Low-coverage sequencing leaves gaps. The player gets fewer
+ * reads that don't fully cover the gene. They must reconstruct what
+ * they can, then compare the partial contig against the reference
+ * despite the missing sections.
+ */
+const MISSING_TARGET = 'GFP';
+const MISSING_FULL_SEQ = EXPANDED_ASSEMBLY_SEQUENCES[MISSING_TARGET];
+const missingAllReads = generateReads(MISSING_FULL_SEQ, ASSEMBLY_READ_LEN, ASSEMBLY_OVERLAP_K, 99);
+// Drop 2nd read to create a gap in coverage
+const missingReads = shuffleReads(
+  missingAllReads.filter((_, i) => i !== 1),
+  13,
+);
+
+export const PUZZLE_INCOMPLETE_ASSEMBLY: LabPuzzle = {
+  id: 'L6',
+  title: 'Fill in the Gaps',
+  briefing: 'A sequencing run came back with low coverage — some fragments didn\'t make it through. You\'ll have to piece together what you can from the surviving reads and figure out which gene they came from, even with sections missing.',
+  reference: {
+    geneTable: GENE_TABLE,
+    geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
+  },
+  acceptedAnswers: [MISSING_TARGET, MISSING_TARGET.toLowerCase()],
+  question: 'Which gene did the reads come from?',
+  answerOptions: ASSEMBLY_GENE_NAMES,
+  instruments: ['assembly'],
+  geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
+  assemblyData: {
+    reads: missingReads,
+    overlapK: ASSEMBLY_OVERLAP_K,
+    targetGene: MISSING_TARGET,
+    fullSequence: MISSING_FULL_SEQ,
+  },
+};
+
+export const PUZZLE_RESTRICTION_MAP: LabPuzzle = {
+  id: 'L7',
   title: 'Restriction Map',
   briefing: 'A contract manufacturer shipped gene-therapy vectors labeled as p53 delivery constructs. Your QC lab must independently verify the insert identity before release.',
   plasmid: {
@@ -529,7 +699,7 @@ export const PUZZLE_RESTRICTION_MAP: LabPuzzle = {
  * strategic testing instead of brute-force (which needs 16).
  */
 export const PUZZLE_MISLABELED_CULTURES: LabPuzzle = {
-  id: 'L6',
+  id: 'L8',
   title: 'The Mislabeled Cultures',
   briefing: 'A fridge malfunction melted the label adhesive overnight. Four culture tubes — each producing a different protein — are now unlabeled. Use the ELISA plate reader to figure out which tube is which.',
   reference: {
@@ -562,7 +732,7 @@ export const PUZZLE_MISLABELED_CULTURES: LabPuzzle = {
  * Budget of 5 gel lanes forces strategic primer selection.
  */
 export const PUZZLE_FINGERPRINT_STRAIN: LabPuzzle = {
-  id: 'L7',
+  id: 'L9',
   title: 'Fingerprint the Strain',
   briefing: 'Three bacterial isolates arrived from the hospital. They look identical on agar. One is safe E. coli K-12, one is MRSA, one is Pseudomonas. Identify each sample before the wrong one gets into the teaching lab.',
   reference: {
@@ -602,6 +772,8 @@ export const LAB_PUZZLES = [
   PUZZLE_CONTAMINATED_SAMPLE,
   PUZZLE_IDENTIFY_ISOLATE,
   PUZZLE_SIZE_ISNT_EVERYTHING,
+  PUZZLE_ASSEMBLE_SEQUENCE,
+  PUZZLE_INCOMPLETE_ASSEMBLY,
   PUZZLE_RESTRICTION_MAP,
   PUZZLE_MISLABELED_CULTURES,
   PUZZLE_FINGERPRINT_STRAIN,

@@ -17,6 +17,7 @@
   import DigestInstrument from './components/DigestInstrument.svelte';
   import ElisaView from './components/ElisaView.svelte';
   import SpectrophotometerView from './components/SpectrophotometerView.svelte';
+  import AssemblyWorkspace from './components/AssemblyWorkspace.svelte';
 
   // Unified puzzle nav: strand puzzles then lab puzzles
   const STRAND_COUNT = PUZZLES.length;
@@ -70,7 +71,7 @@
 
   // ── Lab puzzle state ─────────────────────────────────────────────
   const labPuzzle = $derived(LAB_PUZZLES[Math.max(0, labPuzzleOffset)]);
-  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer'>('cell');
+  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly'>('cell');
   let elisaLoadedSample = $state<string | null>(null);
   let pcrLoadedSample = $state<string | null>(null);
   let digestLoadedTube = $state<string | null>(null);
@@ -614,6 +615,13 @@
                 onclick={() => labInstrument = 'spectrophotometer'}
               >📊 Spec</button>
             {/if}
+            {#if labPuzzle.instruments.includes('assembly')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'assembly'}
+                onclick={() => labInstrument = 'assembly'}
+              >🧩 Assembly</button>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -764,6 +772,8 @@
             readings={spectReadings}
             onreading={(p) => spectReadings = [...spectReadings, p].sort((a, b) => a.timepoint - b.timepoint)}
           />
+        {:else if labInstrument === 'assembly' && isLabPuzzle && labPuzzle.assemblyData}
+          <AssemblyWorkspace data={labPuzzle.assemblyData} />
         {/if}
 
         {#if puzzleComplete}
