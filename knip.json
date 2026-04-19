@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "project": ["prototypes/**/*.{ts,svelte}"],
+  "project": ["prototypes/cell-lab/*.{ts,svelte}"],
   "ignore": ["legacy/**", "dist/**"],
   "ignoreDependencies": ["tailwindcss"]
 }

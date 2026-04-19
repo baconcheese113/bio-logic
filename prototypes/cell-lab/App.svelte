@@ -3,7 +3,7 @@
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
   import type { BioPart, SimulationResult, TestResult } from './lib/types';
-  import type { DeskItem, PcrResult, ExcisedBandData, BookSection } from './lib/lab-types';
+  import type { DeskItem, PcrResult, ExcisedBandData, BookSection, DigestResult, SampleTubeData, GrowthPoint } from './lib/lab-types';
   import { LAB_PUZZLES, GENE_SEQUENCES, buildBookEntries } from './lib/lab-puzzles';
 
   import CellView from './components/CellView.svelte';
@@ -14,7 +14,9 @@
   import GelView from './components/GelView.svelte';
   import SequencerView from './components/SequencerView.svelte';
   import DeskSurface from './components/DeskSurface.svelte';
-  import ReferenceBook from './components/ReferenceBook.svelte';
+  import DigestInstrument from './components/DigestInstrument.svelte';
+  import ElisaView from './components/ElisaView.svelte';
+  import SpectrophotometerView from './components/SpectrophotometerView.svelte';
 
   // Unified puzzle nav: strand puzzles then lab puzzles
   const STRAND_COUNT = PUZZLES.length;
@@ -68,13 +70,18 @@
 
   // ── Lab puzzle state ─────────────────────────────────────────────
   const labPuzzle = $derived(LAB_PUZZLES[Math.max(0, labPuzzleOffset)]);
-  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer'>('cell');
+  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer'>('cell');
+  let elisaLoadedSample = $state<string | null>(null);
+  let pcrLoadedSample = $state<string | null>(null);
+  let digestLoadedTube = $state<string | null>(null);
+  let samplePcrUsedLanes = $state(0);
   let deskItems = $state<DeskItem[]>([]);
   let gelLanes = $state<{ label: string; bands: number[] }[]>([]);
   let labTubeCount = $state(0);
   let wrongGuesses = $state<Set<string>>(new Set());
   let excisedBands = $state<Set<string>>(new Set());
   let sequencerBand = $state<ExcisedBandData | null>(null);
+  let spectReadings = $state<GrowthPoint[]>([]);
   const MAX_GUESSES = 3;
 
   // Cross-area tube drag state
@@ -84,7 +91,17 @@
   let bookOpen = $state(false);
   let bookSection = $state<BookSection>('toc');
   let bookPage = $state(0);
-  const bookEntries = $derived(isLabPuzzle ? buildBookEntries(labPuzzle.reference) : []);
+  const bookEntries = $derived(
+    isLabPuzzle
+      ? buildBookEntries({
+          ...labPuzzle.reference,
+          // Always provide sequence lookups so gene cards can assist sequencer matching.
+          geneSequences: labPuzzle.geneSequences ?? labPuzzle.reference.geneSequences ?? GENE_SEQUENCES,
+          enzymes: labPuzzle.enzymes,
+          referenceEnzymes: labPuzzle.referenceEnzymes,
+        })
+      : []
+  );
 
   // ── Shared title/goal derived from current puzzle ────────────────
   const currentTitle = $derived(isLabPuzzle ? labPuzzle.title : puzzle.title);
@@ -190,34 +207,70 @@
       labInstrument = 'cell';
     } else {
       const lp = LAB_PUZZLES[index - STRAND_COUNT];
-      labInstrument = 'pcr';
+      labInstrument = lp.instruments[0] as typeof labInstrument;
       gelLanes = [];
       labTubeCount = 0;
       wrongGuesses = new Set();
       excisedBands = new Set();
       sequencerBand = null;
+      spectReadings = [];
+      samplePcrUsedLanes = 0;
+      elisaLoadedSample = null;
+      pcrLoadedSample = null;
+      digestLoadedTube = null;
       sidebarTab = 'instruments';
       bookOpen = false;
       bookSection = 'toc';
       bookPage = 0;
-      deskItems = [
+      const answerOptions = lp.answerOptions ?? lp.reference.geneTable.map(g => g.name);
+      const items: DeskItem[] = [
+        {
+          id: 'briefing-note',
+          type: 'briefing-note',
+          label: 'Objective',
+          data: { briefing: lp.briefing },
+          x: 10,
+          y: 10,
+        },
         {
           id: 'ref-book',
           type: 'reference-book',
           label: 'Gene Reference',
           data: { ...lp.reference, geneSequences: lp.geneSequences, page: 0 },
-          x: 10,
+          x: 360,
           y: 10,
         },
         {
           id: 'answer-sheet',
           type: 'answer-sheet',
           label: 'Answer Sheet',
-          data: { genes: lp.reference.geneTable.map(g => g.name) },
-          x: 300,
+          data: {
+            genes: answerOptions,
+            prompt: lp.question,
+            mappingLabels: lp.answerMappingLabels,
+            mappingOptions: lp.answerMappingOptions,
+          },
+          x: 660,
           y: 10,
         },
       ];
+
+      // Add sample tubes when puzzle provides them
+      const samples = lp.elisaDesign?.samples ?? lp.samplePcr?.samples ?? lp.startingSamples;
+      if (samples) {
+        samples.forEach((name, i) => {
+          items.push({
+            id: `sample-${i}`,
+            type: 'sample-tube',
+            label: name,
+            data: { sampleName: name } satisfies SampleTubeData,
+            x: 10 + i * 140,
+            y: 180,
+          });
+        });
+      }
+
+      deskItems = items;
     }
   }
 
@@ -249,11 +302,18 @@
 
   function handleLoadGel(tubeId: string) {
     const item = deskItems.find(d => d.id === tubeId);
-    if (!item || item.type !== 'pcr-tube') return;
-    const data = item.data as PcrResult;
-    if (!data.bandSize) return;
-    const bands = [data.bandSize, ...(data.extraBands ?? [])];
-    gelLanes = [...gelLanes, { label: item.label, bands }];
+    if (!item) return;
+    if (item.type === 'pcr-tube') {
+      const data = item.data as PcrResult;
+      if (!data.bandSize) return;
+      const bands = [data.bandSize, ...(data.extraBands ?? [])];
+      gelLanes = [...gelLanes, { label: item.label, bands }];
+    } else if (item.type === 'digest-tube') {
+      const data = item.data as DigestResult;
+      gelLanes = [...gelLanes, { label: item.label, bands: data.fragments }];
+    } else {
+      return;
+    }
     labInstrument = 'gel';
   }
 
@@ -265,7 +325,7 @@
     // Find the sequence for this band
     const contaminant = labPuzzle.contaminantBands?.find(b => b.bp === bandBp);
     const sequence = contaminant?.sequence
-      ?? GENE_SEQUENCES[labPuzzle.actualInsert.name]
+      ?? (labPuzzle.actualInsert ? GENE_SEQUENCES[labPuzzle.actualInsert.name] : undefined)
       ?? 'ATGNNNNNNNNNNNNNNNNNNNNNNNNNNNN';
 
     const exciseCount = excisedBands.size + 1;
@@ -288,6 +348,26 @@
     labInstrument = 'sequencer';
   }
 
+  function handleDigestResult(enzyme: string, fragments: number[]) {
+    labTubeCount++;
+    const item: DeskItem = {
+      id: `digest-${labTubeCount}`,
+      type: 'digest-tube',
+      label: `${enzyme} Digest`,
+      data: { enzyme, fragments } satisfies DigestResult,
+      x: 10 + (labTubeCount - 1) * 160,
+      y: 180,
+    };
+    deskItems = [...deskItems, item];
+  }
+
+  function handleLoadDigest(itemId: string) {
+    const item = deskItems.find(d => d.id === itemId);
+    if (!item || item.type !== 'pcr-tube') return;
+    digestLoadedTube = item.label;
+    labInstrument = 'digest';
+  }
+
   function handleTubeGrab(tubeId: string, e: PointerEvent) {
     const item = deskItems.find(d => d.id === tubeId);
     if (!item) return;
@@ -303,10 +383,19 @@
       const el = document.elementFromPoint(ev.clientX, ev.clientY);
       const wellEl = el?.closest('[data-gel-well]');
       const seqEl = el?.closest('[data-seq-well]');
+      const elisaEl = el?.closest('[data-elisa-well]');
+      const pcrEl = el?.closest('[data-pcr-well]');
+      const digestEl = el?.closest('[data-digest-well]');
       if (wellEl && tubeDrag) {
         handleLoadGel(tubeDrag.id);
       } else if (seqEl && tubeDrag) {
         handleLoadSequencer(tubeDrag.id);
+      } else if (elisaEl && tubeDrag) {
+        handleLoadElisa(tubeDrag.id);
+      } else if (pcrEl && tubeDrag) {
+        handleLoadPcr(tubeDrag.id);
+      } else if (digestEl && tubeDrag) {
+        handleLoadDigest(tubeDrag.id);
       } else if (tubeDrag) {
         // Dropped on desk — reposition the item
         const deskEl = document.querySelector('.desk');
@@ -328,6 +417,12 @@
     deskItems = deskItems.map(d => d.id === id ? { ...d, x, y } : d);
   }
 
+  function handleBringToFront(id: string) {
+    const item = deskItems.find(d => d.id === id);
+    if (!item) return;
+    deskItems = [...deskItems.filter(d => d.id !== id), item];
+  }
+
   function handleDeskAnswer(gene: string) {
     if (wrongGuesses.has(gene) || wrongGuesses.size >= MAX_GUESSES) return;
     const correct = labPuzzle.acceptedAnswers.some(
@@ -340,12 +435,84 @@
     }
   }
 
+  function handleMappingAnswer(mapping: Record<string, string>) {
+    if (wrongGuesses.size >= MAX_GUESSES) return;
+    if (!labPuzzle.answerMappingLabels) return;
+    // For mapping puzzles, check the truth map from either elisa or pcr data
+    const truthMap = labPuzzle.elisaDesign?.truthMap ?? labPuzzle.samplePcr?.truthMap;
+    if (!truthMap) return;
+    const allCorrect = labPuzzle.answerMappingLabels.every(
+      label => mapping[label] === truthMap[label]
+    );
+    if (allCorrect) {
+      puzzleComplete = true;
+    } else {
+      // Count how many are correct for feedback
+      const correctCount = labPuzzle.answerMappingLabels.filter(
+        label => mapping[label] === truthMap[label]
+      ).length;
+      wrongGuesses = new Set([...wrongGuesses, `attempt-${wrongGuesses.size + 1} (${correctCount}/${labPuzzle.answerMappingLabels.length} correct)`]);
+    }
+  }
+
+  function handleLoadElisa(itemId: string) {
+    const item = deskItems.find(d => d.id === itemId);
+    if (!item || item.type !== 'sample-tube') return;
+    const data = item.data as SampleTubeData;
+    elisaLoadedSample = data.sampleName;
+    labInstrument = 'elisa';
+  }
+
+  function handleElisaTest(sample: string, antibody: string) {
+    if (!labPuzzle.elisaDesign) return;
+    const positive = labPuzzle.elisaDesign.truthMap[sample] === antibody;
+    labTubeCount++;
+    const item: DeskItem = {
+      id: `elisa-${labTubeCount}`,
+      type: 'elisa-result',
+      label: `${sample} + ${antibody}`,
+      data: { sample, antibody, positive },
+      x: 10 + (labTubeCount - 1) * 140,
+      y: 320,
+    };
+    deskItems = [...deskItems, item];
+  }
+
+  function handleLoadPcr(itemId: string) {
+    const item = deskItems.find(d => d.id === itemId);
+    if (!item || item.type !== 'sample-tube') return;
+    const data = item.data as SampleTubeData;
+    pcrLoadedSample = data.sampleName;
+    labInstrument = 'pcr';
+  }
+
+  function handleSamplePcrResult(bandSize: number | null, failReason?: string) {
+    if (!pcrLoadedSample) return;
+    labTubeCount++;
+    samplePcrUsedLanes++;
+    const item: DeskItem = {
+      id: `tube-${labTubeCount}`,
+      type: 'pcr-tube',
+      label: `${pcrLoadedSample} PCR`,
+      data: { bandSize, failReason: failReason ?? (bandSize ? undefined : 'No amplification'), extraBands: [] } satisfies PcrResult,
+      x: 10 + (labTubeCount - 1) * 160,
+      y: 320,
+    };
+    deskItems = [...deskItems, item];
+  }
+
   function handleBookOpen(_id: string) {
     bookOpen = true;
+    // Ensure the opened book starts in-view on shorter viewports.
+    deskItems = deskItems.map(d => d.type === 'reference-book' ? { ...d, y: 10 } : d);
+  }
+
+  function handleBookClose(_id: string) {
+    bookOpen = false;
   }
 </script>
 
-<main class="app">
+<main class="app" class:lab-mode={isLabPuzzle}>
   <!-- Header -->
   <header class="header">
     <nav class="puzzle-nav">
@@ -360,7 +527,7 @@
       {/each}
     </nav>
     <h1 class="puzzle-title">{currentTitle}</h1>
-    <p class="puzzle-goal">{currentGoal}</p>
+    {#if !isLabPuzzle}<p class="puzzle-goal">{currentGoal}</p>{/if}
   </header>
 
   <!-- Body: sidebar + instrument/cell + desk -->
@@ -397,28 +564,55 @@
         {/if}
       {:else}
         <div class="instrument-list">
-          <button
-            class="instrument-tab"
-            class:active={labInstrument === 'cell'}
-            onclick={() => labInstrument = 'cell'}
-          >🔬 Cell View</button>
+          {#if !isLabPuzzle}
+            <button
+              class="instrument-tab"
+              class:active={labInstrument === 'cell'}
+              onclick={() => labInstrument = 'cell'}
+            >🔬 Cell View</button>
+          {/if}
           {#if isLabPuzzle}
-            <button
-              class="instrument-tab"
-              class:active={labInstrument === 'pcr'}
-              onclick={() => labInstrument = 'pcr'}
-            >🧬 PCR Machine</button>
-            <button
-              class="instrument-tab"
-              class:active={labInstrument === 'gel'}
-              onclick={() => labInstrument = 'gel'}
-            >⚡ Gel Box</button>
+            {#if labPuzzle.instruments.includes('pcr')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'pcr'}
+                onclick={() => labInstrument = 'pcr'}
+              >🧬 PCR</button>
+            {/if}
+            {#if labPuzzle.instruments.includes('gel')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'gel'}
+                onclick={() => labInstrument = 'gel'}
+              >⚡ Gel</button>
+            {/if}
             {#if labPuzzle.instruments.includes('sequencer')}
               <button
                 class="instrument-tab"
                 class:active={labInstrument === 'sequencer'}
                 onclick={() => labInstrument = 'sequencer'}
               >🔬 Sequencer</button>
+            {/if}
+            {#if labPuzzle.instruments.includes('digest')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'digest'}
+                onclick={() => labInstrument = 'digest'}
+              >✂️ Digest</button>
+            {/if}
+            {#if labPuzzle.instruments.includes('elisa')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'elisa'}
+                onclick={() => labInstrument = 'elisa'}
+              >🧫 ELISA</button>
+            {/if}
+            {#if labPuzzle.instruments.includes('spectrophotometer')}
+              <button
+                class="instrument-tab"
+                class:active={labInstrument === 'spectrophotometer'}
+                onclick={() => labInstrument = 'spectrophotometer'}
+              >📊 Spec</button>
             {/if}
           {/if}
         </div>
@@ -503,8 +697,26 @@
               onprobe={handleProbe}
             />
           {/if}
-        {:else if labInstrument === 'pcr' && isLabPuzzle}
-          <PcrInstrument plasmid={labPuzzle.plasmid} onresult={handlePcrResult} />
+        {:else if labInstrument === 'pcr' && isLabPuzzle && labPuzzle.plasmid}
+          {#if labPuzzle.startingSamples}
+            <PcrInstrument
+              plasmid={labPuzzle.plasmid}
+              dragActive={tubeDrag !== null}
+              loadedSample={pcrLoadedSample}
+              onresult={handlePcrResult}
+              oneject={() => pcrLoadedSample = null}
+            />
+          {:else}
+            <PcrInstrument plasmid={labPuzzle.plasmid} onresult={handlePcrResult} />
+          {/if}
+        {:else if labInstrument === 'pcr' && isLabPuzzle && labPuzzle.samplePcr}
+          <PcrInstrument
+            samplePcr={labPuzzle.samplePcr}
+            dragActive={tubeDrag !== null}
+            loadedSample={pcrLoadedSample}
+            onresult={handleSamplePcrResult}
+            oneject={() => pcrLoadedSample = null}
+          />
         {:else if labInstrument === 'gel' && isLabPuzzle}
           <GelView
             lanes={gelLanes}
@@ -514,6 +726,44 @@
           />
         {:else if labInstrument === 'sequencer' && isLabPuzzle}
           <SequencerView loadedBand={sequencerBand} dragActive={tubeDrag !== null} />
+        {:else if labInstrument === 'digest' && isLabPuzzle && labPuzzle.plasmid && labPuzzle.enzymes && labPuzzle.restrictionSites}
+          {#if labPuzzle.startingSamples}
+            <DigestInstrument
+              plasmid={labPuzzle.plasmid}
+              enzymes={labPuzzle.enzymes}
+              restrictionSites={labPuzzle.restrictionSites}
+              insertLength={labPuzzle.actualInsert?.length}
+              candidateGenes={labPuzzle.candidateGenes}
+              dragActive={tubeDrag !== null}
+              loadedTube={digestLoadedTube}
+              oneject={() => digestLoadedTube = null}
+              onresult={handleDigestResult}
+            />
+          {:else}
+            <DigestInstrument
+              plasmid={labPuzzle.plasmid}
+              enzymes={labPuzzle.enzymes}
+              restrictionSites={labPuzzle.restrictionSites}
+              insertLength={labPuzzle.actualInsert?.length}
+              candidateGenes={labPuzzle.candidateGenes}
+              onresult={handleDigestResult}
+            />
+          {/if}
+        {:else if labInstrument === 'elisa' && isLabPuzzle && labPuzzle.elisaDesign}
+          <ElisaView
+            design={labPuzzle.elisaDesign}
+            dragActive={tubeDrag !== null}
+            loadedSample={elisaLoadedSample}
+            ontest={handleElisaTest}
+            oneject={() => elisaLoadedSample = null}
+          />
+        {:else if labInstrument === 'spectrophotometer' && isLabPuzzle}
+          <SpectrophotometerView
+            curve={labPuzzle.growthCurve}
+            budget={labPuzzle.spectBudget}
+            readings={spectReadings}
+            onreading={(p) => spectReadings = [...spectReadings, p].sort((a, b) => a.timepoint - b.timepoint)}
+          />
         {/if}
 
         {#if puzzleComplete}
@@ -533,50 +783,48 @@
         <DeskSurface
           items={deskItems}
           onmove={handleDeskMove}
+          onbringtofront={handleBringToFront}
           ontubegrab={handleTubeGrab}
           onanswer={handleDeskAnswer}
+          onmappinganswer={handleMappingAnswer}
           onbookopen={handleBookOpen}
+          onbookclose={handleBookClose}
+          onbooksection={(s) => bookSection = s}
+          onbookpage={(p) => bookPage = p}
+          {bookOpen}
+          {bookSection}
+          {bookPage}
+          bookEntries={bookEntries}
           wrongGuesses={wrongGuesses}
           maxGuesses={MAX_GUESSES}
           draggedTubeId={tubeDrag?.id}
         />
-        {#if bookOpen && isLabPuzzle}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="book-backdrop" role="presentation" onclick={() => bookOpen = false}></div>
-          <div class="book-overlay">
-            <ReferenceBook
-              entries={bookEntries}
-              section={bookSection}
-              page={bookPage}
-              onsection={(s) => bookSection = s}
-              onpage={(p) => bookPage = p}
-            />
-          </div>
-        {/if}
       </section>
     </div>
   </div>
 
-  <!-- Bottom: strand + controls (always visible) -->
-  <section class="strand-section">
-    <DnaStrand
-      {strand}
-      onupdate={updateStrand}
-      disabled={isLabPuzzle || scanning || (showingResult && !isDebug)}
-      {scanIndex}
-      readonly={isReadonly || isLabPuzzle}
-      hiddenGenes={puzzle.hiddenGenes ?? false}
-    />
-  </section>
+  {#if !isLabPuzzle}
+    <!-- Bottom: strand + controls (strand puzzles only) -->
+    <section class="strand-section">
+      <DnaStrand
+        {strand}
+        onupdate={updateStrand}
+        disabled={scanning || (showingResult && !isDebug)}
+        {scanIndex}
+        readonly={isReadonly}
+        hiddenGenes={puzzle.hiddenGenes ?? false}
+      />
+    </section>
 
-  <footer class="controls">
-    <button class="ctrl-btn clear" onclick={clearStrand} disabled={(strandEmpty && !showingResult) || isLabPuzzle}>
-      Reset
-    </button>
-    <button class="ctrl-btn run" onclick={runCell} disabled={strandEmpty || showingResult || scanning || isLabPuzzle}>
-      ▶ Run Cell
-    </button>
-  </footer>
+    <footer class="controls">
+      <button class="ctrl-btn clear" onclick={clearStrand} disabled={strandEmpty && !showingResult}>
+        Reset
+      </button>
+      <button class="ctrl-btn run" onclick={runCell} disabled={strandEmpty || showingResult || scanning}>
+        ▶ Run Cell
+      </button>
+    </footer>
+  {/if}
 
   {#if tubeDrag}
     {@const dragItem = deskItems.find(d => d.id === tubeDrag?.id)}
@@ -584,7 +832,7 @@
       class="tube-ghost"
       style:left="{tubeDrag.x}px"
       style:top="{tubeDrag.y}px"
-    >{dragItem?.type === 'excised-band' ? '🔬' : '🧪'} {tubeDrag.label}</div>
+    >{dragItem?.type === 'excised-band' ? '🔬' : dragItem?.type === 'digest-tube' ? '✂️' : dragItem?.type === 'sample-tube' ? '🧫' : '🧪'} {tubeDrag.label}</div>
   {/if}
 </main>
 
@@ -672,6 +920,11 @@
     overflow: hidden;
   }
 
+  .lab-mode .body {
+    gap: 10px;
+    padding: 8px;
+  }
+
   .sidebar {
     width: 220px;
     flex-shrink: 0;
@@ -679,6 +932,10 @@
     flex-direction: column;
     gap: 12px;
     overflow-y: auto;
+  }
+
+  .lab-mode .sidebar {
+    width: 190px;
   }
 
   .sidebar-tabs {
@@ -736,6 +993,10 @@
     gap: 12px;
     min-width: 0;
     min-height: 0;
+  }
+
+  .lab-mode .instrument-area {
+    flex: 1.2;
   }
 
   /* Hint */
@@ -1029,18 +1290,9 @@
     border-top: 1px solid var(--brass-dark);
   }
 
-  .book-backdrop {
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    background: rgba(0, 0, 0, 0.35);
-  }
-
-  .book-overlay {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 50;
+  .lab-mode .desk-section {
+    flex: 1;
+    min-height: 250px;
   }
 
   /* Lab sidebar instruments */

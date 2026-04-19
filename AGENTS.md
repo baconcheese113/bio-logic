@@ -44,3 +44,9 @@ After making UI changes, verify the implementation works correctly by using the 
 After every change, see if there is a way to minimize the boilerplate.
 
 Reuse styles from base.css when possible
+
+## UI Rules
+
+- **Minimum font size is 11px.** Nothing smaller — it's not legible.
+- Never use acronyms or jargon in-game that haven't been previously explained to the player.
+- Instrument UI must not reveal puzzle answers (e.g., fragment counts, cut-site locations for the actual insert) before the player runs the experiment and visualizes the result.

@@ -1,22 +1,54 @@
 <script lang="ts">
-  import type { DeskItem, PcrResult, GelResult, ExcisedBandData } from '../lib/lab-types';
+  import type { DeskItem, PcrResult, GelResult, ExcisedBandData, DigestResult, SampleTubeData, ElisaResultData, BookEntry, BookSection } from '../lib/lab-types';
   import { GEL_LADDER } from '../lib/lab-puzzles';
+  import ReferenceBook from './ReferenceBook.svelte';
 
   interface Props {
     items: DeskItem[];
     onmove: (id: string, x: number, y: number) => void;
+    onbringtofront: (id: string) => void;
     ontubegrab: (tubeId: string, e: PointerEvent) => void;
     onanswer: (gene: string) => void;
+    onmappinganswer: (mapping: Record<string, string>) => void;
     onbookopen: (id: string) => void;
+    onbookclose: (id: string) => void;
+    onbooksection: (section: BookSection) => void;
+    onbookpage: (page: number) => void;
+    bookOpen: boolean;
+    bookSection: BookSection;
+    bookPage: number;
+    bookEntries: BookEntry[];
     wrongGuesses: Set<string>;
     maxGuesses: number;
     draggedTubeId?: string | null;
   }
 
-  let { items, onmove, ontubegrab, onanswer, onbookopen, wrongGuesses, maxGuesses, draggedTubeId = null }: Props = $props();
+  let {
+    items,
+    onmove,
+    onbringtofront,
+    ontubegrab,
+    onanswer,
+    onmappinganswer,
+    onbookopen,
+    onbookclose,
+    onbooksection,
+    onbookpage,
+    bookOpen,
+    bookSection,
+    bookPage,
+    bookEntries,
+    wrongGuesses,
+    maxGuesses,
+    draggedTubeId = null,
+  }: Props = $props();
 
   let deskEl: HTMLDivElement | undefined = $state();
   let dragging = $state<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const openBookHeight = $derived.by(() => {
+    if (!deskEl) return 300;
+    return Math.max(180, Math.min(360, deskEl.clientHeight - 52));
+  });
 
   const guessesLeft = $derived(maxGuesses - wrongGuesses.size);
 
@@ -27,12 +59,23 @@
     const item = items.find(d => d.id === id);
     if (!item || !deskEl) return;
 
+    // Last picked item should always render on top.
+    onbringtofront(item.id);
+
     // PCR tubes with bands and excised bands are grabbed for instrument loading / repositioning
     if (item.type === 'pcr-tube' && isPcr(item.data) && item.data.bandSize) {
       ontubegrab(item.id, e);
       return;
     }
     if (item.type === 'excised-band') {
+      ontubegrab(item.id, e);
+      return;
+    }
+    if (item.type === 'digest-tube') {
+      ontubegrab(item.id, e);
+      return;
+    }
+    if (item.type === 'sample-tube') {
       ontubegrab(item.id, e);
       return;
     }
@@ -66,8 +109,27 @@
     return 'bandBp' in data && 'sequence' in data;
   }
 
-  function isAnswerSheet(data: DeskItem['data']): data is { genes: string[] } {
+  function isAnswerSheet(data: DeskItem['data']): data is { genes: string[]; prompt?: string; mappingLabels?: string[]; mappingOptions?: string[] } {
     return 'genes' in data;
+  }
+
+  function isBriefing(data: DeskItem['data']): data is { briefing: string } {
+    return 'briefing' in data;
+  }
+
+  // Mapping answer state (for L6/L7 style puzzles)
+  let mappingSelections = $state<Record<string, string>>({});
+
+  function isDigest(data: DeskItem['data']): data is DigestResult {
+    return 'enzyme' in data && 'fragments' in data;
+  }
+
+  function isSampleTube(data: DeskItem['data']): data is SampleTubeData {
+    return 'sampleName' in data;
+  }
+
+  function isElisaResult(data: DeskItem['data']): data is ElisaResultData {
+    return 'antibody' in data && 'positive' in data;
   }
 
   // Gel band position helper (log scale)
@@ -88,22 +150,31 @@
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
 >
-  {#each items as item (item.id)}
+  {#each items as item, idx (item.id)}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="desk-item"
+      class:book-open={item.type === 'reference-book' && bookOpen}
       class:dragging={dragging?.id === item.id}
       class:dragged-away={draggedTubeId === item.id}
       style:left="{item.x}px"
       style:top="{item.y}px"
+      style:z-index={dragging?.id === item.id ? 1000 : idx + 1}
       onpointerdown={(e) => startDrag(item.id, e)}
     >
       <!-- Title bar -->
       <div class="item-title-bar">
         <span class="item-icon">
-          {item.type === 'pcr-tube' ? '🧪' : item.type === 'gel-photo' ? '⚡' : item.type === 'reference-book' ? '📖' : item.type === 'excised-band' ? '🔬' : '📝'}
+          {item.type === 'pcr-tube' ? '🧪' : item.type === 'gel-photo' ? '⚡' : item.type === 'reference-book' ? '📖' : item.type === 'excised-band' ? '🔬' : item.type === 'briefing-note' ? '📌' : item.type === 'digest-tube' ? '✂️' : item.type === 'sample-tube' ? '🧫' : item.type === 'elisa-result' ? '🧫' : '📝'}
         </span>
         <span class="item-label">{item.label}</span>
+        {#if item.type === 'reference-book' && bookOpen}
+          <button
+            class="book-close-btn"
+            onpointerdown={(e) => e.stopPropagation()}
+            onclick={() => onbookclose(item.id)}
+          >Close</button>
+        {/if}
       </div>
 
       <!-- PCR Tube card -->
@@ -142,13 +213,25 @@
 
       <!-- Reference Book (closed card — click to open) -->
       {#if item.type === 'reference-book'}
-        <div class="card-body book-closed">
-          <button
-            class="book-open-btn"
-            onpointerdown={(e) => e.stopPropagation()}
-            onclick={() => onbookopen(item.id)}
-          >Open Reference Book</button>
-        </div>
+        {#if bookOpen}
+          <div class="card-body book-open-shell" style:--open-book-height="{openBookHeight}px">
+            <ReferenceBook
+              entries={bookEntries}
+              section={bookSection}
+              page={bookPage}
+              onsection={onbooksection}
+              onpage={onbookpage}
+            />
+          </div>
+        {:else}
+          <div class="card-body book-closed">
+            <button
+              class="book-open-btn"
+              onpointerdown={(e) => e.stopPropagation()}
+              onclick={() => onbookopen(item.id)}
+            >Open Reference Book</button>
+          </div>
+        {/if}
       {/if}
 
       <!-- Excised Band card -->
@@ -158,23 +241,82 @@
         </div>
       {/if}
 
+      <!-- Digest Tube card -->
+      {#if item.type === 'digest-tube' && isDigest(item.data)}
+        <div class="card-body pcr-card">
+          <span class="pcr-status">{item.data.enzyme} Digest</span>
+        </div>
+      {/if}
+
+      <!-- Sample Tube card -->
+      {#if item.type === 'sample-tube' && isSampleTube(item.data)}
+        <div class="card-body pcr-card">
+          <span class="pcr-status">{item.data.sampleName}</span>
+        </div>
+      {/if}
+
+      <!-- ELISA Result card -->
+      {#if item.type === 'elisa-result' && isElisaResult(item.data)}
+        <div class="card-body pcr-card">
+          <span class={item.data.positive ? 'pcr-status' : 'pcr-fail'}>
+            {item.data.antibody}: {item.data.positive ? '+ Positive' : '− Negative'}
+          </span>
+        </div>
+      {/if}
+
       <!-- Answer Sheet -->
       {#if item.type === 'answer-sheet' && isAnswerSheet(item.data)}
         <div class="card-body answer-card">
-          <p class="answer-prompt">Identify the insert gene ({guessesLeft} guess{guessesLeft === 1 ? '' : 'es'} left):</p>
-          <div class="gene-grid">
-            {#each item.data.genes as gene}
-              <button
-                class="gene-btn"
-                class:wrong={wrongGuesses.has(gene)}
-                disabled={wrongGuesses.has(gene) || guessesLeft <= 0}
-                onclick={() => onanswer(gene)}
-              >{wrongGuesses.has(gene) ? '✗' : ''} {gene}</button>
-            {/each}
-          </div>
+          {#if item.data.mappingLabels && item.data.mappingOptions}
+            <!-- Mapping-style answer sheet -->
+            <p class="answer-prompt">{item.data.prompt ?? 'Assign identities'} ({guessesLeft} guess{guessesLeft === 1 ? '' : 'es'} left):</p>
+            <div class="mapping-grid">
+              {#each item.data.mappingLabels as label}
+                <label class="mapping-row">
+                  <span class="mapping-label">{label}</span>
+                  <span class="mapping-arrow">→</span>
+                  <select
+                    class="mapping-select"
+                    value={mappingSelections[label] ?? ''}
+                    onchange={(e) => { mappingSelections[label] = (e.target as HTMLSelectElement).value; }}
+                    disabled={guessesLeft <= 0}
+                  >
+                    <option value="">—</option>
+                    {#each item.data.mappingOptions as opt}
+                      <option value={opt}>{opt}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/each}
+            </div>
+            <button
+              class="submit-mapping-btn"
+              disabled={guessesLeft <= 0 || !item.data.mappingLabels.every(l => mappingSelections[l])}
+              onclick={() => onmappinganswer(mappingSelections)}
+            >Submit Mapping</button>
+          {:else}
+            <!-- Single-answer button grid -->
+            <p class="answer-prompt">{item.data.prompt ?? 'Identify the insert gene'} ({guessesLeft} guess{guessesLeft === 1 ? '' : 'es'} left):</p>
+            <div class="gene-grid">
+              {#each item.data.genes as gene}
+                <button
+                  class="gene-btn"
+                  class:wrong={wrongGuesses.has(gene)}
+                  disabled={wrongGuesses.has(gene) || guessesLeft <= 0}
+                  onclick={() => onanswer(gene)}
+                >{wrongGuesses.has(gene) ? '✗' : ''} {gene}</button>
+              {/each}
+            </div>
+          {/if}
           {#if guessesLeft <= 0}
             <p class="guesses-exhausted">No guesses remaining. Reset the puzzle to try again.</p>
           {/if}
+        </div>
+      {/if}
+
+      {#if item.type === 'briefing-note' && isBriefing(item.data)}
+        <div class="card-body briefing-card">
+          <p>{item.data.briefing}</p>
         </div>
       {/if}
     </div>
@@ -225,9 +367,13 @@
     max-width: 280px;
   }
 
+  .desk-item.book-open {
+    max-width: none;
+    width: min(640px, calc(100% - 20px));
+  }
+
   .desk-item.dragging {
     cursor: grabbing;
-    z-index: 50;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.6);
   }
 
@@ -247,6 +393,22 @@
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--parchment);
+  }
+
+  .book-close-btn {
+    margin-left: auto;
+    background: #7a3a2d;
+    border: 1px solid #9b4b3a;
+    color: #f5dfcf;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+
+  .book-close-btn:hover {
+    background: #8a4636;
   }
 
   .card-body {
@@ -292,7 +454,7 @@
 
   .lane-lbl {
     font-family: var(--font-mono);
-    font-size: 0.5rem;
+    font-size: 11px;
     color: var(--parchment-aged);
     text-align: center;
     display: block;
@@ -319,8 +481,8 @@
     top: 50%;
     transform: translateY(-50%);
     font-family: var(--font-mono);
-    font-size: 0.45rem;
-    color: rgba(200, 200, 200, 0.5);
+    font-size: 11px;
+    color: rgba(200, 200, 200, 0.6);
     white-space: nowrap;
   }
 
@@ -350,6 +512,25 @@
 
   .book-open-btn:hover {
     background: #c8b690;
+  }
+
+  .book-open-shell {
+    padding: 6px;
+    background: #f5ecd9;
+    border-radius: 0 0 6px 6px;
+    max-height: 100%;
+    overflow: auto;
+    cursor: grab;
+  }
+
+  .book-open-shell:active {
+    cursor: grabbing;
+  }
+
+  .book-open-shell :global(.book) {
+    width: 100%;
+    height: var(--open-book-height, 300px);
+    min-height: 180px;
   }
 
   /* Answer sheet */
@@ -402,10 +583,81 @@
     cursor: default;
   }
 
+  .mapping-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mapping-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mapping-label {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--parchment);
+    min-width: 70px;
+  }
+
+  .mapping-arrow {
+    color: var(--brass-dark);
+    font-size: 0.85rem;
+  }
+
+  .mapping-select {
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: var(--bg-darkest);
+    color: var(--parchment);
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .submit-mapping-btn {
+    margin-top: 8px;
+    padding: 6px 16px;
+    border: 1px solid var(--brass-dark);
+    border-radius: 6px;
+    background: var(--brass-dark);
+    color: var(--parchment);
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .submit-mapping-btn:hover:not(:disabled) {
+    background: var(--brass);
+    color: var(--bg-darkest);
+  }
+
+  .submit-mapping-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   .guesses-exhausted {
     font-size: 0.7rem;
     color: #f87171;
     margin: 8px 0 0;
     font-style: italic;
+  }
+
+  .briefing-card {
+    max-width: 360px;
+    min-width: 220px;
+    color: var(--parchment-aged);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    font-family: var(--font-body);
+  }
+
+  .briefing-card p {
+    margin: 0;
   }
 </style>

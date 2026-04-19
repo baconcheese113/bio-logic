@@ -65,41 +65,47 @@
 
   <!-- Gel image -->
   <div class="gel-image">
-    <div class="gel-lane">
+    <div class="gel-inner">
+      <!-- Horizontal guide lines spanning full width at ladder positions -->
       {#each GEL_LADDER as size}
-        <div class="gel-band" style:top="{bandY(size)}%">
-          <span class="band-bp">{size}</span>
-          <div class="band-line ladder-line"></div>
+        <div class="gel-guide" style:top="{bandY(size)}%"></div>
+      {/each}
+      <div class="gel-lane">
+        {#each GEL_LADDER as size}
+          <div class="gel-band" style:top="{bandY(size)}%">
+            <span class="band-bp">{size}</span>
+            <div class="band-line ladder-line"></div>
+          </div>
+        {/each}
+      </div>
+      {#each Array(wellCount) as _, i}
+        <div class="gel-lane">
+          {#if lanes[i]}
+            {#each lanes[i].bands as bp}
+              {@const key = bandKey(i, bp)}
+              {@const isExcised = excisedBands?.has(key)}
+              {#if isExcised}
+                <div class="gel-band" style:top="{bandY(bp)}%">
+                  <div class="band-line excised-line" style:height="{bandHeight(bp)}px"></div>
+                </div>
+              {:else}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                  class="gel-band"
+                  class:clickable={!!onexcise}
+                  style:top="{bandY(bp)}%"
+                  onclick={() => onexcise?.(i, bp)}
+                  title={onexcise ? `Click to excise band` : undefined}
+                >
+                  <div class="band-line sample-line" style:height="{bandHeight(bp)}px"></div>
+                </div>
+              {/if}
+            {/each}
+          {/if}
         </div>
       {/each}
     </div>
-    {#each Array(wellCount) as _, i}
-      <div class="gel-lane">
-        {#if lanes[i]}
-          {#each lanes[i].bands as bp}
-            {@const key = bandKey(i, bp)}
-            {@const isExcised = excisedBands?.has(key)}
-            {#if isExcised}
-              <div class="gel-band" style:top="{bandY(bp)}%">
-                <div class="band-line excised-line" style:height="{bandHeight(bp)}px"></div>
-              </div>
-            {:else}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div
-                class="gel-band"
-                class:clickable={!!onexcise}
-                style:top="{bandY(bp)}%"
-                onclick={() => onexcise?.(i, bp)}
-                title={onexcise ? `Click to excise band` : undefined}
-              >
-                <div class="band-line sample-line" style:height="{bandHeight(bp)}px"></div>
-              </div>
-            {/if}
-          {/each}
-        {/if}
-      </div>
-    {/each}
   </div>
 
   {#if lanes.length === 0}
@@ -143,7 +149,7 @@
     justify-content: center;
     border-radius: 3px;
     font-family: var(--font-mono);
-    font-size: 0.6rem;
+    font-size: 11px;
   }
 
   .well-ladder {
@@ -191,14 +197,31 @@
 
   /* Gel image */
   .gel-image {
-    display: flex;
-    gap: 2px;
     background: #0a0a0a;
     border: 2px solid var(--brass-dark);
     border-radius: 6px;
     padding: 16px 10px;
+    padding-left: 44px;
     flex: 1;
     min-height: 200px;
+    display: flex;
+  }
+
+  .gel-inner {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .gel-guide {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(200, 200, 200, 0.08);
+    transform: translateY(-50%);
+    pointer-events: none;
   }
 
   .gel-lane {
@@ -219,8 +242,8 @@
     position: absolute;
     right: 105%;
     font-family: var(--font-mono);
-    font-size: 0.45rem;
-    color: rgba(200, 200, 200, 0.4);
+    font-size: 11px;
+    color: rgba(200, 200, 200, 0.65);
     white-space: nowrap;
   }
 

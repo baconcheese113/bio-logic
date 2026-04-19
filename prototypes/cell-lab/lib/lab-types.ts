@@ -29,7 +29,7 @@ export interface PrimerSet {
   reverseSeq: string;
 }
 
-export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifacts' | 'case-notes';
+export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifacts';
 
 export type GeneIcon = 'fluorescent' | 'resistance' | 'regulator' | 'enzyme' | 'structural' | 'unknown';
 
@@ -38,15 +38,13 @@ export type InstrumentIcon = 'pcr' | 'gel' | 'sequencer' | 'spectrophotometer' |
 export type ThumbnailKey = 'gel-bands' | 'chromatogram' | 'absorbance-curve' | 'pcr-tube' | 'fragment-pattern';
 
 export type BookEntry =
-  | { section: 'genes'; id: string; name: string; fullName?: string; length: number; sequence: string; icon: GeneIcon; roleLine: string }
+  | { section: 'genes'; id: string; name: string; fullName?: string; length: number; sequence: string; icon: GeneIcon; roleLine: string; enzymeSites?: { enzyme: string; sites: number }[] }
   | { section: 'instruments'; id: string; name: string; icon: InstrumentIcon; measures: string; useWhen: string; thumbnail: ThumbnailKey }
-  | { section: 'enzymes'; id: string; name: string; cutSite: string; fragmentPatternKey: ThumbnailKey }
-  | { section: 'artifacts'; id: string; name: string; thumbnail: ThumbnailKey; caption: string }
-  | { section: 'case-notes'; id: string; bullet: string };
+  | { section: 'enzymes'; id: string; name: string; fullName: string; organism: string; taxonomy: string[]; optimalTemp: number; discoveredYear: number; fact: string; cutSite: string; cutType: 'blunt' | 'sticky-5' | 'sticky-3'; fragmentPatternKey: ThumbnailKey }
+  | { section: 'artifacts'; id: string; name: string; thumbnail: ThumbnailKey; caption: string };
 
 export interface ReferenceData {
   geneTable: GeneEntry[];
-  notes?: string[];
   /** Gene sequences for sequencer reference (gene name → first N bases) */
   geneSequences?: Record<string, string>;
   /** Current page index within the current section (for desk display) */
@@ -85,16 +83,89 @@ export interface ExcisedBandData {
   sourceLabel: string;
 }
 
+/** Restriction enzyme for digest instrument */
+export interface RestrictionEnzyme {
+  name: string;
+  fullName: string;
+  organism: string;
+  taxonomy: string[];
+  recognitionSite: string;
+  cutDisplay: string;
+  cutType: 'blunt' | 'sticky-5' | 'sticky-3';
+  optimalTemp: number;
+  discoveredYear: number;
+  fact: string;
+}
+
+/** Result of a restriction digest */
+export interface DigestResult {
+  enzyme: string;
+  fragments: number[];
+}
+
+/** Single ELISA well reading */
+export interface ElisaWell {
+  label: string;
+  timepoint: number;
+  absorbance: number;
+}
+
+/** Single spectrophotometer reading (OD600 + optional product) */
+export interface GrowthPoint {
+  timepoint: number;
+  od600: number;
+  productLevel?: number;
+}
+
+/** ELISA plate design puzzle — player assigns sample+antibody per well */
+export interface ElisaDesignData {
+  samples: string[];
+  antibodies: string[];
+  /** Ground truth: sample name → matching antibody target */
+  truthMap: Record<string, string>;
+  wellBudget: number;
+}
+
+/** Well assignment made by the player */
+export interface WellAssignment {
+  sample: string;
+  antibody: string;
+}
+
+/** Multi-sample PCR puzzle — player picks sample + primer pair */
+export interface SamplePcrData {
+  samples: string[];
+  species: string[];
+  primers: Array<{ name: string; description: string; bandSize: number }>;
+  /** Species name → array of primer names that produce a band */
+  genePresence: Record<string, string[]>;
+  /** Ground truth: sample name → species name */
+  truthMap: Record<string, string>;
+  gelLaneBudget: number;
+}
+
+export type LabInstrumentType = 'pcr' | 'gel' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer';
+
 /** Sequencer result displayed as chromatogram */
 export interface SequencerResult {
   sequence: string;
 }
 
+export interface SampleTubeData {
+  sampleName: string;
+}
+
+export interface ElisaResultData {
+  sample: string;
+  antibody: string;
+  positive: boolean;
+}
+
 export interface DeskItem {
   id: string;
-  type: 'pcr-tube' | 'gel-photo' | 'reference-book' | 'answer-sheet' | 'excised-band';
+  type: 'pcr-tube' | 'gel-photo' | 'reference-book' | 'answer-sheet' | 'excised-band' | 'briefing-note' | 'digest-tube' | 'sample-tube' | 'elisa-result';
   label: string;
-  data: PcrResult | GelResult | ReferenceData | { genes: string[] } | ExcisedBandData;
+  data: PcrResult | GelResult | ReferenceData | { genes: string[]; prompt?: string; mappingLabels?: string[]; mappingOptions?: string[] } | ExcisedBandData | { briefing: string } | DigestResult | SampleTubeData | ElisaResultData;
   /** Position on the desk (pixels from top-left) */
   x: number;
   y: number;
@@ -104,18 +175,48 @@ export interface LabPuzzle {
   id: string;
   title: string;
   briefing: string;
-  plasmid: PlasmidMap;
+  plasmid?: PlasmidMap;
   reference: ReferenceData;
   /** The actual insert gene name (hidden from player) */
-  actualInsert: GeneEntry;
+  actualInsert?: GeneEntry;
   /** Flanking bp added by primers outside the insert */
-  flankingBp: number;
+  flankingBp?: number;
   /** Accepted answers (gene names) */
   acceptedAnswers: string[];
   /** Extra bands from contamination when PCR succeeds */
   contaminantBands?: { bp: number; sequence: string; gene: string }[];
   /** Available instruments for this puzzle */
-  instruments: ('pcr' | 'gel' | 'sequencer')[];
+  instruments: LabInstrumentType[];
   /** Gene sequences for reference book (gene name → first N bases) */
   geneSequences?: Record<string, string>;
+  /** Custom question for the answer sheet (default: "Identify the insert gene") */
+  question?: string;
+  /** Override answer-sheet options (default: gene table names) */
+  answerOptions?: string[];
+  /** Restriction enzymes available for digest instrument */
+  enzymes?: RestrictionEnzyme[];
+  /** Additional enzymes shown in reference book only (not usable in digest) */
+  referenceEnzymes?: RestrictionEnzyme[];
+  /** Restriction site positions per enzyme (enzyme name → bp positions) */
+  restrictionSites?: Record<string, number[]>;
+  /** Candidate genes for digest preview (gene name → { sites per enzyme }) */
+  candidateGenes?: { name: string; sites: Record<string, number[]> }[];
+  /** Pre-computed ELISA data (old read-only mode) */
+  elisaData?: { target: string; wells: ElisaWell[] };
+  /** ELISA plate design puzzle data (interactive mode) */
+  elisaDesign?: ElisaDesignData;
+  /** Growth/OD data for spectrophotometer */
+  growthCurve?: GrowthPoint[];
+  /** Max spectrophotometer readings (undefined = unlimited) */
+  spectBudget?: number;
+  /** Multi-sample PCR data */
+  samplePcr?: SamplePcrData;
+  /** Answer type: 'single' for button click, 'mapping' for assign-each-unknown */
+  answerType?: 'single' | 'mapping';
+  /** Labels for mapping answers (the unknowns) */
+  answerMappingLabels?: string[];
+  /** Options for each mapping dropdown */
+  answerMappingOptions?: string[];
+  /** Starting sample tubes placed on desk at puzzle start */
+  startingSamples?: string[];
 }

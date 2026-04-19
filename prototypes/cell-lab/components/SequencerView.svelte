@@ -40,11 +40,6 @@
   /** The next expected position in the sequence (lowest uncalled) */
   const nextPosition = $derived(calledBases.length);
 
-  /** Which base is expected next */
-  const expectedBase = $derived(
-    loadedBand ? loadedBand.sequence[nextPosition] ?? null : null
-  );
-
   function callBand(base: string, position: number) {
     if (position !== nextPosition) return;
     calledBases = [...calledBases, base];
@@ -58,13 +53,28 @@
     calledBases = [];
   }
 
+  function handleGelKeydown(e: KeyboardEvent) {
+    if (!loadedBand) return;
+
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      undoBase();
+      return;
+    }
+
+    const upper = e.key.toUpperCase();
+    if (upper === 'A' || upper === 'T' || upper === 'G' || upper === 'C') {
+      e.preventDefault();
+      callBand(upper, nextPosition);
+    }
+  }
+
   /** Convert a sequence position to a vertical % (0=top, 100=bottom).
    *  Position 0 (shortest fragment) is at the bottom, last position at top. */
   function bandTop(position: number, total: number): number {
     return (1 - position / (total - 1)) * 100;
   }
 
-  const calledSequence = $derived(calledBases.join(''));
   const isDone = $derived(loadedBand ? calledBases.length >= loadedBand.sequence.length : false);
 </script>
 
@@ -87,10 +97,18 @@
   </div>
 
   {#if loadedBand}
-    <p class="seq-hint">Read the gel bottom-to-top. Click the next lowest band to call each base.</p>
+    <p class="seq-hint">Read bottom-to-top. Press A/T/G/C to call bases, Backspace to undo, or click bands directly.</p>
 
     <!-- 4-lane Sanger gel -->
-    <div class="sanger-gel-wrap">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div
+      class="sanger-gel-wrap"
+      role="application"
+      aria-label="Sanger gel keyboard controls"
+      tabindex="0"
+      onkeydown={handleGelKeydown}
+    >
       <div class="sanger-gel">
         {#each lanes as lane}
           <div class="sanger-lane">
@@ -213,6 +231,12 @@
     position: relative;
     flex: 1;
     min-height: 300px;
+    outline: none;
+  }
+
+  .sanger-gel-wrap:focus-visible {
+    box-shadow: 0 0 0 2px rgba(181, 148, 90, 0.6);
+    border-radius: 8px;
   }
 
   .sanger-gel {

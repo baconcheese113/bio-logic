@@ -1,17 +1,40 @@
 <script lang="ts">
-  import type { PlasmidMap } from '../lib/lab-types';
+  import type { PlasmidMap, SamplePcrData } from '../lib/lab-types';
   import type { PrimerPlacement } from '../lib/pcr-simulation';
   import { estimateGc, estimateTm, runPcr } from '../lib/pcr-simulation';
 
   interface Props {
-    plasmid: PlasmidMap;
+    plasmid?: PlasmidMap;
+    samplePcr?: SamplePcrData;
+    dragActive?: boolean;
+    loadedSample?: string | null;
     onresult: (bandSize: number | null, failReason?: string) => void;
+    oneject?: () => void;
   }
 
-  let { plasmid, onresult }: Props = $props();
+  let { plasmid, samplePcr, dragActive = false, loadedSample = null, onresult, oneject }: Props = $props();
+
+  const sampleMode = $derived(!plasmid && !!samplePcr);
+
+  // --- Sample mode state ---
+  let selectedPrimer = $state('');
+
+  function runSamplePcr() {
+    if (!samplePcr || !loadedSample || !selectedPrimer) return;
+    const sampleSpecies = samplePcr.truthMap[loadedSample];
+    const presentPrimers = samplePcr.genePresence[sampleSpecies] ?? [];
+    if (presentPrimers.includes(selectedPrimer)) {
+      const primer = samplePcr.primers.find(p => p.name === selectedPrimer);
+      onresult(primer?.bandSize ?? 500);
+    } else {
+      onresult(null, 'No amplification');
+    }
+    selectedPrimer = '';
+  }
 
   // Build linear position map from regions
   const regionPositions = $derived(() => {
+    if (!plasmid) return [];
     let offset = 0;
     return plasmid.regions.map(r => {
       const start = offset;
@@ -28,11 +51,11 @@
   let dragging = $state<'fwd' | 'rev' | null>(null);
   let mapEl: HTMLDivElement | undefined = $state();
 
-  // Computed primer stats
-  const fwdPos = $derived(Math.round(fwdFrac * plasmid.totalLength));
-  const revPos = $derived(Math.round(revFrac * plasmid.totalLength));
-  const fwdGc = $derived(estimateGc(fwdPos, plasmid.totalLength));
-  const revGc = $derived(estimateGc(revPos, plasmid.totalLength));
+  // Computed primer stats (plasmid mode only)
+  const fwdPos = $derived(Math.round(fwdFrac * (plasmid?.totalLength ?? 0)));
+  const revPos = $derived(Math.round(revFrac * (plasmid?.totalLength ?? 0)));
+  const fwdGc = $derived(estimateGc(fwdPos, plasmid?.totalLength ?? 1));
+  const revGc = $derived(estimateGc(revPos, plasmid?.totalLength ?? 1));
   const fwdTm = $derived(Math.round(estimateTm(fwdLength, fwdGc)));
   const revTm = $derived(Math.round(estimateTm(revLength, revGc)));
 
@@ -66,6 +89,7 @@
   }
 
   function runPcrAction() {
+    if (!plasmid) return;
     const fwd: PrimerPlacement = { position: fwdPos, length: fwdLength };
     const rev: PrimerPlacement = { position: revPos, length: revLength };
     const result = runPcr(plasmid, fwd, rev);
@@ -74,6 +98,7 @@
 
   // Initialize primers to flank first insert region
   $effect(() => {
+    if (!plasmid) return;
     const regions = regionPositions();
     const insert = regions.find(r => r.isInsert);
     if (insert) {
@@ -84,7 +109,57 @@
 </script>
 
 <div class="pcr-panel">
-  <h3 class="panel-title">🧬 PCR — Primer Design</h3>
+  <h3 class="panel-title">🧬 PCR{sampleMode ? ' — Sample Testing' : ' — Primer Design'}</h3>
+
+  {#if sampleMode && samplePcr}
+    <!-- Sample-drop mode -->
+    <div class="drop-zone" class:drop-highlight={dragActive && !loadedSample} data-pcr-well>
+      {#if loadedSample}
+        <div class="loaded-sample">
+          <span class="sample-label">{loadedSample}</span>
+          <button class="eject-btn" onclick={() => oneject?.()}>✗ Eject</button>
+        </div>
+      {:else if dragActive}
+        <span class="drop-hint">↓ Drop sample tube here</span>
+      {:else}
+        <span class="drop-empty">Drag a sample tube here</span>
+      {/if}
+    </div>
+
+    {#if loadedSample}
+      <div class="test-controls">
+        <select class="primer-select" bind:value={selectedPrimer}>
+          <option value="">Select primer pair…</option>
+          {#each samplePcr.primers as p}
+            <option value={p.name}>{p.name} — {p.description}</option>
+          {/each}
+        </select>
+        <button
+          class="run-btn"
+          disabled={!selectedPrimer}
+          onclick={runSamplePcr}
+        >
+          ▶ Run PCR
+        </button>
+      </div>
+    {/if}
+  {:else if plasmid}
+
+  <!-- Sample drop zone (plasmid mode) -->
+  {#if oneject}
+    <div class="drop-zone" class:drop-highlight={dragActive && !loadedSample} data-pcr-well>
+      {#if loadedSample}
+        <div class="loaded-sample">
+          <span class="sample-label">✓ {loadedSample}</span>
+          <button class="eject-btn" onclick={() => oneject?.()}>✗ Eject</button>
+        </div>
+      {:else if dragActive}
+        <span class="drop-hint">↓ Drop sample tube here</span>
+      {:else}
+        <span class="drop-empty">Drag a sample tube here to begin</span>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Plasmid linear map -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -180,9 +255,10 @@
     </div>
   </div>
 
-  <button class="run-btn" onclick={runPcrAction}>
+  <button class="run-btn" disabled={!!oneject && !loadedSample} onclick={runPcrAction}>
     ▶ Run PCR
   </button>
+  {/if}
 </div>
 
 <style>
@@ -237,7 +313,7 @@
 
   .region-label {
     font-family: var(--font-mono);
-    font-size: 0.6rem;
+    font-size: 11px;
     color: var(--parchment);
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -252,7 +328,7 @@
     transform: translateX(-50%);
     padding: 2px 6px;
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: 11px;
     border-radius: 3px;
     cursor: grab;
     z-index: 10;
@@ -295,7 +371,7 @@
     display: flex;
     justify-content: space-between;
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: 11px;
     color: var(--parchment-aged);
     padding: 0 2px;
   }
@@ -361,5 +437,94 @@
   .run-btn:hover {
     background: var(--brass);
     color: var(--bg-darkest);
+  }
+
+  .run-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Sample mode */
+  .drop-zone {
+    width: 100%;
+    max-width: 300px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--brass-dark);
+    border-radius: 8px;
+    background: var(--bg-darkest);
+    transition: all 0.15s;
+  }
+
+  .drop-zone.drop-highlight {
+    border-color: var(--brass);
+    background: rgba(180, 160, 100, 0.1);
+  }
+
+  .drop-hint {
+    color: var(--brass);
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    animation: pulse 1.2s infinite alternate;
+  }
+
+  .drop-empty {
+    color: var(--parchment-aged);
+    font-size: 0.8rem;
+    opacity: 0.6;
+  }
+
+  @keyframes pulse {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+  }
+
+  .loaded-sample {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+  }
+
+  .sample-label {
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    color: var(--parchment);
+  }
+
+  .eject-btn {
+    background: none;
+    border: 1px solid var(--brass-dark);
+    color: var(--parchment-aged);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .eject-btn:hover {
+    color: #e74c3c;
+    border-color: #e74c3c;
+  }
+
+  .test-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .primer-select {
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: var(--bg-darkest);
+    color: var(--parchment);
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    cursor: pointer;
+    max-width: 250px;
   }
 </style>

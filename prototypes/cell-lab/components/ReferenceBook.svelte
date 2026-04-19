@@ -15,15 +15,25 @@
   const instruments = $derived(entries.filter(e => e.section === 'instruments'));
   const enzymes = $derived(entries.filter(e => e.section === 'enzymes'));
   const artifacts = $derived(entries.filter(e => e.section === 'artifacts'));
-  const caseNotes = $derived(entries.filter(e => e.section === 'case-notes'));
+
+  type GeneSort = 'alpha' | 'size';
+  let geneSort = $state<GeneSort>('alpha');
+  const sortedGenes = $derived(
+    [...genes].sort((a, b) => {
+      if (a.section !== 'genes' || b.section !== 'genes') return 0;
+      return geneSort === 'size' ? a.length - b.length : a.name.localeCompare(b.name);
+    })
+  );
 
   const GENES_PER_SPREAD = 4;
   const INSTS_PER_SPREAD = 2;
+  const ENZYMES_PER_SPREAD = 4;
 
   const sectionPages = $derived.by(() => {
     switch (section) {
-      case 'genes': return Math.max(1, Math.ceil(genes.length / GENES_PER_SPREAD));
+      case 'genes': return Math.max(1, Math.ceil(sortedGenes.length / GENES_PER_SPREAD));
       case 'instruments': return Math.max(1, Math.ceil(instruments.length / INSTS_PER_SPREAD));
+      case 'enzymes': return Math.max(1, Math.ceil(enzymes.length / ENZYMES_PER_SPREAD));
       default: return 1;
     }
   });
@@ -36,7 +46,6 @@
     { id: 'instruments', label: 'Instruments', tab: 'Inst.' },
     { id: 'enzymes', label: 'Enzymes', tab: 'Enz.' },
     { id: 'artifacts', label: 'Artifacts', tab: 'Art.' },
-    { id: 'case-notes', label: 'Case Notes', tab: 'Notes' },
   ];
 
   const SECTION_COUNTS = $derived({
@@ -45,7 +54,6 @@
     instruments: instruments.length,
     enzymes: enzymes.length,
     artifacts: artifacts.length,
-    'case-notes': caseNotes.length,
   });
 
   const geneIconSym: Record<string, string> = {
@@ -63,11 +71,16 @@
   function prev() { if (safePage > 0) onpage(safePage - 1); }
   function next() { if (safePage < sectionPages - 1) onpage(safePage + 1); }
 
-  const spreadGenes = $derived(genes.slice(safePage * GENES_PER_SPREAD, (safePage + 1) * GENES_PER_SPREAD));
+  const spreadGenes = $derived(sortedGenes.slice(safePage * GENES_PER_SPREAD, (safePage + 1) * GENES_PER_SPREAD));
   const leftGenes = $derived(spreadGenes.slice(0, 2));
   const rightGenes = $derived(spreadGenes.slice(2, 4));
 
   const spreadInsts = $derived(instruments.slice(safePage * INSTS_PER_SPREAD, (safePage + 1) * INSTS_PER_SPREAD));
+
+  const spreadEnzymes = $derived(enzymes.slice(safePage * ENZYMES_PER_SPREAD, (safePage + 1) * ENZYMES_PER_SPREAD));
+  const halfEnz = Math.ceil(ENZYMES_PER_SPREAD / 2);
+  const leftEnzymes = $derived(spreadEnzymes.slice(0, halfEnz));
+  const rightEnzymes = $derived(spreadEnzymes.slice(halfEnz));
 </script>
 
 {#snippet geneCard(g: Extract<BookEntry, { section: 'genes' }>)}
@@ -75,12 +88,19 @@
     <header class="gene-head">
       <span class="gene-icon" aria-hidden="true">{geneIconSym[g.icon]}</span>
       <span class="gene-name">{g.name}</span>
-      <span class="gene-size">{g.length}bp</span>
+      <span class="gene-size">{g.length} bp</span>
     </header>
-    {#if g.sequence}
-      <div class="gene-seq">{g.sequence.slice(0, 20)}</div>
+    {#if g.fullName}
+      <div class="gene-full-name">{g.fullName}</div>
     {/if}
     <div class="gene-role">{g.roleLine}</div>
+    {#if g.enzymeSites && g.enzymeSites.length > 0}
+      <div class="gene-enzymes">
+        {#each g.enzymeSites as es}
+          <span class="gene-enzyme-tag">{es.enzyme}: {es.sites}</span>
+        {/each}
+      </div>
+    {/if}
   </article>
 {/snippet}
 
@@ -136,6 +156,26 @@
   </div>
 {/snippet}
 
+{#snippet enzymeCard(e: Extract<BookEntry, { section: 'enzymes' }>)}
+  <article class="enzyme-card">
+    <div class="enzyme-header">
+      <div class="enzyme-left">
+        <h4 class="enzyme-name">{e.name}</h4>
+        <div class="enzyme-organism">{e.organism}</div>
+      </div>
+      <div class="enzyme-right">
+        <span class="enzyme-site">{e.cutSite}</span>
+        <span class="enzyme-temp">{e.optimalTemp}°C</span>
+      </div>
+    </div>
+    <div class="enzyme-details">
+      <span class="enzyme-taxonomy">{e.taxonomy.join(' › ')}</span>
+      <span class="enzyme-cut-type">{e.cutType === 'blunt' ? 'Blunt' : e.cutType === 'sticky-5' ? "5′ overhang" : "3′ overhang"}</span>
+    </div>
+    <div class="enzyme-fact">{e.discoveredYear} — {e.fact}</div>
+  </article>
+{/snippet}
+
 <div class="book">
   <div class="spread">
     <!-- Left page -->
@@ -154,20 +194,18 @@
         {#if spreadInsts[0] && spreadInsts[0].section === 'instruments'}
           {@render instCard(spreadInsts[0])}
         {/if}
-      {:else if section === 'enzymes' || section === 'artifacts'}
+      {:else if section === 'enzymes'}
+        {#if leftEnzymes.length > 0}
+          <div class="enzyme-list">
+            {#each leftEnzymes as e (e.id)}
+              {#if e.section === 'enzymes'}{@render enzymeCard(e)}{/if}
+            {/each}
+          </div>
+        {:else}
+          {@render emptySection()}
+        {/if}
+      {:else if section === 'artifacts'}
         {@render emptySection()}
-      {:else if section === 'case-notes'}
-        <h4 class="notes-title">Case Notes</h4>
-        <ul class="notes-list">
-          {#each caseNotes as n (n.id)}
-            {#if n.section === 'case-notes'}
-              <li>{n.bullet}</li>
-            {/if}
-          {/each}
-          {#if caseNotes.length === 0}
-            <li class="empty-sub">No notes for this puzzle.</li>
-          {/if}
-        </ul>
       {/if}
     </div>
 
@@ -194,8 +232,15 @@
         {#if spreadInsts[1] && spreadInsts[1].section === 'instruments'}
           {@render instCard(spreadInsts[1])}
         {/if}
+      {:else if section === 'enzymes'}
+        {#if rightEnzymes.length > 0}
+          <div class="enzyme-list">
+            {#each rightEnzymes as e (e.id)}
+              {#if e.section === 'enzymes'}{@render enzymeCard(e)}{/if}
+            {/each}
+          </div>
+        {/if}
       {/if}
-      <!-- enzymes/artifacts/case-notes: right page intentionally blank -->
     </div>
   </div>
 
@@ -210,6 +255,10 @@
 
   <!-- Page nav -->
   <div class="nav">
+    {#if section === 'genes'}
+      <button class="sort-btn" class:active={geneSort === 'alpha'} onclick={() => geneSort = 'alpha'}>A–Z</button>
+      <button class="sort-btn" class:active={geneSort === 'size'} onclick={() => geneSort = 'size'}>bp ↑</button>
+    {/if}
     <button class="nav-btn" disabled={safePage === 0} onclick={prev} aria-label="Previous page">◀</button>
     <span class="page-num">p. {safePage + 1} / {sectionPages}</span>
     <button class="nav-btn" disabled={safePage >= sectionPages - 1} onclick={next} aria-label="Next page">▶</button>
@@ -218,8 +267,10 @@
 
 <style>
   .book {
-    width: 640px;
-    height: 400px;
+    width: 100%;
+    max-width: 640px;
+    height: min(360px, calc(100vh - 480px));
+    min-height: 210px;
     background: #f5ecd9;
     display: grid;
     grid-template-columns: 1fr 56px;
@@ -342,6 +393,23 @@
   .gene-card.icon-structural { border-left-color: #9a9068; }
   .gene-card.icon-unknown { border-left-color: #888; }
 
+  .sort-btn {
+    font-size: 11px;
+    font-family: Georgia, serif;
+    background: none;
+    border: 1px solid rgba(120, 90, 40, 0.25);
+    color: #7a6a58;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .sort-btn.active {
+    background: rgba(120, 90, 40, 0.12);
+    color: #3a2a18;
+    font-weight: 600;
+  }
+
   .gene-head {
     display: flex;
     align-items: center;
@@ -369,24 +437,37 @@
     padding: 2px 7px;
     border-radius: 3px;
   }
-  .gene-seq {
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-    letter-spacing: 1.2px;
-    color: #3a2a18;
-    background: rgba(255, 255, 255, 0.5);
-    padding: 3px 6px;
-    border-radius: 2px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: clip;
-  }
   .gene-role {
     font-size: 13px;
     font-style: italic;
     color: #5a4028;
     line-height: 1.3;
     font-family: Georgia, serif;
+  }
+
+  .gene-full-name {
+    font-size: 11px;
+    color: #7a6a58;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-top: -2px;
+  }
+
+  .gene-enzymes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  .gene-enzyme-tag {
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    background: rgba(154, 106, 191, 0.12);
+    color: #6b4f8a;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
   }
 
   /* Instrument card */
@@ -454,24 +535,89 @@
     font-family: Georgia, serif;
   }
 
-  /* Case notes */
-  .notes-title {
-    margin: 4px 0 8px;
-    font-size: 16px;
-    color: #3a2a18;
-    font-family: Georgia, serif;
+  /* Enzyme cards */
+  .enzyme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    height: 100%;
   }
-  .notes-list {
-    list-style: disc;
-    padding-left: 22px;
+  .enzyme-card {
+    background: rgba(250, 242, 222, 0.75);
+    border: 1px solid rgba(120, 90, 40, 0.25);
+    border-left: 3px solid #9a6abf;
+    border-radius: 3px;
+    padding: 4px 8px;
+  }
+  .enzyme-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .enzyme-left {
+    min-width: 0;
+  }
+  .enzyme-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 1px;
+  }
+  .enzyme-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2a1f12;
     margin: 0;
-  }
-  .notes-list li {
-    font-size: 13px;
-    color: #3a2a18;
-    line-height: 1.4;
-    margin-bottom: 6px;
     font-family: Georgia, serif;
+    line-height: 1.2;
+  }
+  .enzyme-organism {
+    font-size: 11px;
+    font-style: italic;
+    color: #5a4028;
+    font-family: Georgia, serif;
+  }
+  .enzyme-site {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #5a4028;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .enzyme-temp {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9a6abf;
+    font-family: Georgia, serif;
+  }
+  .enzyme-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2px;
+  }
+  .enzyme-taxonomy {
+    font-size: 11px;
+    color: #8a7058;
+    font-family: Georgia, serif;
+  }
+  .enzyme-cut-type {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b4f8a;
+    font-family: Georgia, serif;
+  }
+  .enzyme-fact {
+    font-size: 11px;
+    color: #8a7058;
+    font-family: Georgia, serif;
+    margin-top: 2px;
+    line-height: 1.3;
   }
 
   /* Tabs */
