@@ -14,6 +14,8 @@
 
   let dragOverIndex = $state<number | null>(null);
   let dragSourceIndex = $state<number | null>(null);
+  let dragOverGap = $state<number | null>(null);
+  let shakeGap = $state<number | null>(null);
 
   function handleDragStart(e: DragEvent, index: number) {
     if (disabled || isReadonly || !e.dataTransfer) return;
@@ -51,9 +53,58 @@
     onupdate(next);
   }
 
+  function handleGapDragOver(e: DragEvent, gapIndex: number) {
+    if (disabled || isReadonly) return;
+    e.preventDefault();
+    dragOverGap = gapIndex;
+  }
+
+  function handleGapDrop(e: DragEvent, gapIndex: number) {
+    if (disabled || isReadonly) return;
+    e.preventDefault();
+    dragOverGap = null;
+
+    if (dragSourceIndex !== null) {
+      // Reorder via gap: remove from source, insert at gap position
+      const partId = strand[dragSourceIndex];
+      if (!partId) return;
+      const next = [...strand];
+      next[dragSourceIndex] = null;
+      // Compact: remove the null we just created, then splice the part at gapIndex
+      const compacted: (string | null)[] = next.filter(p => p !== null);
+      const insertAt = Math.min(gapIndex, compacted.length);
+      compacted.splice(insertAt, 0, partId);
+      // Pad back to original length with nulls
+      while (compacted.length < strand.length) compacted.push(null);
+      dragSourceIndex = null;
+      onupdate(compacted as (string | null)[]);
+      return;
+    }
+
+    // Drop from library into gap
+    const partId = e.dataTransfer?.getData('text/plain');
+    if (!partId || !PARTS_MAP.has(partId)) return;
+
+    // Need at least one null to make room
+    const nullIdx = strand.lastIndexOf(null);
+    if (nullIdx === -1) {
+      // Full — shake
+      shakeGap = gapIndex;
+      setTimeout(() => shakeGap = null, 400);
+      return;
+    }
+
+    // Remove the rightmost null, then splice part at gapIndex
+    const next = [...strand];
+    next.splice(nullIdx, 1);
+    next.splice(gapIndex, 0, partId);
+    onupdate(next);
+  }
+
   function handleDragEnd() {
     dragSourceIndex = null;
     dragOverIndex = null;
+    dragOverGap = null;
   }
 
   function removePart(index: number) {
@@ -70,6 +121,17 @@
 
   <div class="backbone">
     {#each strand as partId, i}
+      <!-- Insert gap before each slot -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="insert-gap"
+        class:gap-active={dragOverGap === i}
+        class:gap-shake={shakeGap === i}
+        ondragover={(e) => handleGapDragOver(e, i)}
+        ondragleave={() => { dragOverGap = null; }}
+        ondrop={(e) => handleGapDrop(e, i)}
+      ></div>
+
       <button
         class="slot"
         class:occupied={partId !== null}
@@ -100,10 +162,19 @@
         {/if}
       </button>
 
-      {#if i < strand.length - 1}
-        <div class="connector"></div>
-      {/if}
+
     {/each}
+
+    <!-- Trailing insert gap after last slot -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="insert-gap"
+      class:gap-active={dragOverGap === strand.length}
+      class:gap-shake={shakeGap === strand.length}
+      ondragover={(e) => handleGapDragOver(e, strand.length)}
+      ondragleave={() => { dragOverGap = null; }}
+      ondrop={(e) => handleGapDrop(e, strand.length)}
+    ></div>
   </div>
 
   <span class="direction-label">3′</span>
@@ -131,11 +202,55 @@
     justify-content: center;
   }
 
-  .connector {
-    width: 18px;
+
+
+  /* ── Insert gap drop zones ────────────────────── */
+  .insert-gap {
+    width: 22px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    cursor: default;
+    transition: width 0.2s, background 0.2s, border-color 0.2s;
+    position: relative;
+  }
+
+  .insert-gap::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
     height: 3px;
     background: var(--brass-dark);
-    flex-shrink: 0;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .insert-gap:hover {
+    width: 28px;
+    background: rgba(207, 174, 110, 0.1);
+  }
+
+  .insert-gap.gap-active {
+    width: 32px;
+    background: rgba(207, 174, 110, 0.25);
+    border: 1px dashed var(--brass);
+  }
+
+  .insert-gap.gap-shake {
+    animation: shake 0.35s ease;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px dashed var(--status-error);
+    width: 32px;
+  }
+
+  @keyframes shake {
+    0%, 100% { translate: 0; }
+    20% { translate: -3px; }
+    40% { translate: 3px; }
+    60% { translate: -2px; }
+    80% { translate: 2px; }
   }
 
   .slot {
@@ -148,7 +263,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.35s, background 0.35s, box-shadow 0.35s, opacity 0.35s;
     flex-shrink: 0;
     padding: 0;
     color: inherit;
@@ -167,6 +282,7 @@
   .slot.occupied {
     border-style: solid;
     border-color: var(--brass-dark);
+    box-shadow: 0 0 8px 1px rgba(207, 174, 110, 0.15);
     cursor: pointer;
   }
 
@@ -176,6 +292,7 @@
 
   .slot.drag-source {
     opacity: 0.35;
+    transition: opacity 0.1s;
   }
 
   .slot.disabled {

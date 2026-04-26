@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { AssemblyRead, AssemblyPuzzleData } from '../lib/lab-types';
+  import { reverseComplement } from '../lib/assembly-simulation';
+  import ReverseComplementAnimation from './ReverseComplementAnimation.svelte';
 
   interface Props {
     data: AssemblyPuzzleData;
@@ -15,6 +17,7 @@
     sequence: string;
     col: number;
     row: number;
+    reversed?: boolean;
   }
 
   let trayReads = $state<AssemblyRead[]>([]);
@@ -36,6 +39,9 @@
   const CANVAS_H = 1400;
   let trayEl: HTMLDivElement | undefined = $state();
 
+  /** Any reads in the puzzle start reversed? Show flip UI. */
+  const hasReversedReads = $derived(data.reads.some(r => r.reversed));
+
   $effect(() => {
     trayReads = [...data.reads];
     gridReads = [];
@@ -43,6 +49,40 @@
     panY = 0;
     zoom = 1;
   });
+
+  // RC animation state
+  let animatingFlip = $state<{ id: string; sequence: string; source: 'tray' | 'grid' } | null>(null);
+
+  /** Flip a tray read's sequence (reverse complement). */
+  function flipTrayRead(id: string, e: Event) {
+    e.stopPropagation();
+    e.preventDefault();
+    const read = trayReads.find(r => r.id === id);
+    if (read) animatingFlip = { id, sequence: read.sequence, source: 'tray' };
+  }
+
+  /** Flip a grid read's sequence (reverse complement). */
+  function flipGridRead(id: string, e: Event) {
+    e.stopPropagation();
+    e.preventDefault();
+    const read = gridReads.find(r => r.id === id);
+    if (read) animatingFlip = { id, sequence: read.sequence, source: 'grid' };
+  }
+
+  function completeFlip() {
+    if (!animatingFlip) return;
+    const { id, source } = animatingFlip;
+    if (source === 'tray') {
+      trayReads = trayReads.map(r =>
+        r.id === id ? { ...r, sequence: reverseComplement(r.sequence), reversed: !r.reversed } : r,
+      );
+    } else {
+      gridReads = gridReads.map(r =>
+        r.id === id ? { ...r, sequence: reverseComplement(r.sequence), reversed: !r.reversed } : r,
+      );
+    }
+    animatingFlip = null;
+  }
 
   let drag = $state<{
     readId: string;
@@ -243,7 +283,7 @@
       const y = p.y - CELL_H / 2;
       const col = Math.max(0, Math.round(x / CELL_W));
       const row = Math.max(0, Math.round(y / CELL_H));
-      gridReads = [...gridReads, { id: tr.id, sequence: tr.sequence, col, row }];
+      gridReads = [...gridReads, { id: tr.id, sequence: tr.sequence, col, row, reversed: tr.reversed }];
       drag = {
         readId: id, anchorX: p.x - x, anchorY: p.y - y, x, y, fromTray: true,
         group: [{ id: tr.id, dCol: 0, dRow: 0 }],
@@ -271,7 +311,7 @@
   function handlePointerDown(e: PointerEvent) {
     // Only start pan if clicking on empty canvas (not on a read or HUD element)
     if (drag) return;
-    if ((e.target as HTMLElement).closest('.grid-read, .tray-read, .hud, .group-handle')) return;
+    if ((e.target as HTMLElement).closest('.grid-read, .tray-read, .hud, .group-handle, .flip-btn, .flip-below')) return;
     isPanning = true;
     panAnchorX = e.clientX;
     panAnchorY = e.clientY;
@@ -304,7 +344,7 @@
       // Return entire group to tray
       const returning = gridReads.filter(r => groupIds.has(r.id));
       gridReads = gridReads.filter(r => !groupIds.has(r.id));
-      trayReads = [...trayReads, ...returning.map(r => ({ id: r.id, sequence: r.sequence }))];
+      trayReads = [...trayReads, ...returning.map(r => ({ id: r.id, sequence: r.sequence, reversed: r.reversed }))];
     } else {
       const p = canvasXY(e);
       const rawX = p.x - drag.anchorX;
@@ -344,7 +384,7 @@
   }
 
   function clearGrid() {
-    trayReads = [...trayReads, ...gridReads.map(r => ({ id: r.id, sequence: r.sequence }))];
+    trayReads = [...trayReads, ...gridReads.map(r => ({ id: r.id, sequence: r.sequence, reversed: r.reversed }))];
     gridReads = [];
   }
 
@@ -414,22 +454,41 @@
     {#each gridReads as read (read.id)}
       {@const gm = drag?.group.find(g => g.id === read.id)}
       {@const inDrag = !!gm}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      {@const isFlipping = animatingFlip?.id === read.id && animatingFlip?.source === 'grid'}
       <div
-        class="grid-read"
-        class:dragging={inDrag}
-        class:grouped={!inDrag && groupedReadIds.has(read.id)}
+        class="grid-read-group"
+        class:flipping={isFlipping}
         style:left="{inDrag ? drag!.x + gm!.dCol * CELL_W : read.col * CELL_W}px"
         style:top="{inDrag ? drag!.y + gm!.dRow * CELL_H : read.row * CELL_H}px"
-        style:z-index={inDrag ? 100 : 1}
-        onpointerdown={(e) => startDrag(read.id, 'grid', e)}
+        style:z-index={isFlipping ? 50 : inDrag ? 100 : 1}
       >
-        {#each read.sequence.split('') as base, i}
-          <span
-            class="base"
-            class:match={!inDrag && matchSet.has(`${read.id}-${i}`)}
-          >{base}</span>
-        {/each}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="grid-read"
+          class:dragging={inDrag}
+          class:grouped={!inDrag && groupedReadIds.has(read.id)}
+          class:reversed={read.reversed}
+          onpointerdown={(e) => startDrag(read.id, 'grid', e)}
+        >
+          {#if hasReversedReads && !inDrag}
+            <span class="dir-label left">5′</span>
+            <span class="dir-label right">3′</span>
+          {/if}
+          {#each read.sequence.split('') as base, i}
+            <span
+              class="base"
+              class:match={!inDrag && matchSet.has(`${read.id}-${i}`)}
+            >{base}</span>
+          {/each}
+        </div>
+        {#if hasReversedReads && !isFlipping && !inDrag}
+          <button type="button" class="flip-below" onclick={(e) => flipGridRead(read.id, e)}>
+            <span class="flip-icon">⇄</span>
+          </button>
+        {/if}
+        {#if isFlipping}
+          <ReverseComplementAnimation sequence={animatingFlip!.sequence} oncomplete={completeFlip} />
+        {/if}
       </div>
     {/each}
 
@@ -461,11 +520,26 @@
     </div>
     <div class="tray-items">
       {#each trayReads as read (read.id)}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="tray-read" onpointerdown={(e) => startDrag(read.id, 'tray', e)}>
-          {#each read.sequence.split('') as base}
-            <span class="base">{base}</span>
-          {/each}
+        {@const isFlipping = animatingFlip?.id === read.id && animatingFlip?.source === 'tray'}
+        <div class="tray-read-group" class:flipping={isFlipping}>
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="tray-read" class:reversed={read.reversed} onpointerdown={(e) => startDrag(read.id, 'tray', e)}>
+            {#if hasReversedReads}
+              <span class="dir-label left">5′</span>
+              <span class="dir-label right">3′</span>
+            {/if}
+            {#each read.sequence.split('') as base}
+              <span class="base">{base}</span>
+            {/each}
+          </div>
+          {#if hasReversedReads && !isFlipping}
+            <button type="button" class="flip-below" onclick={(e) => flipTrayRead(read.id, e)}>
+              <span class="flip-icon">⇄</span>
+            </button>
+          {/if}
+          {#if isFlipping}
+            <ReverseComplementAnimation sequence={animatingFlip!.sequence} oncomplete={completeFlip} />
+          {/if}
         </div>
       {/each}
       {#if trayReads.length === 0 && gridReads.length > 0}
@@ -536,8 +610,20 @@
   }
 
   /* ── Grid reads ───────────────────────────────── */
-  .grid-read {
+  .grid-read-group {
     position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: visible;
+  }
+
+  .grid-read-group.flipping > .grid-read {
+    visibility: hidden;
+  }
+
+  .grid-read {
+    position: relative;
     display: flex;
     padding: 2px 0;
     cursor: grab;
@@ -556,7 +642,7 @@
   .group-handle {
     position: absolute;
     width: 10px;
-    height: 28px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -580,7 +666,7 @@
   .grip-dots {
     display: block;
     width: 6px;
-    height: 14px;
+    height: 11px;
     background-image: radial-gradient(circle, var(--brass) 1px, transparent 1px);
     background-size: 3px 4px;
     opacity: 0.7;
@@ -736,6 +822,7 @@
   }
 
   .tray-read {
+    position: relative;
     display: flex;
     padding: 4px 2px;
     background: var(--bg-medium);
@@ -757,5 +844,74 @@
     color: var(--parchment-aged);
     font-size: 0.8rem;
     font-style: italic;
+  }
+
+  /* ── Direction labels (5'/3') on hover ──────────── */
+  .dir-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--brass-light);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .dir-label.left { right: 100%; margin-right: 3px; }
+  .dir-label.right { left: 100%; margin-left: 3px; }
+
+  .grid-read-group:hover .dir-label,
+  .tray-read-group:hover .dir-label {
+    opacity: 0.7;
+  }
+
+  /* ── Flip button (below read) ─────────────────── */
+  .flip-below {
+    display: flex;
+    justify-content: center;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: height 0.12s, opacity 0.12s;
+  }
+
+  .grid-read-group:hover > .flip-below,
+  .tray-read-group:hover > .flip-below {
+    height: 16px;
+    opacity: 0.5;
+  }
+
+  .flip-below:hover {
+    opacity: 1 !important;
+  }
+
+  .flip-icon {
+    font-size: 12px;
+    color: var(--brass);
+    line-height: 16px;
+  }
+
+  /* ── Tray read group ──────────────────────────── */
+  .tray-read-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tray-read-group.flipping > .tray-read {
+    visibility: hidden;
+  }
+
+  /* ── Reversed read indicator ──────────────────── */
+  .grid-read.reversed,
+  .tray-read.reversed {
+    border-left: 2px solid rgba(255, 107, 107, 0.5);
   }
 </style>

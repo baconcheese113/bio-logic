@@ -1,5 +1,5 @@
-import type { AssemblyPuzzleData, BookEntry, GeneEntry, GeneIcon, LabPuzzle, RestrictionEnzyme } from './lab-types';
-import { generateReads, shuffleReads } from './assembly-simulation';
+import type { AntibodyEntry, AssemblyPuzzleData, BookEntry, ElisaSignal, GeneEntry, GeneIcon, LabPuzzle, RestrictionEnzyme } from './lab-types';
+import { generateReads, shuffleReads, flipSomeReads } from './assembly-simulation';
 
 /** 30+ genes with unique lengths (rounded to 20 bp) for the reference table */
 const GENE_TABLE: GeneEntry[] = [
@@ -45,6 +45,11 @@ const GENE_TABLE: GeneEntry[] = [
   { name: 'LL-37', fullName: 'Cathelicidin antimicrobial peptide', length: 114 },
   { name: 'Cecropin A', fullName: 'Antimicrobial peptide (Hyalophora cecropia)', length: 111 },
   { name: 'Thymosin β4', fullName: 'Actin-sequestering peptide', length: 135 },
+  // Small non-coding RNAs (20-30 bp mature sequences)
+  { name: 'miR-21', fullName: 'MicroRNA-21 (Homo sapiens)', length: 22 },
+  { name: 'let-7a', fullName: 'MicroRNA let-7a (Homo sapiens)', length: 22 },
+  { name: 'tRF-Gly', fullName: 'tRNA-derived fragment Gly-GCC', length: 30 },
+  { name: 'RyhB', fullName: 'Small RNA RyhB (E. coli)', length: 30 },
 ];
 
 /** First 30 bases of each gene (for sequencer reference) */
@@ -90,6 +95,11 @@ const GENE_SEQUENCES: Record<string, string> = {
   'LL-37':        'ATGAAAGCCTTGAAACTGATCCTGAGCGTT',
   'Cecropin A':   'ATGAAATGGAAACTGTTCAAAGCTATCGGT',
   'Thymosin β4':  'ATGTCTGACAAACCCGATATGGCTGAGATC',
+  // Small non-coding RNA sequences (full mature sequence)
+  'miR-21':       'UAGCUUAUCAGACUGAUGUUGA',
+  'let-7a':       'UGAGGUAGUAGGUUGUAUAGUU',
+  'tRF-Gly':      'GCAUUGGUGGUUCAGUGGUAGAAUUCUCGCC',
+  'RyhB':         'GCGAUCAGGAAGACCCUCGCGGAGAACCUGA',
 };
 
 /** Standard gel ladder sizes */
@@ -108,6 +118,11 @@ const ASSEMBLY_GENE_SEQUENCES: Record<string, string> = {
   'lacZ-α':  'ATGACCATGATTACGCCAAGCTATTTAGGTGACACTATAGAATACTCAAGCTATGCATCCAACGCGTTGGGAGCTC',
   'kanR':    'ATGAGCCATATTCAACGGGAAACGTCTTGCTCGAGGCCGCGATTAAATTCCAACATGGATGCTGATTTATATGGGT',
   'BFP':     'ATGGTGAGCAAGGGCGAGGAGCTGAACGCCATCAGCGACAACGTCTATATCAAGGCCGACAAGCAGAAGAACGGCA',
+  // Small non-coding RNAs (DNA form of mature sequences)
+  'miR-21':  'TAGCTTATCAGACTGATGTTGA',
+  'let-7a':  'TGAGGTAGTAGGTTGTATAGTT',
+  'tRF-Gly': 'GCATTGGTGGTTCAGTGGTAGAATTCTCGCC',
+  'RyhB':    'GCGATCAGGAAGACCCTCGCGGAGAACCTGA',
 };
 
 /** Infer a function-category icon from a gene name. Falls back to 'unknown'. */
@@ -124,6 +139,7 @@ const GENE_ICON_MAP: Record<string, GeneIcon> = {
   'toxA': 'structural', 'invA': 'structural',
   'Magainin 2': 'resistance', 'Melittin': 'structural', 'hBD-1': 'resistance',
   'LL-37': 'resistance', 'Cecropin A': 'resistance', 'Thymosin β4': 'structural',
+  'miR-21': 'regulator', 'let-7a': 'regulator', 'tRF-Gly': 'regulator', 'RyhB': 'regulator',
 };
 
 /** Short (≤10-word) role line for each gene. Shown on the book's gene card. */
@@ -169,6 +185,10 @@ const GENE_ROLE_LINES: Record<string, string> = {
   'LL-37': 'Human antimicrobial peptide; broad-spectrum',
   'Cecropin A': 'Insect antimicrobial; first natural antibiotic peptide',
   'Thymosin β4': 'Wound healing peptide; sequesters actin monomers',
+  'miR-21': 'Oncogenic microRNA; silences tumor suppressor genes',
+  'let-7a': 'Tumor suppressor microRNA; blocks cell growth',
+  'tRF-Gly': 'tRNA fragment; regulates translation under stress',
+  'RyhB': 'Bacterial small RNA; controls iron homeostasis',
 };
 
 /** Instrument reference entries. Shared across all puzzles. */
@@ -238,6 +258,8 @@ export function buildBookEntries(ref: {
   geneSequences?: Record<string, string>;
   enzymes?: RestrictionEnzyme[];
   referenceEnzymes?: RestrictionEnzyme[];
+  antibodies?: AntibodyEntry[];
+  primers?: Array<{ name: string; description: string; bandBySpecies: Record<string, number> }>;
 }): BookEntry[] {
   // Combine functional + reference-only enzymes for gene site estimates
   const allEnzymes = [...(ref.enzymes ?? []), ...(ref.referenceEnzymes ?? [])];
@@ -291,7 +313,24 @@ export function buildBookEntries(ref: {
     fragmentPatternKey: 'fragment-pattern' as const,
   }));
 
-  return [...genes, ...INSTRUMENT_ENTRIES, ...enzymeEntries];
+  const antibodyEntries: BookEntry[] = (ref.antibodies ?? []).map(ab => ({
+    section: 'antibodies' as const,
+    id: ab.name,
+    name: ab.name,
+    target: ab.target,
+    description: ab.description,
+    binding: ab.binding,
+  }));
+
+  const primerEntries: BookEntry[] = (ref.primers ?? []).map(p => ({
+    section: 'primers' as const,
+    id: p.name,
+    name: p.name,
+    description: p.description,
+    bandBySpecies: p.bandBySpecies,
+  }));
+
+  return [...genes, ...INSTRUMENT_ENTRIES, ...enzymeEntries, ...antibodyEntries, ...primerEntries];
 }
 
 export const PUZZLE_VERIFY_INSERT: LabPuzzle = {
@@ -438,14 +477,6 @@ export const PUZZLE_SIZE_ISNT_EVERYTHING: LabPuzzle = {
  *   lacI (1080 bp): HindIII @ 380, XhoI @ 140
  */
 
-/** Insert lengths per candidate */
-const L5_INSERT_LENGTHS: Record<string, number> = {
-  'malE': 1180,
-  'p53':  1180,
-  'galK': 1160,
-  'lacI': 1080,
-};
-
 /** Insert-internal cut sites per candidate (positions relative to insert start) */
 const L5_INSERT_SITES: Record<string, Record<string, number[]>> = {
   'malE':  { 'EcoRI': [300],  'BamHI': [],    'HindIII': [],    'XhoI': [] },
@@ -565,6 +596,8 @@ const ASSEMBLY_GENE_LENGTHS: [string, number][] = [
   // Short peptide genes — assembly length ≈ real gene length
   ['Magainin 2', 72], ['Melittin', 84], ['hBD-1', 100],
   ['LL-37', 100], ['Cecropin A', 100], ['Thymosin β4', 100],
+  // Small non-coding RNAs — assembly length = mature sequence length
+  ['miR-21', 22], ['let-7a', 22], ['tRF-Gly', 30], ['RyhB', 30],
 ];
 
 const EXPANDED_ASSEMBLY_SEQUENCES: Record<string, string> = {};
@@ -615,40 +648,45 @@ export const PUZZLE_ASSEMBLE_SEQUENCE: LabPuzzle = {
 };
 
 /**
- * L6 — Fill in the Gaps
+ * L6 — Reverse Complement Assembly (gentle intro)
  *
- * Lesson: Low-coverage sequencing leaves gaps. The player gets fewer
- * reads that don't fully cover the gene. They must reconstruct what
- * they can, then compare the partial contig against the reference
- * despite the missing sections.
+ * Lesson: DNA is double-stranded. Sequencing reads can come from either
+ * strand. Some reads arrive as the reverse complement and the player
+ * must recognize and flip them before they'll overlap correctly.
+ *
+ * Uses a short 30 bp sRNA (tRF-Gly) with 3 reads of 15 bp, 5 bp overlap,
+ * and only 1 read flipped — much gentler than the 75 bp GFP version.
  */
-const MISSING_TARGET = 'GFP';
-const MISSING_FULL_SEQ = EXPANDED_ASSEMBLY_SEQUENCES[MISSING_TARGET];
-const missingAllReads = generateReads(MISSING_FULL_SEQ, ASSEMBLY_READ_LEN, ASSEMBLY_OVERLAP_K, 99);
-// Drop 2nd read to create a gap in coverage
-const missingReads = shuffleReads(
-  missingAllReads.filter((_, i) => i !== 1),
+const RC_TARGET = 'tRF-Gly';
+const RC_FULL_SEQ = EXPANDED_ASSEMBLY_SEQUENCES[RC_TARGET];
+const RC_READ_LEN = 15;
+const RC_OVERLAP_K = 5;
+const rcReads = shuffleReads(
+  flipSomeReads(
+    generateReads(RC_FULL_SEQ, RC_READ_LEN, RC_OVERLAP_K, 99),
+    31,
+  ),
   13,
 );
 
-export const PUZZLE_INCOMPLETE_ASSEMBLY: LabPuzzle = {
+export const PUZZLE_REVERSE_COMPLEMENT_ASSEMBLY: LabPuzzle = {
   id: 'L6',
-  title: 'Fill in the Gaps',
-  briefing: 'A sequencing run came back with low coverage — some fragments didn\'t make it through. You\'ll have to piece together what you can from the surviving reads and figure out which gene they came from, even with sections missing.',
+  title: 'Read Both Strands',
+  briefing: 'DNA is double-stranded — sequencing reads can come from either strand. Some of these fragments are reverse complements of the original sequence. You\'ll need to identify which reads are flipped and correct their orientation before the overlaps will line up.',
   reference: {
     geneTable: GENE_TABLE,
     geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
   },
-  acceptedAnswers: [MISSING_TARGET, MISSING_TARGET.toLowerCase()],
+  acceptedAnswers: [RC_TARGET, RC_TARGET.toLowerCase()],
   question: 'Which gene did the reads come from?',
   answerOptions: ASSEMBLY_GENE_NAMES,
   instruments: ['assembly'],
   geneSequences: EXPANDED_ASSEMBLY_SEQUENCES,
   assemblyData: {
-    reads: missingReads,
-    overlapK: ASSEMBLY_OVERLAP_K,
-    targetGene: MISSING_TARGET,
-    fullSequence: MISSING_FULL_SEQ,
+    reads: rcReads,
+    overlapK: RC_OVERLAP_K,
+    targetGene: RC_TARGET,
+    fullSequence: RC_FULL_SEQ,
   },
 };
 
@@ -691,17 +729,63 @@ export const PUZZLE_RESTRICTION_MAP: LabPuzzle = {
 };
 
 /**
- * L6 — The Mislabeled Cultures
+ * L8 — The Mislabeled Cultures
  *
- * Lesson: Introduce ELISA as an experimental design tool. Four culture
- * tubes lost their labels. Player designs an ELISA plate, picking which
- * sample + antibody combo goes in each well. Budget of 8 wells forces
- * strategic testing instead of brute-force (which needs 16).
+ * Lesson: ELISA as experimental design. Six culture tubes lost their labels.
+ * Eight antibodies are available — some highly specific, some cross-reactive
+ * with 3-tier binding (strong / weak / none). Budget of 12 wells forces
+ * the player to reason about which 2 antibodies create unique fingerprints
+ * for all 6 proteins. The sole solution pair is Anti-Globulin + Anti-His-tag.
  */
+
+const ELISA_PROTEINS = ['GFP', 'Insulin', 'Lysozyme', 'Amylase', 'Catalase', 'Albumin'] as const;
+
+/**
+ * No monospecific antibodies — every antibody cross-reacts with at least two proteins.
+ * Only Anti-Globulin + Anti-His-tag produces unique (signalG, signalH) pairs for all 6.
+ * Any other 2-antibody pair has ≥1 collision → mathematically ambiguous → can't finish mapping.
+ */
+const ELISA_ANTIBODIES: AntibodyEntry[] = [
+  {
+    name: 'Anti-Globulin',
+    target: 'Globular proteins',
+    description: 'Polyclonal serum raised against compact globular folds. Binds lysozyme and albumin strongly; insulin weakly due to its small globular structure.',
+    binding: { GFP: 'none', Insulin: 'weak', Lysozyme: 'strong', Amylase: 'none', Catalase: 'none', Albumin: 'strong' },
+  },
+  {
+    name: 'Anti-His-tag',
+    target: 'Polyhistidine tag',
+    description: 'Targets the His₆ purification tag found on recombinant GFP and Insulin. Weak cross-reactivity with catalase (heme-pocket histidines) and albumin (metal-binding histidines).',
+    binding: { GFP: 'strong', Insulin: 'strong', Lysozyme: 'none', Amylase: 'none', Catalase: 'weak', Albumin: 'weak' },
+  },
+  {
+    name: 'Anti-Amylase',
+    target: 'Amylase',
+    description: 'Monoclonal antibody targeting amylase active site. Weak cross-reactivity with catalase due to shared enzymatic motifs.',
+    binding: { GFP: 'none', Insulin: 'none', Lysozyme: 'none', Amylase: 'strong', Catalase: 'weak', Albumin: 'none' },
+  },
+  {
+    name: 'Anti-Catalase',
+    target: 'Catalase',
+    description: 'Monoclonal antibody targeting catalase heme pocket. Weak cross-reactivity with amylase.',
+    binding: { GFP: 'none', Insulin: 'none', Lysozyme: 'none', Amylase: 'weak', Catalase: 'strong', Albumin: 'none' },
+  },
+  {
+    name: 'Anti-Enzyme',
+    target: 'Enzymatic proteins',
+    description: 'Polyclonal serum raised against conserved catalytic domains. Binds lysozyme, amylase, and catalase strongly.',
+    binding: { GFP: 'none', Insulin: 'none', Lysozyme: 'strong', Amylase: 'strong', Catalase: 'strong', Albumin: 'none' },
+  },
+];
+
+const ELISA_BINDING_MATRIX: Record<string, Record<string, ElisaSignal>> = Object.fromEntries(
+  ELISA_ANTIBODIES.map(ab => [ab.name, ab.binding])
+);
+
 export const PUZZLE_MISLABELED_CULTURES: LabPuzzle = {
   id: 'L8',
   title: 'The Mislabeled Cultures',
-  briefing: 'A fridge malfunction melted the label adhesive overnight. Four culture tubes — each producing a different protein — are now unlabeled. Use the ELISA plate reader to figure out which tube is which.',
+  briefing: 'A fridge malfunction melted the label adhesive overnight. Six culture tubes — each producing a different protein — are now unlabeled. Antibodies aren\'t perfectly specific: one that binds strongly to your target may bind weakly to a structurally similar protein. Study the binding profiles in the reference book and design a two-antibody panel that produces a unique signal fingerprint for every tube. You have 12 wells.',
   reference: {
     geneTable: [],
   },
@@ -709,32 +793,75 @@ export const PUZZLE_MISLABELED_CULTURES: LabPuzzle = {
   question: 'Which tube contains which protein?',
   instruments: ['elisa'],
   answerType: 'mapping',
-  answerMappingLabels: ['Tube A', 'Tube B', 'Tube C', 'Tube D'],
-  answerMappingOptions: ['Insulin', 'GFP', 'Amylase', 'Lysozyme'],
+  answerMappingLabels: ['Tube A', 'Tube B', 'Tube C', 'Tube D', 'Tube E', 'Tube F'],
+  answerMappingOptions: [...ELISA_PROTEINS],
   elisaDesign: {
-    samples: ['Tube A', 'Tube B', 'Tube C', 'Tube D'],
-    antibodies: ['Insulin', 'GFP', 'Amylase', 'Lysozyme'],
+    samples: ['Tube A', 'Tube B', 'Tube C', 'Tube D', 'Tube E', 'Tube F'],
+    antibodies: ELISA_ANTIBODIES,
+    bindingMatrix: ELISA_BINDING_MATRIX,
     truthMap: {
-      'Tube A': 'GFP',
-      'Tube B': 'Insulin',
-      'Tube C': 'Lysozyme',
-      'Tube D': 'Amylase',
+      'Tube A': 'Albumin',
+      'Tube B': 'GFP',
+      'Tube C': 'Catalase',
+      'Tube D': 'Insulin',
+      'Tube E': 'Lysozyme',
+      'Tube F': 'Amylase',
     },
-    wellBudget: 8,
+    wellBudget: 12,
   },
 };
 
 /**
- * L7 — Fingerprint the Strain
+ * L9 — Fingerprint the Strain
  *
- * Lesson: Multi-sample PCR. Three bacterial samples look identical.
- * Player runs species-specific PCR + gel to identify each strain.
- * Budget of 5 gel lanes forces strategic primer selection.
+ * Lesson: Multi-sample PCR with gel electrophoresis. Five bacterial isolates
+ * look identical. Eight primer pairs available — some universal (trap),
+ * some shared (trap), some species-specific, and one (gyrB) that gives
+ * different band sizes per species. Budget of 6 gel lanes forces strategic
+ * primer selection. Optimal strategy: gyrB on all 5 (5 lanes, groups by
+ * band size) + stx1 on one E. coli candidate (1 lane) = 6 lanes total.
  */
+
+const PCR_SPECIES = ['E. coli K-12', 'E. coli O157:H7', 'S. aureus MRSA', 'P. aeruginosa', 'B. subtilis'] as const;
+
+/**
+ * No single-species silver-bullet primers (mecA/toxA/spo0A removed).
+ * Without gyrB, MRSA/Pseudo/Bacillus are indistinguishable — mathematically ambiguous.
+ * Optimal path: gyrB×5 (unique sizes for 3 species, E. coli tie at 370) + stx1×1 (breaks tie).
+ * Trap primers (16S, lacZ, uidA) look useful but give no species discrimination.
+ */
+const PCR_PRIMERS: Array<{ name: string; description: string; bandBySpecies: Record<string, number> }> = [
+  {
+    name: '16S rRNA',
+    description: 'Universal bacterial ribosomal marker — amplifies in all bacteria',
+    bandBySpecies: { 'E. coli K-12': 1500, 'E. coli O157:H7': 1500, 'S. aureus MRSA': 1500, 'P. aeruginosa': 1500, 'B. subtilis': 1500 },
+  },
+  {
+    name: 'lacZ',
+    description: 'β-galactosidase gene (Enterobacteriaceae only)',
+    bandBySpecies: { 'E. coli K-12': 520, 'E. coli O157:H7': 520, 'S. aureus MRSA': 0, 'P. aeruginosa': 0, 'B. subtilis': 0 },
+  },
+  {
+    name: 'uidA',
+    description: 'β-glucuronidase gene (Enterobacteriaceae only)',
+    bandBySpecies: { 'E. coli K-12': 590, 'E. coli O157:H7': 590, 'S. aureus MRSA': 0, 'P. aeruginosa': 0, 'B. subtilis': 0 },
+  },
+  {
+    name: 'gyrB',
+    description: 'DNA gyrase subunit B — amplicon size varies by species',
+    bandBySpecies: { 'E. coli K-12': 370, 'E. coli O157:H7': 370, 'S. aureus MRSA': 500, 'P. aeruginosa': 630, 'B. subtilis': 440 },
+  },
+  {
+    name: 'stx1',
+    description: 'Shiga toxin 1 virulence gene',
+    bandBySpecies: { 'E. coli K-12': 0, 'E. coli O157:H7': 380, 'S. aureus MRSA': 0, 'P. aeruginosa': 0, 'B. subtilis': 0 },
+  },
+];
+
 export const PUZZLE_FINGERPRINT_STRAIN: LabPuzzle = {
   id: 'L9',
   title: 'Fingerprint the Strain',
-  briefing: 'Three bacterial isolates arrived from the hospital. They look identical on agar. One is safe E. coli K-12, one is MRSA, one is Pseudomonas. Identify each sample before the wrong one gets into the teaching lab.',
+  briefing: 'Five bacterial isolates arrived from the hospital — they look identical on agar. Two are E. coli strains (one safe, one dangerous), one is MRSA, one is Pseudomonas, and one is Bacillus. You have five primer pairs — each amplifies a different target, and some species produce different-sized bands with the same primer. Design a strategy that gives every sample a unique fingerprint within your lane budget.',
   reference: {
     geneTable: [],
   },
@@ -742,28 +869,20 @@ export const PUZZLE_FINGERPRINT_STRAIN: LabPuzzle = {
   question: 'Which sample is which species?',
   instruments: ['pcr', 'gel'],
   answerType: 'mapping',
-  answerMappingLabels: ['Sample 1', 'Sample 2', 'Sample 3'],
-  answerMappingOptions: ['E. coli K-12', 'S. aureus MRSA', 'P. aeruginosa'],
+  answerMappingLabels: ['Sample 1', 'Sample 2', 'Sample 3', 'Sample 4', 'Sample 5'],
+  answerMappingOptions: [...PCR_SPECIES],
   samplePcr: {
-    samples: ['Sample 1', 'Sample 2', 'Sample 3'],
-    species: ['E. coli K-12', 'S. aureus MRSA', 'P. aeruginosa'],
-    primers: [
-      { name: 'lacZ', description: 'β-galactosidase (E. coli)', bandSize: 520 },
-      { name: 'mecA', description: 'Methicillin resistance (MRSA)', bandSize: 310 },
-      { name: 'toxA', description: 'Exotoxin A (Pseudomonas)', bandSize: 680 },
-      { name: '16S rRNA', description: 'Universal bacterial marker', bandSize: 1500 },
-    ],
-    genePresence: {
-      'E. coli K-12': ['lacZ', '16S rRNA'],
-      'S. aureus MRSA': ['mecA', '16S rRNA'],
-      'P. aeruginosa': ['toxA', '16S rRNA'],
-    },
+    samples: ['Sample 1', 'Sample 2', 'Sample 3', 'Sample 4', 'Sample 5'],
+    species: [...PCR_SPECIES],
+    primers: PCR_PRIMERS,
     truthMap: {
-      'Sample 1': 'S. aureus MRSA',
-      'Sample 2': 'P. aeruginosa',
-      'Sample 3': 'E. coli K-12',
+      'Sample 1': 'P. aeruginosa',
+      'Sample 2': 'E. coli K-12',
+      'Sample 3': 'S. aureus MRSA',
+      'Sample 4': 'B. subtilis',
+      'Sample 5': 'E. coli O157:H7',
     },
-    gelLaneBudget: 5,
+    gelLaneBudget: 6,
   },
 };
 
@@ -773,7 +892,7 @@ export const LAB_PUZZLES = [
   PUZZLE_IDENTIFY_ISOLATE,
   PUZZLE_SIZE_ISNT_EVERYTHING,
   PUZZLE_ASSEMBLE_SEQUENCE,
-  PUZZLE_INCOMPLETE_ASSEMBLY,
+  PUZZLE_REVERSE_COMPLEMENT_ASSEMBLY,
   PUZZLE_RESTRICTION_MAP,
   PUZZLE_MISLABELED_CULTURES,
   PUZZLE_FINGERPRINT_STRAIN,

@@ -22,10 +22,10 @@
   function runSamplePcr() {
     if (!samplePcr || !loadedSample || !selectedPrimer) return;
     const sampleSpecies = samplePcr.truthMap[loadedSample];
-    const presentPrimers = samplePcr.genePresence[sampleSpecies] ?? [];
-    if (presentPrimers.includes(selectedPrimer)) {
-      const primer = samplePcr.primers.find(p => p.name === selectedPrimer);
-      onresult(primer?.bandSize ?? 500);
+    const primer = samplePcr.primers.find(p => p.name === selectedPrimer);
+    const bandSize = primer?.bandBySpecies[sampleSpecies] ?? 0;
+    if (bandSize > 0) {
+      onresult(bandSize);
     } else {
       onresult(null, 'No amplification');
     }

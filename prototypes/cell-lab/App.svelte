@@ -3,7 +3,7 @@
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
   import type { BioPart, SimulationResult, TestResult } from './lib/types';
-  import type { DeskItem, PcrResult, ExcisedBandData, BookSection, DigestResult, SampleTubeData, GrowthPoint } from './lib/lab-types';
+  import type { DeskItem, PcrResult, ExcisedBandData, BookSection, DigestResult, SampleTubeData, GrowthPoint, ElisaSignal, ElisaResultData } from './lib/lab-types';
   import { LAB_PUZZLES, GENE_SEQUENCES, buildBookEntries } from './lib/lab-puzzles';
 
   import CellView from './components/CellView.svelte';
@@ -96,10 +96,11 @@
     isLabPuzzle
       ? buildBookEntries({
           ...labPuzzle.reference,
-          // Always provide sequence lookups so gene cards can assist sequencer matching.
           geneSequences: labPuzzle.geneSequences ?? labPuzzle.reference.geneSequences ?? GENE_SEQUENCES,
           enzymes: labPuzzle.enzymes,
           referenceEnzymes: labPuzzle.referenceEnzymes,
+          antibodies: labPuzzle.elisaDesign?.antibodies,
+          primers: labPuzzle.samplePcr?.primers,
         })
       : []
   );
@@ -120,10 +121,15 @@
   }
 
   function addPartToFirstSlot(partId: string) {
-    const idx = strand.indexOf(null);
-    if (idx === -1) return;
+    // Append after the rightmost occupied slot
+    let lastOccupied = -1;
+    for (let i = strand.length - 1; i >= 0; i--) {
+      if (strand[i] !== null) { lastOccupied = i; break; }
+    }
+    const target = lastOccupied + 1;
+    if (target >= strand.length || strand[target] !== null) return;
     const next = [...strand];
-    next[idx] = partId;
+    next[target] = partId;
     updateStrand(next);
   }
 
@@ -436,10 +442,22 @@
     }
   }
 
+  function resetLabExperiments() {
+    // Clear all experimental results from the desk, keep tubes/samples/reference/answer-sheet
+    const keepTypes = new Set(['sample-tube', 'reference-book', 'answer-sheet', 'objective-card']);
+    deskItems = deskItems.filter(d => keepTypes.has(d.type));
+    // Reset instrument state
+    elisaLoadedSample = null;
+    pcrLoadedSample = null;
+    digestLoadedTube = null;
+    samplePcrUsedLanes = 0;
+    gelLanes = [];
+    excisedBands = new Set();
+    sequencerBand = null;
+  }
+
   function handleMappingAnswer(mapping: Record<string, string>) {
-    if (wrongGuesses.size >= MAX_GUESSES) return;
     if (!labPuzzle.answerMappingLabels) return;
-    // For mapping puzzles, check the truth map from either elisa or pcr data
     const truthMap = labPuzzle.elisaDesign?.truthMap ?? labPuzzle.samplePcr?.truthMap;
     if (!truthMap) return;
     const allCorrect = labPuzzle.answerMappingLabels.every(
@@ -448,11 +466,8 @@
     if (allCorrect) {
       puzzleComplete = true;
     } else {
-      // Count how many are correct for feedback
-      const correctCount = labPuzzle.answerMappingLabels.filter(
-        label => mapping[label] === truthMap[label]
-      ).length;
-      wrongGuesses = new Set([...wrongGuesses, `attempt-${wrongGuesses.size + 1} (${correctCount}/${labPuzzle.answerMappingLabels.length} correct)`]);
+      // Wrong mapping — clear experiments so the player must re-run with a better strategy
+      resetLabExperiments();
     }
   }
 
@@ -464,15 +479,14 @@
     labInstrument = 'elisa';
   }
 
-  function handleElisaTest(sample: string, antibody: string) {
+  function handleElisaTest(sample: string, antibody: string, signal: ElisaSignal) {
     if (!labPuzzle.elisaDesign) return;
-    const positive = labPuzzle.elisaDesign.truthMap[sample] === antibody;
     labTubeCount++;
     const item: DeskItem = {
       id: `elisa-${labTubeCount}`,
       type: 'elisa-result',
       label: `${sample} + ${antibody}`,
-      data: { sample, antibody, positive },
+      data: { sample, antibody, signal } satisfies ElisaResultData,
       x: 10 + (labTubeCount - 1) * 140,
       y: 320,
     };

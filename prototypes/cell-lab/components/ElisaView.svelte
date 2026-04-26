@@ -1,11 +1,12 @@
 <script lang="ts">
-  import type { ElisaDesignData } from '../lib/lab-types';
+  import { fly } from 'svelte/transition';
+  import type { ElisaDesignData, ElisaSignal } from '../lib/lab-types';
 
   interface Props {
     design: ElisaDesignData;
     dragActive: boolean;
     loadedSample: string | null;
-    ontest: (sample: string, antibody: string) => void;
+    ontest: (sample: string, antibody: string, signal: ElisaSignal) => void;
     oneject: () => void;
   }
 
@@ -13,17 +14,43 @@
 
   let selectedAntibody = $state('');
   let testsUsed = $state(0);
-  let resultLog = $state<Array<{ sample: string; antibody: string; positive: boolean }>>([]);
+  let resultLog = $state<Array<{ sample: string; antibody: string; signal: ElisaSignal }>>([]);
+  let developing = $state<{ sample: string; antibody: string; signal: ElisaSignal } | null>(null);
 
   const testsRemaining = $derived(design.wellBudget - testsUsed);
 
+  const OD_LABELS: Record<ElisaSignal, string> = {
+    strong: 'Strong (OD ≈ 2.8)',
+    weak: 'Weak (OD ≈ 0.9)',
+    none: 'Negative (OD ≈ 0.05)',
+  };
+  const OD_COLORS: Record<ElisaSignal, string> = {
+    strong: '#e8c422',
+    weak: '#a09050',
+    none: '#5a5040',
+  };
+  // Strong signal develops fast — like a robust immunoreaction; weak is slow and uncertain
+  const DEVELOP_MS: Record<ElisaSignal, number> = {
+    strong: 900,
+    weak: 2800,
+    none: 400,
+  };
+
   function runTest() {
-    if (!loadedSample || !selectedAntibody || testsRemaining <= 0) return;
-    const positive = design.truthMap[loadedSample] === selectedAntibody;
-    resultLog = [...resultLog, { sample: loadedSample, antibody: selectedAntibody, positive }];
+    if (!loadedSample || !selectedAntibody || testsRemaining <= 0 || developing) return;
+    const protein = design.truthMap[loadedSample];
+    const signal: ElisaSignal = design.bindingMatrix[selectedAntibody]?.[protein] ?? 'none';
+    const entry = { sample: loadedSample, antibody: selectedAntibody, signal };
+
+    developing = entry;
     testsUsed++;
-    ontest(loadedSample, selectedAntibody);
     selectedAntibody = '';
+
+    setTimeout(() => {
+      resultLog = [...resultLog, entry];
+      ontest(entry.sample, entry.antibody, entry.signal);
+      developing = null;
+    }, DEVELOP_MS[signal]);
   }
 </script>
 
@@ -33,7 +60,7 @@
   <!-- Drop zone -->
   <div class="drop-zone" class:drop-highlight={dragActive && !loadedSample} data-elisa-well>
     {#if loadedSample}
-      <div class="loaded-sample">
+      <div class="loaded-sample" in:fly={{ y: -8, duration: 180 }}>
         <span class="sample-label">{loadedSample}</span>
         <button class="eject-btn" onclick={oneject}>✗ Eject</button>
       </div>
@@ -46,20 +73,20 @@
 
   <!-- Antibody selection + run -->
   {#if loadedSample}
-    <div class="test-controls">
+    <div class="test-controls" in:fly={{ y: 6, duration: 150 }}>
       <select
         class="ab-select"
         bind:value={selectedAntibody}
-        disabled={testsRemaining <= 0}
+        disabled={testsRemaining <= 0 || !!developing}
       >
         <option value="">Select antibody…</option>
         {#each design.antibodies as ab}
-          <option value={ab}>{ab}</option>
+          <option value={ab.name}>{ab.name}</option>
         {/each}
       </select>
       <button
         class="run-btn"
-        disabled={!selectedAntibody || testsRemaining <= 0}
+        disabled={!selectedAntibody || testsRemaining <= 0 || !!developing}
         onclick={runTest}
       >
         ▶ Test
@@ -69,13 +96,31 @@
 
   <span class="budget">Tests remaining: {testsRemaining} / {design.wellBudget}</span>
 
+  <!-- Developing well — shown while reaction is running -->
+  {#if developing}
+    <div class="current-reaction" transition:fly={{ y: -4, duration: 150 }}>
+      <div class="well-dish">
+        <div
+          class="well-fill"
+          style:background={OD_COLORS[developing.signal]}
+          style:animation-duration="{DEVELOP_MS[developing.signal]}ms"
+        ></div>
+      </div>
+      <div class="reaction-info">
+        <span class="reaction-label">DEVELOPING</span>
+        <span class="reaction-detail">{developing.sample} × {developing.antibody}</span>
+      </div>
+    </div>
+  {/if}
+
   <!-- Result log -->
   {#if resultLog.length > 0}
     <div class="result-log">
-      {#each resultLog as r}
-        <div class="result-row" class:positive={r.positive}>
-          <span>{r.sample} + {r.antibody}</span>
-          <span class="result-icon">{r.positive ? '✓ Positive' : '— Negative'}</span>
+      {#each resultLog as r (r.sample + r.antibody)}
+        <div class="result-row" in:fly={{ y: 8, duration: 200 }}>
+          <span class="well-dot" style:background={OD_COLORS[r.signal]}></span>
+          <span class="result-pair">{r.sample} + {r.antibody}</span>
+          <span class="result-signal" style:color={OD_COLORS[r.signal]}>{OD_LABELS[r.signal]}</span>
         </div>
       {/each}
     </div>
@@ -214,6 +259,75 @@
     color: var(--parchment-aged);
   }
 
+  /* Developing well */
+  .current-reaction {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: var(--bg-darkest);
+    border: 1px solid var(--brass-dark);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .well-dish {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--brass-dark);
+    background: var(--bg-darkest);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .well-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%;
+    animation: fill-up ease-in forwards;
+    /* animation-duration set inline per signal strength */
+  }
+
+  @keyframes fill-up {
+    from { height: 0%; opacity: 0.7; }
+    to   { height: 100%; opacity: 1; }
+  }
+
+  .reaction-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .reaction-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--brass);
+    letter-spacing: 0.12em;
+    animation: blink 1s ease-in-out infinite;
+  }
+
+  .reaction-detail {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--parchment);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  /* Result log */
   .result-log {
     width: 100%;
     max-width: 300px;
@@ -224,8 +338,9 @@
 
   .result-row {
     display: flex;
-    justify-content: space-between;
-    padding: 4px 8px;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     background: var(--bg-darkest);
@@ -233,11 +348,24 @@
     color: var(--parchment-aged);
   }
 
-  .result-row.positive {
-    color: rgb(215, 200, 60);
+  .well-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
 
-  .result-icon {
+  .result-pair {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .result-signal {
     font-weight: 600;
+    white-space: nowrap;
+    font-size: 0.7rem;
   }
 </style>

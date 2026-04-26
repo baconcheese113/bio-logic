@@ -15,6 +15,8 @@
   const instruments = $derived(entries.filter(e => e.section === 'instruments'));
   const enzymes = $derived(entries.filter(e => e.section === 'enzymes'));
   const artifacts = $derived(entries.filter(e => e.section === 'artifacts'));
+  const antibodies = $derived(entries.filter(e => e.section === 'antibodies'));
+  const primers = $derived(entries.filter(e => e.section === 'primers'));
 
   type GeneSort = 'alpha' | 'size';
   let geneSort = $state<GeneSort>('alpha');
@@ -34,19 +36,26 @@
       case 'genes': return Math.max(1, Math.ceil(sortedGenes.length / GENES_PER_SPREAD));
       case 'instruments': return Math.max(1, Math.ceil(instruments.length / INSTS_PER_SPREAD));
       case 'enzymes': return Math.max(1, Math.ceil(enzymes.length / ENZYMES_PER_SPREAD));
+      case 'antibodies': return 1; // single spread: binding matrix table
+      case 'primers': return 1;    // single spread: primer specificity table
       default: return 1;
     }
   });
 
   const safePage = $derived(Math.min(Math.max(0, page), sectionPages - 1));
 
-  const SECTIONS: { id: BookSection; label: string; tab: string }[] = [
-    { id: 'toc', label: 'Contents', tab: 'TOC' },
-    { id: 'genes', label: 'Genes', tab: 'Genes' },
-    { id: 'instruments', label: 'Instruments', tab: 'Inst.' },
-    { id: 'enzymes', label: 'Enzymes', tab: 'Enz.' },
-    { id: 'artifacts', label: 'Artifacts', tab: 'Art.' },
-  ];
+  const SECTIONS = $derived.by(() => {
+    const base: { id: BookSection; label: string; tab: string }[] = [
+      { id: 'toc', label: 'Contents', tab: 'TOC' },
+      { id: 'genes', label: 'Genes', tab: 'Genes' },
+      { id: 'instruments', label: 'Instruments', tab: 'Inst.' },
+      { id: 'enzymes', label: 'Enzymes', tab: 'Enz.' },
+      { id: 'artifacts', label: 'Artifacts', tab: 'Art.' },
+    ];
+    if (antibodies.length > 0) base.push({ id: 'antibodies', label: 'Antibodies', tab: 'Ab.' });
+    if (primers.length > 0) base.push({ id: 'primers', label: 'Primers', tab: 'Prim.' });
+    return base;
+  });
 
   const SECTION_COUNTS = $derived({
     toc: 0,
@@ -54,6 +63,8 @@
     instruments: instruments.length,
     enzymes: enzymes.length,
     artifacts: artifacts.length,
+    antibodies: antibodies.length,
+    primers: primers.length,
   });
 
   const geneIconSym: Record<string, string> = {
@@ -212,6 +223,12 @@
         {/if}
       {:else if section === 'artifacts'}
         {@render emptySection()}
+      {:else if section === 'antibodies'}
+        <h4 class="matrix-h">Antibody Binding Profiles</h4>
+        <p class="matrix-sub">Signal: ● Strong  ◐ Weak  ○ None</p>
+      {:else if section === 'primers'}
+        <h4 class="matrix-h">Primer Specificity Table</h4>
+        <p class="matrix-sub">Expected band sizes (bp) per species. "—" = no amplification.</p>
       {/if}
     </div>
 
@@ -248,6 +265,77 @@
         {/if}
       {/if}
     </div>
+
+    <!-- Full-width overlay sections (antibodies / primers) -->
+    {#if section === 'antibodies' && antibodies.length > 0}
+      {@const abEntries = antibodies.filter((e): e is Extract<BookEntry, { section: 'antibodies' }> => e.section === 'antibodies')}
+      {@const proteinNames = Object.keys(abEntries[0]?.binding ?? {})}
+      <div class="matrix-overlay">
+        <table class="binding-table">
+          <thead>
+            <tr>
+              <th>Antibody</th>
+              {#each proteinNames as p}
+                <th>{p}</th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each abEntries as ab}
+              <tr>
+                <td class="ab-name">{ab.name}</td>
+                {#each proteinNames as p}
+                  {@const sig = ab.binding[p] ?? 'none'}
+                  <td class="signal signal-{sig}" title="{sig}">
+                    {sig === 'strong' ? '●' : sig === 'weak' ? '◐' : '○'}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        <div class="ab-descriptions">
+          {#each abEntries as ab}
+            <div class="ab-desc"><strong>{ab.name}</strong> — {ab.description}</div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    {#if section === 'primers' && primers.length > 0}
+      {@const pEntries = primers.filter((e): e is Extract<BookEntry, { section: 'primers' }> => e.section === 'primers')}
+      {@const speciesNames = Object.keys(pEntries[0]?.bandBySpecies ?? {})}
+      <div class="matrix-overlay">
+        <table class="binding-table">
+          <thead>
+            <tr>
+              <th>Primer</th>
+              {#each speciesNames as sp}
+                <th>{sp}</th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each pEntries as pr}
+              <tr>
+                <td class="ab-name">{pr.name}</td>
+                {#each speciesNames as sp}
+                  {@const band = pr.bandBySpecies[sp] ?? 0}
+                  <td class="band-cell" class:no-band={band === 0}>
+                    {band > 0 ? `${band}` : '—'}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        <div class="ab-descriptions">
+          {#each pEntries as pr}
+            <div class="ab-desc"><strong>{pr.name}</strong> — {pr.description}</div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Section tabs on right edge -->
@@ -275,7 +363,7 @@
   .book {
     width: 100%;
     max-width: 640px;
-    height: min(360px, calc(100vh - 480px));
+    height: min(440px, calc(100vh - 400px));
     min-height: 210px;
     background: #f5ecd9;
     display: grid;
@@ -312,7 +400,9 @@
 
   .page {
     padding: 4px 14px 4px 4px;
-    overflow: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #c8b690 transparent;
   }
   .page.right {
     padding: 4px 4px 4px 14px;
@@ -376,21 +466,20 @@
 
   /* Gene cards */
   .gene-grid {
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    gap: 8px;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
   .gene-card {
     background: rgba(250, 242, 222, 0.75);
     border: 1px solid rgba(120, 90, 40, 0.25);
     border-left: 3px solid #b89968;
     border-radius: 3px;
-    padding: 7px 10px;
+    padding: 5px 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    overflow: hidden;
+    gap: 3px;
+    flex-shrink: 0;
   }
   .gene-card.icon-fluorescent { border-left-color: #5aa85a; }
   .gene-card.icon-resistance { border-left-color: #c77a4e; }
@@ -703,5 +792,103 @@
     font-style: italic;
     color: #6a5038;
     font-family: Georgia, serif;
+  }
+
+  /* Matrix section headings (antibodies / primers) */
+  .matrix-h {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2a1f12;
+    margin: 0 0 4px;
+    font-family: Georgia, serif;
+  }
+  .matrix-sub {
+    font-size: 12px;
+    color: #6a5038;
+    margin: 0;
+    font-family: Georgia, serif;
+    line-height: 1.4;
+  }
+
+  /* Full-width overlay table for antibodies / primers */
+  .matrix-overlay {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 56px;
+    bottom: 4px;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #c8b690 transparent;
+  }
+  .binding-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    table-layout: fixed;
+  }
+  .binding-table th {
+    background: rgba(120, 90, 40, 0.12);
+    color: #4a3520;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 2px;
+    text-align: center;
+    border-bottom: 1px solid rgba(120, 90, 40, 0.25);
+    font-family: Georgia, serif;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .binding-table th:first-child {
+    text-align: left;
+    width: 85px;
+  }
+  .binding-table td {
+    padding: 2px 2px;
+    text-align: center;
+    border-bottom: 1px solid rgba(120, 90, 40, 0.1);
+  }
+  .ab-name {
+    text-align: left !important;
+    font-weight: 600;
+    font-family: Georgia, serif;
+    font-size: 11px;
+    color: #2a1f12;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Signal cells */
+  .signal { font-size: 14px; }
+  .signal-strong { color: #c62828; }
+  .signal-weak { color: #e65100; }
+  .signal-none { color: #9e9e9e; }
+
+  /* Band size cells */
+  .band-cell {
+    font-size: 12px;
+    color: #2a1f12;
+    font-weight: 600;
+  }
+  .band-cell.no-band {
+    color: #9e9e9e;
+    font-weight: 400;
+  }
+
+  /* Antibody / primer descriptions */
+  .ab-descriptions {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .ab-desc {
+    font-size: 11px;
+    color: #5a4028;
+    font-family: Georgia, serif;
+    line-height: 1.35;
   }
 </style>

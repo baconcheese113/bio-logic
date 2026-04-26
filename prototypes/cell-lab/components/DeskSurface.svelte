@@ -47,7 +47,7 @@
   let dragging = $state<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const openBookHeight = $derived.by(() => {
     if (!deskEl) return 300;
-    return Math.max(180, Math.min(360, deskEl.clientHeight - 52));
+    return Math.max(180, Math.min(400, deskEl.clientHeight - 52));
   });
 
   const guessesLeft = $derived(maxGuesses - wrongGuesses.size);
@@ -129,7 +129,7 @@
   }
 
   function isElisaResult(data: DeskItem['data']): data is ElisaResultData {
-    return 'antibody' in data && 'positive' in data;
+    return 'antibody' in data && 'signal' in data;
   }
 
   // Gel band position helper (log scale)
@@ -258,8 +258,8 @@
       <!-- ELISA Result card -->
       {#if item.type === 'elisa-result' && isElisaResult(item.data)}
         <div class="card-body pcr-card">
-          <span class={item.data.positive ? 'pcr-status' : 'pcr-fail'}>
-            {item.data.antibody}: {item.data.positive ? '+ Positive' : '− Negative'}
+          <span class={item.data.signal === 'none' ? 'pcr-fail' : 'pcr-status'}>
+            {item.data.antibody}: {item.data.signal === 'strong' ? '● Strong' : item.data.signal === 'weak' ? '◐ Weak' : '○ Neg'}
           </span>
         </div>
       {/if}
@@ -268,8 +268,8 @@
       {#if item.type === 'answer-sheet' && isAnswerSheet(item.data)}
         <div class="card-body answer-card">
           {#if item.data.mappingLabels && item.data.mappingOptions}
-            <!-- Mapping-style answer sheet -->
-            <p class="answer-prompt">{item.data.prompt ?? 'Assign identities'} ({guessesLeft} guess{guessesLeft === 1 ? '' : 'es'} left):</p>
+            <!-- Mapping-style answer sheet (unlimited attempts — wrong submission resets experiments) -->
+            <p class="answer-prompt">{item.data.prompt ?? 'Assign identities'}:</p>
             <div class="mapping-grid">
               {#each item.data.mappingLabels as label}
                 <label class="mapping-row">
@@ -279,7 +279,6 @@
                     class="mapping-select"
                     value={mappingSelections[label] ?? ''}
                     onchange={(e) => { mappingSelections[label] = (e.target as HTMLSelectElement).value; }}
-                    disabled={guessesLeft <= 0}
                   >
                     <option value="">—</option>
                     {#each item.data.mappingOptions as opt}
@@ -291,8 +290,8 @@
             </div>
             <button
               class="submit-mapping-btn"
-              disabled={guessesLeft <= 0 || !item.data.mappingLabels.every(l => mappingSelections[l])}
-              onclick={() => onmappinganswer(mappingSelections)}
+              disabled={!item.data.mappingLabels.every(l => mappingSelections[l])}
+              onclick={() => { onmappinganswer(mappingSelections); mappingSelections = {}; }}
             >Submit Mapping</button>
           {:else}
             <!-- Single-answer button grid -->
@@ -365,6 +364,12 @@
     box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
     min-width: 140px;
     max-width: 280px;
+    animation: item-appear 0.18s ease backwards;
+  }
+
+  @keyframes item-appear {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   .desk-item.book-open {

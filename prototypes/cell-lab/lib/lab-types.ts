@@ -29,7 +29,7 @@ export interface PrimerSet {
   reverseSeq: string;
 }
 
-export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifacts';
+export type BookSection = 'toc' | 'genes' | 'instruments' | 'enzymes' | 'artifacts' | 'antibodies' | 'primers';
 
 export type GeneIcon = 'fluorescent' | 'resistance' | 'regulator' | 'enzyme' | 'structural' | 'unknown';
 
@@ -41,7 +41,9 @@ export type BookEntry =
   | { section: 'genes'; id: string; name: string; fullName?: string; length: number; sequence: string; icon: GeneIcon; roleLine: string; enzymeSites?: { enzyme: string; sites: number }[] }
   | { section: 'instruments'; id: string; name: string; icon: InstrumentIcon; measures: string; useWhen: string; thumbnail: ThumbnailKey }
   | { section: 'enzymes'; id: string; name: string; fullName: string; organism: string; taxonomy: string[]; optimalTemp: number; discoveredYear: number; fact: string; cutSite: string; cutType: 'blunt' | 'sticky-5' | 'sticky-3'; fragmentPatternKey: ThumbnailKey }
-  | { section: 'artifacts'; id: string; name: string; thumbnail: ThumbnailKey; caption: string };
+  | { section: 'artifacts'; id: string; name: string; thumbnail: ThumbnailKey; caption: string }
+  | { section: 'antibodies'; id: string; name: string; target: string; description: string; binding: Record<string, ElisaSignal> }
+  | { section: 'primers'; id: string; name: string; description: string; bandBySpecies: Record<string, number> };
 
 export interface ReferenceData {
   geneTable: GeneEntry[];
@@ -117,11 +119,24 @@ export interface GrowthPoint {
   productLevel?: number;
 }
 
+export type ElisaSignal = 'strong' | 'weak' | 'none';
+
+/** Antibody entry for ELISA puzzle reference book */
+export interface AntibodyEntry {
+  name: string;
+  target: string;
+  description: string;
+  /** Binding profile: protein name → signal strength */
+  binding: Record<string, ElisaSignal>;
+}
+
 /** ELISA plate design puzzle — player assigns sample+antibody per well */
 export interface ElisaDesignData {
   samples: string[];
-  antibodies: string[];
-  /** Ground truth: sample name → matching antibody target */
+  antibodies: AntibodyEntry[];
+  /** Binding matrix: antibody name → protein name → signal strength */
+  bindingMatrix: Record<string, Record<string, ElisaSignal>>;
+  /** Ground truth: sample name → protein name */
   truthMap: Record<string, string>;
   wellBudget: number;
 }
@@ -132,13 +147,19 @@ export interface WellAssignment {
   antibody: string;
 }
 
+/** Primer entry for PCR puzzle */
+export interface PcrPrimerEntry {
+  name: string;
+  description: string;
+  /** Species name → band size (0 = no amplification) */
+  bandBySpecies: Record<string, number>;
+}
+
 /** Multi-sample PCR puzzle — player picks sample + primer pair */
 export interface SamplePcrData {
   samples: string[];
   species: string[];
-  primers: Array<{ name: string; description: string; bandSize: number }>;
-  /** Species name → array of primer names that produce a band */
-  genePresence: Record<string, string[]>;
+  primers: PcrPrimerEntry[];
   /** Ground truth: sample name → species name */
   truthMap: Record<string, string>;
   gelLaneBudget: number;
@@ -148,6 +169,8 @@ export interface SamplePcrData {
 export interface AssemblyRead {
   id: string;
   sequence: string;
+  /** True if the read is currently showing the reverse complement */
+  reversed?: boolean;
 }
 
 /** Puzzle data for shotgun assembly levels */
@@ -172,7 +195,7 @@ export interface SampleTubeData {
 export interface ElisaResultData {
   sample: string;
   antibody: string;
-  positive: boolean;
+  signal: ElisaSignal;
 }
 
 export interface DeskItem {

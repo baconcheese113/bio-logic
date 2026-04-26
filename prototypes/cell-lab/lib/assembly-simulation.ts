@@ -1,5 +1,12 @@
 import type { AssemblyRead } from './lab-types';
 
+const COMPLEMENT: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+/** Return the reverse complement of a DNA sequence. */
+export function reverseComplement(seq: string): string {
+  return seq.split('').reverse().map(b => COMPLEMENT[b] ?? 'N').join('');
+}
+
 /** Find the length of the longest suffix of `a` that matches a prefix of `b`, with minimum `minK`. */
 export function findOverlap(a: string, b: string, minK: number): number {
   const maxCheck = Math.min(a.length, b.length);
@@ -59,6 +66,21 @@ export function shuffleReads(reads: AssemblyRead[], seed: number = 7): AssemblyR
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/** Deterministically flip some reads to their reverse complement. */
+export function flipSomeReads(reads: AssemblyRead[], seed: number): AssemblyRead[] {
+  let rng = seed;
+  function nextRand(): number {
+    rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+    return rng / 0x7fffffff;
+  }
+  return reads.map(r => {
+    if (nextRand() < 0.5) {
+      return { ...r, sequence: reverseComplement(r.sequence), reversed: true };
+    }
+    return r;
+  });
 }
 
 /** Check if an ordered list of reads correctly assembles to the target sequence. */

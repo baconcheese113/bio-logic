@@ -126,30 +126,6 @@ export const PUZZLES: Puzzle[] = [
   },
   {
     id: 7,
-    title: 'Double Switch',
-    goal: 'Green when sugar is present, red when sugar is absent.',
-    hint: 'Use the repressor to invert the sugar signal for one color, and direct activation for the other.',
-    availablePartIds: [
-      'sugar-promoter', 'repressible-promoter',
-      'gfp-gene', 'rfp-gene', 'repressor-gene',
-      'terminator',
-    ],
-    strandSlots: 9,
-    tests: [
-      {
-        signals: { sugar: true },
-        label: 'Sugar → green only',
-        expect: { GFP: { min: 1 }, RFP: { max: 0 } },
-      },
-      {
-        signals: {},
-        label: 'No sugar → red only',
-        expect: { RFP: { min: 1 }, GFP: { max: 0 } },
-      },
-    ],
-  },
-  {
-    id: 8,
     title: 'Both Required',
     goal: 'Glow ONLY when both sugar AND toxin are present.',
     hint: 'Split GFP needs both halves to fluoresce. Each half can be driven by a different signal.',
@@ -183,34 +159,10 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 9,
-    title: 'Activator',
-    goal: 'Produce BOTH GFP and the activator protein (ActA).',
-    hint: 'The activator gene produces ActA protein. The activator-responsive promoter turns on when ActA is present. You need both proteins!',
-    availablePartIds: [
-      'constitutive-promoter', 'activator-promoter',
-      'activator-gene', 'gfp-gene',
-      'terminator',
-    ],
-    strandSlots: 7,
-    tests: [
-      {
-        signals: {},
-        label: 'GFP present',
-        expect: { GFP: { min: 1 } },
-      },
-      {
-        signals: {},
-        label: 'ActA present',
-        expect: { ActA: { min: 1 } },
-      },
-    ],
-  },
-  {
-    id: 10,
+    id: 8,
     title: 'Amplifier',
     goal: 'Amplify a weak signal. GFP ≥ 6 when sugar is present.',
-    hint: 'The sugar promoter is weak (strength 1). The activator-responsive promoter is strong (strength 3). Can you relay and amplify?',
+    hint: 'The activator gene (ACT) produces ActA protein. The activator-responsive promoter (ACTR) only fires when ActA is present — and it\'s strong (strength 3). Use this relay to amplify a weak sugar signal.',
     availablePartIds: [
       'weak-sugar-promoter', 'activator-promoter',
       'activator-gene', 'gfp-gene',
@@ -231,7 +183,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 11,
+    id: 9,
     title: 'NOR Gate',
     goal: 'Glow ONLY when NEITHER sugar NOR toxin is present.',
     hint: 'Both signals should silence the cell. What if both drive the same repressor, which blocks your GFP promoter?',
@@ -265,7 +217,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 12,
+    id: 10,
     title: 'Hidden Product',
     goal: 'Make Insulin when sugar is present. Insulin doesn\'t glow — use the Protein Detector to verify.',
     hint: 'Insulin is just like GFP — it needs a promoter upstream. But you won\'t see a glow. Use the detector!',
@@ -290,7 +242,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 13,
+    id: 11,
     title: 'The Silencer',
     goal: 'This cell glows green normally, but goes dark when sugar is added. Something is silencing the GFP. Identify what the hidden gene produces.',
     hint: 'Look at the visible promoters. RPR is a repressible promoter — what protein silences it? You learned this in earlier puzzles.',
@@ -313,7 +265,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 14,
+    id: 12,
     title: 'Signal Boost',
     goal: 'This cell has two hidden genes. CMV drives the first, ACTR drives the second. The cell glows green. Identify both hidden proteins.',
     hint: 'The cell glows green — which gene makes green? ACTR only activates when a specific protein is present — which protein?',
@@ -336,7 +288,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 15,
+    id: 13,
     title: 'Silent Gene',
     goal: 'This cell should glow, but it doesn\'t. The parts are all here — something is in the wrong order.',
     hint: 'A gene needs a promoter UPSTREAM (to the left) to be expressed. Check the order.',
@@ -352,7 +304,7 @@ export const PUZZLES: Puzzle[] = [
     ],
   },
   {
-    id: 16,
+    id: 14,
     title: 'The Leak',
     goal: 'This cell should only glow when sugar is added, but it glows all the time. Find and fix the leak.',
     hint: 'The brightness meter shows GFP even without sugar. That means something constitutive is driving GFP. Look for a second expression unit.',
