@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { PUZZLES } from './lib/puzzles';
+  import { PUZZLES, CIRCULAR_PUZZLES } from './lib/puzzles';
   import { PARTS_MAP } from './lib/parts';
   import { simulate } from './lib/simulation';
-  import type { BioPart, SimulationResult, TestResult } from './lib/types';
+  import { runEngine, checkExpect } from './lib/simulation-engine';
+  import { PARTS_DEF_MAP } from './lib/parts-grammar';
+  import type { BioPart, SimulationResult, TestResult, PlacedPart, EngineOutput, CircularPuzzle } from './lib/types';
   import type { DeskItem, PcrResult, ExcisedBandData, BookSection, DigestResult, SampleTubeData, GrowthPoint, ElisaSignal, ElisaResultData } from './lib/lab-types';
   import { LAB_PUZZLES, GENE_SEQUENCES, buildBookEntries } from './lib/lab-puzzles';
 
@@ -18,17 +20,25 @@
   import ElisaView from './components/ElisaView.svelte';
   import SpectrophotometerView from './components/SpectrophotometerView.svelte';
   import AssemblyWorkspace from './components/AssemblyWorkspace.svelte';
+  import PromoterArchitect from './components/PromoterArchitect.svelte';
+  import CircularPlasmid from './components/CircularPlasmid.svelte';
+  import MolecularAnimation from './components/MolecularAnimation.svelte';
 
-  // Unified puzzle nav: strand puzzles then lab puzzles
+  // Unified puzzle nav: strand → circular → lab
   const STRAND_COUNT = PUZZLES.length;
+  const CIRCULAR_COUNT = CIRCULAR_PUZZLES.length;
+  const CIRCULAR_START = STRAND_COUNT;
+  const LAB_START = STRAND_COUNT + CIRCULAR_COUNT;
   const allPuzzleLabels = [
     ...PUZZLES.map(p => ({ id: p.id, title: p.title })),
+    ...CIRCULAR_PUZZLES.map(p => ({ id: p.id, title: p.title })),
     ...LAB_PUZZLES.map(p => ({ id: p.id, title: p.title })),
   ];
 
   let puzzleIndex = $state(0);
-  const isLabPuzzle = $derived(puzzleIndex >= STRAND_COUNT);
-  const labPuzzleOffset = $derived(puzzleIndex - STRAND_COUNT);
+  const isCircularPuzzle = $derived(puzzleIndex >= CIRCULAR_START && puzzleIndex < LAB_START);
+  const isLabPuzzle = $derived(puzzleIndex >= LAB_START);
+  const labPuzzleOffset = $derived(puzzleIndex - LAB_START);
 
   // Sidebar tab
   let sidebarTab = $state<'parts' | 'instruments'>('parts');
@@ -71,11 +81,10 @@
 
   // ── Lab puzzle state ─────────────────────────────────────────────
   const labPuzzle = $derived(LAB_PUZZLES[Math.max(0, labPuzzleOffset)]);
-  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly'>('cell');
+  let labInstrument = $state<'pcr' | 'gel' | 'cell' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly' | 'promoter-architect'>('cell');
   let elisaLoadedSample = $state<string | null>(null);
   let pcrLoadedSample = $state<string | null>(null);
   let digestLoadedTube = $state<string | null>(null);
-  let samplePcrUsedLanes = $state(0);
   let deskItems = $state<DeskItem[]>([]);
   let gelLanes = $state<{ label: string; bands: number[] }[]>([]);
   let labTubeCount = $state(0);
@@ -87,6 +96,199 @@
 
   // Cross-area tube drag state
   let tubeDrag = $state<{ id: string; label: string; x: number; y: number } | null>(null);
+
+  // ── Circular puzzle state ────────────────────────────────────────
+  const circularPuzzle = $derived<CircularPuzzle>(CIRCULAR_PUZZLES[Math.max(0, puzzleIndex - CIRCULAR_START)]);
+  let circularParts = $state<PlacedPart[]>([]);
+  let circularEngineOutput = $state<EngineOutput | null>(null);
+  let circularConditionOutputs = $state<EngineOutput[]>([]);
+  let circularConditionIndex = $state(0);
+  let circularTestResults = $state<Array<{ passed: boolean; label: string }>>([]);
+  let circularPuzzleComplete = $state(false);
+  let circularShowHint = $state(false);
+  let circularIdCounter = $state(0);
+
+  const circularAvailableParts = $derived.by(() => {
+    if (!isCircularPuzzle) return [] as Array<ReturnType<typeof PARTS_DEF_MAP.get> & { count: number }>;
+    const countMap = new Map<string, number>();
+    for (const id of circularPuzzle.availablePartIds) {
+      countMap.set(id, (countMap.get(id) ?? 0) + 1);
+    }
+    return Array.from(countMap.entries())
+      .map(([id, count]) => {
+        const def = PARTS_DEF_MAP.get(id);
+        return def ? { ...def, count } : null;
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null);
+  });
+
+  const circularPassedCount = $derived(circularTestResults.filter(r => r.passed).length);
+  const proteinDisplayName = (protein: string): string => {
+    const names: Record<string, string> = {
+      LacZ: 'LacZ beta-galactosidase',
+      Cat: 'Cat acetyltransferase',
+      AmyE: 'AmyE amylase',
+      CcdB: 'CcdB toxin',
+      Protein1: 'Reporter protein A',
+      Protein2: 'Reporter protein B',
+      Protein3: 'Reporter protein C',
+      CancerActivator: 'Cancer activator',
+      'dCas9-NLS': 'dCas9-NLS',
+    };
+    return names[protein] ?? protein;
+  };
+
+  const circularVisualProteins = $derived.by(() => {
+    if (!circularEngineOutput) return [] as string[];
+    return Object.entries(circularEngineOutput.proteins)
+      .filter(([, amount]) => amount > 0.1)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name]) => proteinDisplayName(name));
+  });
+
+  const circularHealthTone = $derived.by(() => circularEngineOutput?.cellHealth.state ?? 'normal');
+
+  const circularConditionChoices = $derived.by(() => {
+    const seen = new Set<string>();
+    return circularPuzzle.tests
+      .map((test, index) => ({ index, key: JSON.stringify(test.environment.signals), label: circularConditionLabel(test.environment.signals) }))
+      .filter(choice => {
+        if (seen.has(choice.key)) return false;
+        seen.add(choice.key);
+        return true;
+      });
+  });
+
+  const circularHealthMessage = $derived.by(() => {
+    if (!circularEngineOutput || circularEngineOutput.cellHealth.state === 'normal') return '';
+
+    const reasons = circularEngineOutput.cellHealth.reasons;
+    const reason = reasons.includes('toxic-protein')
+      ? 'toxic-protein'
+      : reasons.includes('protease-saturation')
+        ? 'protease-saturation'
+        : reasons[0];
+    if (reason === 'transcriptional-load') {
+      return `Cell stress is the failed condition: active RNA polymerase load is ${circularEngineOutput.efficiencyScore.transcriptionalLoad}. Use fewer active promoters or combine genes on one transcript.`;
+    }
+    if (reason === 'protease-saturation') {
+      return `Cell stress is the failed condition: tagged-protein cleanup load is ${circularEngineOutput.efficiencyScore.proteaseLoad.toFixed(1)}, so ClpXP/proteasome capacity is saturated.`;
+    }
+    if (reason === 'toxic-protein') {
+      return 'Cell stress is the failed condition: toxic protein has built up above the safe threshold. Reduce toxin expression before running again.';
+    }
+
+    return 'Cell is stressed. Simplify the plasmid design and run again.';
+  });
+
+  const circularFailedChecks = $derived(
+    circularTestResults.filter(result => !result.passed).map(result => result.label),
+  );
+
+  function circularConditionLabel(signals: Record<string, number>): string {
+    const activeSignals = Object.entries(signals)
+      .filter(([, value]) => value > 0)
+      .map(([signal]) => {
+        const names: Record<string, string> = {
+          iptg: 'IPTG',
+          toxin: 'toxin',
+          'cancer-marker': 'cancer marker',
+          nutrient: 'nutrient',
+          'healthy-marker': 'healthy marker',
+        };
+        return names[signal] ?? signal;
+      });
+
+    return activeSignals.length === 0 ? 'No signals' : activeSignals.join(' + ');
+  }
+
+  function setCircularCondition(index: number) {
+    circularConditionIndex = index;
+    circularEngineOutput = circularConditionOutputs[index] ?? circularEngineOutput;
+  }
+
+  function runCircularPuzzle() {
+    const outputs = circularPuzzle.tests.map(test => runEngine(circularParts, PARTS_DEF_MAP, test.environment));
+    const results = circularPuzzle.tests.map((test, index) => {
+      const output = outputs[index];
+      return { passed: output ? checkExpect(output, test.expect) : false, label: test.label };
+    });
+
+    circularConditionOutputs = outputs;
+    circularConditionIndex = 0;
+    circularEngineOutput = outputs[0] ?? runEngine(circularParts, PARTS_DEF_MAP, {
+      signals: {},
+      hostMode: circularPuzzle.hostMode,
+    });
+    circularTestResults = results;
+    circularPuzzleComplete = results.every(r => r.passed);
+  }
+
+  function resetCircularPuzzle() {
+    const cp = CIRCULAR_PUZZLES[Math.max(0, puzzleIndex - CIRCULAR_START)];
+    circularIdCounter = 0;
+    circularParts = (cp.prefilled ?? []).map(defId => ({
+      instanceId: `pre${++circularIdCounter}`,
+      defId,
+      orientation: 'clockwise' as const,
+    }));
+    circularEngineOutput = null;
+    circularConditionOutputs = [];
+    circularConditionIndex = 0;
+    circularTestResults = [];
+    circularPuzzleComplete = false;
+    circularShowHint = false;
+  }
+
+  function handleCircularPlace(defId: string, afterIndex: number) {
+    const newPart: PlacedPart = {
+      instanceId: `p${++circularIdCounter}`,
+      defId,
+      orientation: 'clockwise',
+    };
+    const next = [...circularParts];
+    next.splice(afterIndex, 0, newPart);
+    circularParts = next;
+    circularEngineOutput = null;
+    circularConditionOutputs = [];
+    circularConditionIndex = 0;
+    circularTestResults = [];
+    circularPuzzleComplete = false;
+  }
+
+  function addPartToCircular(partId: string) {
+    handleCircularPlace(partId, circularParts.length);
+  }
+
+  function handleCircularRemove(instanceId: string) {
+    // Prevent removing prefilled parts
+    const cp = CIRCULAR_PUZZLES[Math.max(0, puzzleIndex - CIRCULAR_START)];
+    const prefilledCount = cp.prefilled?.length ?? 0;
+    const idx = circularParts.findIndex(p => p.instanceId === instanceId);
+    if (idx < prefilledCount) return; // can't remove prefilled
+    circularParts = circularParts.filter(p => p.instanceId !== instanceId);
+    circularEngineOutput = null;
+    circularConditionOutputs = [];
+    circularConditionIndex = 0;
+    circularTestResults = [];
+    circularPuzzleComplete = false;
+  }
+
+  function handleCircularReorder(fromIndex: number, toIndex: number) {
+    const cp = CIRCULAR_PUZZLES[Math.max(0, puzzleIndex - CIRCULAR_START)];
+    const prefilledCount = cp.prefilled?.length ?? 0;
+    if (fromIndex < prefilledCount || toIndex < prefilledCount) return;
+    const next = [...circularParts];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    circularParts = next;
+    circularEngineOutput = null;
+    circularConditionOutputs = [];
+    circularConditionIndex = 0;
+    circularTestResults = [];
+    circularPuzzleComplete = false;
+  }
 
   // Reference book open state
   let bookOpen = $state(false);
@@ -106,8 +308,8 @@
   );
 
   // ── Shared title/goal derived from current puzzle ────────────────
-  const currentTitle = $derived(isLabPuzzle ? labPuzzle.title : puzzle.title);
-  const currentGoal = $derived(isLabPuzzle ? labPuzzle.briefing : puzzle.goal);
+  const currentTitle = $derived(isCircularPuzzle ? circularPuzzle.title : isLabPuzzle ? labPuzzle.title : puzzle.title);
+  const currentGoal = $derived(isCircularPuzzle ? circularPuzzle.goal : isLabPuzzle ? labPuzzle.briefing : puzzle.goal);
 
   function updateStrand(next: (string | null)[]) {
     strand = next;
@@ -201,6 +403,7 @@
     if (index < STRAND_COUNT) {
       const p = PUZZLES[index];
       strand = p.prefilled ? [...p.prefilled] : new Array(p.strandSlots).fill(null);
+      deskItems = [];
       showingResult = false;
       scanning = false;
       scanIndex = -1;
@@ -212,8 +415,12 @@
       selectedInstrument = null;
       sidebarTab = 'parts';
       labInstrument = 'cell';
+    } else if (index < LAB_START) {
+      resetCircularPuzzle();
+      deskItems = [];
+      sidebarTab = 'parts';
     } else {
-      const lp = LAB_PUZZLES[index - STRAND_COUNT];
+      const lp = LAB_PUZZLES[index - LAB_START];
       labInstrument = lp.instruments[0] as typeof labInstrument;
       gelLanes = [];
       labTubeCount = 0;
@@ -221,7 +428,6 @@
       excisedBands = new Set();
       sequencerBand = null;
       spectReadings = [];
-      samplePcrUsedLanes = 0;
       elisaLoadedSample = null;
       pcrLoadedSample = null;
       digestLoadedTube = null;
@@ -247,9 +453,9 @@
           x: 360,
           y: 10,
         },
-        {
+        ...(lp.acceptedAnswers.length > 0 ? [{
           id: 'answer-sheet',
-          type: 'answer-sheet',
+          type: 'answer-sheet' as const,
           label: 'Answer Sheet',
           data: {
             genes: answerOptions,
@@ -259,7 +465,7 @@
           },
           x: 660,
           y: 10,
-        },
+        }] : []),
       ];
 
       // Add sample tubes when puzzle provides them
@@ -450,7 +656,6 @@
     elisaLoadedSample = null;
     pcrLoadedSample = null;
     digestLoadedTube = null;
-    samplePcrUsedLanes = 0;
     gelLanes = [];
     excisedBands = new Set();
     sequencerBand = null;
@@ -504,7 +709,6 @@
   function handleSamplePcrResult(bandSize: number | null, failReason?: string) {
     if (!pcrLoadedSample) return;
     labTubeCount++;
-    samplePcrUsedLanes++;
     const item: DeskItem = {
       id: `tube-${labTubeCount}`,
       type: 'pcr-tube',
@@ -527,7 +731,7 @@
   }
 </script>
 
-<main class="app" class:lab-mode={isLabPuzzle}>
+<main class="app" class:lab-mode={isLabPuzzle} class:circular-mode={isCircularPuzzle}>
   <!-- Header -->
   <header class="header">
     <nav class="puzzle-nav">
@@ -535,7 +739,8 @@
         <button
           class="puzzle-pip"
           class:active={i === puzzleIndex}
-          class:lab-pip={i >= STRAND_COUNT}
+          class:lab-pip={i >= STRAND_COUNT && i < CIRCULAR_START}
+          class:circular-pip={i >= CIRCULAR_START}
           onclick={() => goToPuzzle(i)}
           title={p.title}
         >{p.id}</button>
@@ -563,13 +768,22 @@
       </div>
 
       {#if sidebarTab === 'parts'}
-        {#if availableParts.length > 0}
+        {#if isCircularPuzzle}
+          <PartsLibrary parts={circularAvailableParts} onadd={addPartToCircular} compact={true} />
+          <p class="circular-help">Click a part to add it. Drag parts on the ring to reorder. Hover a placed part to reveal the red x delete control.</p>
+          <button class="hint-btn" onclick={() => circularShowHint = !circularShowHint}>
+            {circularShowHint ? 'Hide Hint' : 'Show Hint'}
+          </button>
+          {#if circularShowHint}
+            <p class="hint-text">{circularPuzzle.hint}</p>
+          {/if}
+        {:else if availableParts.length > 0}
           <PartsLibrary parts={availableParts} disabled={showingResult} onadd={addPartToFirstSlot} />
         {:else}
           <p class="sidebar-empty">No parts for this puzzle.</p>
         {/if}
 
-        {#if !isLabPuzzle && puzzle.hint}
+        {#if !isLabPuzzle && !isCircularPuzzle && puzzle.hint}
           <button class="hint-btn" onclick={() => showHint = !showHint}>
             {showHint ? 'Hide Hint' : 'Show Hint'}
           </button>
@@ -642,6 +856,96 @@
     </aside>
 
     <div class="main-column">
+      {#if isCircularPuzzle}
+        <!-- Circular plasmid fills the main column -->
+        <div class="circular-canvas">
+          <div class="plasmid-wrap">
+            <CircularPlasmid
+              parts={circularParts}
+              engineOutput={circularEngineOutput}
+              onplace={handleCircularPlace}
+              onremove={handleCircularRemove}
+              onreorder={handleCircularReorder}
+            />
+            <MolecularAnimation parts={circularParts} engineOutput={circularEngineOutput} />
+          </div>
+        </div>
+        <div class="circular-footer">
+          <div class="circular-controls">
+            <span class="host-badge" class:eukaryotic={circularPuzzle.hostMode === 'eukaryotic'}>
+              {circularPuzzle.hostMode === 'bacterial' ? '🦠 Bacterial cell' : '🧫 Eukaryotic cell'}
+            </span>
+            <button class="ctrl-btn run" onclick={runCircularPuzzle} disabled={circularParts.length === 0}>
+              ▶ Run Simulation
+            </button>
+            <button class="ctrl-btn clear" onclick={resetCircularPuzzle}>
+              Reset
+            </button>
+          </div>
+          <p class="circular-legend">
+            Amber RNA polymerase transcribes the DNA ring. Released messenger RNA docks in the transcript lanes; pale ribosomes bind those RNA strands and release protein.
+          </p>
+          {#if circularEngineOutput}
+            {#if circularConditionChoices.length > 1}
+              <div class="condition-switcher circular-condition-switcher">
+                {#each circularConditionChoices as condition}
+                  <button
+                    class="condition-tab"
+                    class:active={circularConditionIndex === condition.index}
+                    onclick={() => setCircularCondition(condition.index)}
+                  >
+                    {condition.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            <div class="sim-hud" class:warn={circularHealthTone !== 'normal'}>
+              <span class="hud-pill" class:warn={circularHealthTone !== 'normal'} title="Cell health state"></span>
+              <div class="hud-proteins" aria-label="Detected proteins">
+                {#if circularVisualProteins.length > 0}
+                  {#each circularVisualProteins as protein}
+                    <span class="protein-chip">{protein}</span>
+                  {/each}
+                {:else}
+                  <span class="protein-chip muted">No output</span>
+                {/if}
+              </div>
+              <span class="hud-checks" title="Passed checks">{circularPassedCount}/{Math.max(1, circularTestResults.length)}</span>
+            </div>
+            {#if circularHealthMessage}
+              <p class="hud-warning">⚠ {circularHealthMessage}</p>
+            {/if}
+          {/if}
+          {#if circularTestResults.length > 0}
+            <div class="circular-results">
+              <div class="check-dots" aria-label="Puzzle check results">
+                {#each circularTestResults as result}
+                  <span
+                    class="check-dot"
+                    class:passed={result.passed}
+                    class:failed={!result.passed}
+                    title={result.label}
+                  ></span>
+                {/each}
+              </div>
+              {#if circularPuzzleComplete}
+                <p class="complete-msg">Puzzle complete! 🎉</p>
+                {#if circularEngineOutput}
+                  <p class="efficiency-score">⚗ {circularEngineOutput.efficiencyScore.partCount} parts · RNA polymerase load {circularEngineOutput.efficiencyScore.transcriptionalLoad}</p>
+                {/if}
+              {/if}
+            </div>
+          {/if}
+          {#if circularFailedChecks.length > 0}
+            <div class="circular-feedback" class:warn={circularHealthTone !== 'normal'}>
+              <span class="feedback-title">Needs work</span>
+              {#each circularFailedChecks as label}
+                <p>{label}</p>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else}
       <!-- Instrument / Cell view area -->
       <section class="instrument-area">
         {#if labInstrument === 'cell'}
@@ -788,6 +1092,10 @@
           />
         {:else if labInstrument === 'assembly' && isLabPuzzle && labPuzzle.assemblyData}
           <AssemblyWorkspace data={labPuzzle.assemblyData} />
+        {:else if labInstrument === 'promoter-architect' && isLabPuzzle && labPuzzle.promoterData}
+          {#key labPuzzle.id}
+            <PromoterArchitect data={labPuzzle.promoterData} onpuzzlecomplete={() => puzzleComplete = true} />
+          {/key}
         {/if}
 
         {#if puzzleComplete}
@@ -824,10 +1132,11 @@
           draggedTubeId={tubeDrag?.id}
         />
       </section>
+      {/if}
     </div>
   </div>
 
-  {#if !isLabPuzzle}
+  {#if !isLabPuzzle && !isCircularPuzzle}
     <!-- Bottom: strand + controls (strand puzzles only) -->
     <section class="strand-section">
       <DnaStrand
@@ -919,6 +1228,244 @@
   .puzzle-pip.lab-pip.active {
     background: #3a5a3a;
     border-color: #7a9a7a;
+  }
+
+  .puzzle-pip.circular-pip {
+    border-color: #5a5a8a;
+  }
+
+  .puzzle-pip.circular-pip.active {
+    background: #2a2a5a;
+    border-color: #7a7aaa;
+  }
+
+  /* Circular puzzle layout */
+  .circular-mode .main-column {
+    flex-direction: column;
+  }
+
+  .circular-canvas {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Square wrapper so the anim overlay aligns with the plasmid SVG */
+  .plasmid-wrap {
+    position: relative;
+    height: 100%;
+    aspect-ratio: 1;
+  }
+
+  .circular-footer {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 0;
+    flex-shrink: 0;
+  }
+
+  .circular-controls {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .circular-legend {
+    margin: 0;
+    max-width: 680px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--parchment-aged);
+  }
+
+  .circular-results {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .circular-condition-switcher {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    max-width: 520px;
+  }
+
+  .test-icon {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .complete-msg {
+    text-align: center;
+    font-size: 15px;
+    color: #8ada8a;
+    font-weight: bold;
+    margin-top: 8px;
+  }
+
+  .efficiency-score {
+    text-align: center;
+    font-size: 12px;
+    color: #93c5fd;
+    margin: 0;
+  }
+
+  .sim-hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 300px;
+    max-width: 520px;
+    padding: 6px 8px;
+    border: 1px solid #24523a;
+    border-radius: 6px;
+    background: #0f2019;
+  }
+
+  .sim-hud.warn {
+    border-color: #7a5d1f;
+    background: #2b220f;
+  }
+
+  .hud-pill {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+    flex-shrink: 0;
+  }
+
+  .hud-pill.warn {
+    background: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+  }
+
+  .hud-proteins {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 20px;
+  }
+
+  .protein-chip {
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #2f4f3e;
+    background: #173124;
+    font-size: 12px;
+    color: var(--parchment);
+  }
+
+  .protein-chip.muted {
+    border-color: #4b5563;
+    background: #1f2937;
+    color: #9ca3af;
+  }
+
+  .hud-checks {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e5e7eb;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .hud-warning {
+    margin: 6px 0 0;
+    max-width: 560px;
+    font-size: 12px;
+    color: #fbbf24;
+    background: #2b1f07;
+    border: 1px solid #7a5d1f;
+    border-radius: 6px;
+    padding: 6px 10px;
+    line-height: 1.35;
+  }
+
+  .circular-feedback {
+    max-width: 540px;
+    padding: 6px 10px;
+    border: 1px solid #5a3f3f;
+    border-radius: 6px;
+    background: #251717;
+    color: #fca5a5;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .circular-feedback.warn {
+    border-color: #7a5d1f;
+    background: #2b1f07;
+    color: #fbbf24;
+  }
+
+  .feedback-title {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--parchment);
+    font-weight: 700;
+  }
+
+  .circular-feedback p {
+    margin: 0;
+  }
+
+  .check-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .check-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #374151;
+  }
+
+  .check-dot.passed { background: #22c55e; }
+  .check-dot.failed { background: #ef4444; }
+
+  .circular-help {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--parchment-aged);
+    line-height: 1.3;
+  }
+
+  .circular-mode .sidebar,
+  .circular-mode .main-column {
+    user-select: none;
+  }
+
+  .hint-btn {
+    margin: 8px 0 0;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--bg-dark);
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    color: var(--parchment);
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .hint-btn:hover { border-color: var(--brass); }
+
+  .hint-text {
+    font-size: 12px;
+    color: #c8b87a;
+    padding: 6px 8px;
+    background: #2a2000;
+    border-radius: 4px;
+    border: 1px solid #5a4a20;
+    margin-top: 4px;
   }
 
   .puzzle-title {
@@ -1303,6 +1850,26 @@
   .ctrl-btn.run:hover:not(:disabled) {
     background: var(--brass);
     color: var(--bg-darkest);
+  }
+
+  .host-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-family: var(--font-heading);
+    background: rgba(30, 58, 138, 0.3);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    color: #93c5fd;
+    letter-spacing: 0.01em;
+  }
+
+  .host-badge.eukaryotic {
+    background: rgba(88, 28, 135, 0.3);
+    border-color: rgba(167, 139, 250, 0.35);
+    color: #c4b5fd;
   }
 
   /* Desk section */

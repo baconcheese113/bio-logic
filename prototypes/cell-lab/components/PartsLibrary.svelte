@@ -1,13 +1,16 @@
 <script lang="ts">
   import type { BioPart } from '../lib/types';
 
+  type PartLike = { id: string; name: string; label: string; color: string; description: string; category?: string; type?: string; count?: number };
+
   interface Props {
-    parts: BioPart[];
+    parts: (BioPart | PartLike)[];
     disabled?: boolean;
     onadd?: (partId: string) => void;
+    compact?: boolean;
   }
 
-  let { parts, disabled = false, onadd }: Props = $props();
+  let { parts, disabled = false, onadd, compact = false }: Props = $props();
 
   function handleDragStart(e: DragEvent, partId: string) {
     if (disabled || !e.dataTransfer) return;
@@ -18,8 +21,18 @@
   const categoryIcon: Record<string, string> = {
     promoter: '→',
     gene: '◆',
+    linker: 'L',
     terminator: '⊣',
+    rbs: 'R',
+    tag: 'T',
+    crispr: '✂',
+    enhancer: '⬡',
+    'signal-sequence': 'S',
   };
+
+  function getKind(p: PartLike): string {
+    return (p as BioPart).category ?? (p as PartLike).type ?? '';
+  }
 </script>
 
 <div class="library">
@@ -28,6 +41,7 @@
     {#each parts as part}
       <button
         class="lib-part"
+        class:compact
         class:disabled
         draggable={!disabled}
         ondragstart={(e) => handleDragStart(e, part.id)}
@@ -35,11 +49,14 @@
         style:--c={part.color}
         title={part.description}
       >
-        <span class="part-icon">{categoryIcon[part.category] ?? '?'}</span>
+        <span class="part-icon">{categoryIcon[getKind(part)] ?? '?'}</span>
         <div class="part-text">
           <span class="part-label">{part.label}</span>
-          <span class="part-name">{part.name}</span>
+          <span class="part-name" class:compact>{part.name}</span>
         </div>
+        {#if part.count !== undefined && part.count > 1}
+          <span class="count-badge">×{part.count}</span>
+        {/if}
       </button>
     {/each}
   </div>
@@ -85,9 +102,23 @@
     width: 100%;
   }
 
+  .lib-part.compact {
+    padding: 7px 10px;
+    gap: 8px;
+  }
+
   .lib-part:hover:not(.disabled) {
     border-color: var(--c);
     background: var(--bg-light);
+  }
+
+  .lib-part:focus {
+    outline: none;
+  }
+
+  .lib-part:focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 1px;
   }
 
   .lib-part:active:not(.disabled) {
@@ -126,5 +157,22 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .part-name.compact {
+    font-size: 0.69rem;
+    opacity: 0.9;
+  }
+
+  .count-badge {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--parchment-aged);
+    background: var(--bg-light);
+    border: 1px solid var(--bg-light);
+    border-radius: 4px;
+    padding: 1px 5px;
+    flex-shrink: 0;
   }
 </style>

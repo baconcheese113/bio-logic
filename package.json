@@ -11,6 +11,8 @@
     "lint": "eslint prototypes",
     "lint:fix": "eslint prototypes --fix",
     "format": "prettier --write \"src/**/*.{ts,json,css,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots"
   },
@@ -38,7 +40,8 @@
     "svelte-eslint-parser": "^1.4.1",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.2",
-    "vite": "^7.1.6"
+    "vite": "^7.1.6",
+    "vitest": "^4.1.5"
   },
   "volta": {
     "node": "24.11.1"

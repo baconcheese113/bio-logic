@@ -1,4 +1,4 @@
-import type { AntibodyEntry, AssemblyPuzzleData, BookEntry, ElisaSignal, GeneEntry, GeneIcon, LabPuzzle, RestrictionEnzyme } from './lab-types';
+import type { AntibodyEntry, AssemblyPuzzleData, BookEntry, ElisaSignal, GeneEntry, GeneIcon, LabPuzzle, PromoterSite, RestrictionEnzyme } from './lab-types';
 import { generateReads, shuffleReads, flipSomeReads } from './assembly-simulation';
 
 /** 30+ genes with unique lengths (rounded to 20 bp) for the reference table */
@@ -886,6 +886,94 @@ export const PUZZLE_FINGERPRINT_STRAIN: LabPuzzle = {
   },
 };
 
+// ── Promoter Architect site definitions ────────────────────────────────────
+
+// PA1: tutorial activator — footprint 25bp so precision matters against 22bp range
+const ACT_TUTORIAL: PromoterSite = { id: 'act-tutorial', label: 'Activator', role: 'activator', footprintBp: 25, color: '#22c55e' };
+// PA2/PA3: standard activators
+const ACT_BLUE: PromoterSite    = { id: 'act-blue',  label: 'Activator', role: 'activator', footprintBp: 20, color: '#3b82f6' };
+const ACT_AMBER: PromoterSite   = { id: 'act-amber', label: 'Activator', role: 'activator', footprintBp: 20, color: '#f59e0b' };
+// PA2: broad-range repressor (same range as activators — creates collateral damage on adjacent genes)
+const REP_BROAD: PromoterSite   = { id: 'rep-broad', label: 'Repressor', role: 'repressor', footprintBp: 20, color: '#f97316' };
+// PA2: short-range silencer — only affects a gene within 12bp, zero collateral damage
+const SILENCER: PromoterSite    = { id: 'silencer',  label: 'Silencer',  role: 'repressor', footprintBp: 15, color: '#ef4444', activationRangeOverrideBp: 12 };
+// PA3: environment repressor (in siteLibrary, used only in fixedSites of states)
+const ENV_REP: PromoterSite     = { id: 'env-rep',   label: 'Env. Repressor', role: 'repressor', footprintBp: 20, color: '#6b7280' };
+
+// PA1 — First Contact (proximity + precision tutorial)
+export const PUZZLE_PA1: LabPuzzle = {
+  id: 'PA1', title: 'First Contact',
+  briefing: 'The gene is dark. Place the activator precisely on the promoter to switch it on.',
+  reference: { geneTable: [] },
+  acceptedAnswers: [],
+  instruments: ['promoter-architect'],
+  promoterData: {
+    railLengthBp: 120,
+    activationRangeBp: 22,
+    promoters: [{ positionBp: 60, label: 'Gene A', minExpression: 0.8 }],
+    availableSites: [ACT_TUTORIAL],
+  },
+};
+
+// PA2 — The Crowded Gene (spatial interference + Silencer discovery)
+// Activator at A bleeds ~36% into Gene B. Broad repressor near B crushes flanking genes.
+// Silencer (range 12bp override) placed on B suppresses it with zero collateral damage.
+export const PUZZLE_PA2: LabPuzzle = {
+  id: 'PA2', title: 'The Crowded Gene',
+  briefing: 'The flanking genes must stay on. The middle gene must stay off. Careful — your activator\'s signal reaches further than you think.',
+  reference: { geneTable: [] },
+  acceptedAnswers: [],
+  instruments: ['promoter-architect'],
+  promoterData: {
+    railLengthBp: 200,
+    activationRangeBp: 55,
+    promoters: [
+      { positionBp: 50,  label: 'Gene A', minExpression: 0.9 },
+      { positionBp: 95,  label: 'Gene B', minExpression: 0, maxExpression: 0.1 },
+      { positionBp: 140, label: 'Gene C', minExpression: 0.9 },
+    ],
+    availableSites: [ACT_BLUE, ACT_AMBER, REP_BROAD, SILENCER],
+  },
+};
+
+// PA3 — Two States (same circuit, two environments)
+// Player places 2 activators once. State 1: env repressor is far away (no effect) — both genes must fire.
+// State 2: env repressor clamps Growth to ~22%. Growth target flips to ≤ 25%.
+// Insight: the same placement works for both states; trust the environment.
+export const PUZZLE_PA3: LabPuzzle = {
+  id: 'PA3', title: 'Two States',
+  briefing: 'Your circuit runs in two environments. When the safety signal is active, both genes must fire. When it drops out, Growth must go silent or the cell poisons itself.',
+  reference: { geneTable: [] },
+  acceptedAnswers: [],
+  instruments: ['promoter-architect'],
+  promoterData: {
+    railLengthBp: 300,
+    activationRangeBp: 45,
+    promoters: [
+      { positionBp: 80,  label: 'Survival', minExpression: 0.9 },
+      { positionBp: 220, label: 'Growth',   minExpression: 0.9 },
+    ],
+    availableSites: [ACT_BLUE, ACT_AMBER],
+    siteLibrary: [ENV_REP],
+    states: [
+      {
+        label: 'Safety: ON',
+        // env repressor at 285 → center 295, dist from Growth(220) = 75 > range 45: no effect
+        fixedSites: [{ siteId: 'env-rep', positionBp: 285 }],
+      },
+      {
+        label: 'Safety: OFF',
+        // env repressor at 200 → center 210, dist from Growth(220) = 10: score=1-10/45=0.778 → Growth = 1*(1-0.778)=0.222
+        fixedSites: [{ siteId: 'env-rep', positionBp: 200 }],
+        promoterOverrides: [
+          { positionBp: 80,  label: 'Survival', minExpression: 0.9 },
+          { positionBp: 220, label: 'Growth',   minExpression: 0, maxExpression: 0.25 },
+        ],
+      },
+    ],
+  },
+};
+
 export const LAB_PUZZLES = [
   PUZZLE_VERIFY_INSERT,
   PUZZLE_CONTAMINATED_SAMPLE,
@@ -896,4 +984,7 @@ export const LAB_PUZZLES = [
   PUZZLE_RESTRICTION_MAP,
   PUZZLE_MISLABELED_CULTURES,
   PUZZLE_FINGERPRINT_STRAIN,
+  PUZZLE_PA1,
+  PUZZLE_PA2,
+  PUZZLE_PA3,
 ];

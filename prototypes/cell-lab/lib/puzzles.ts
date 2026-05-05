@@ -1,4 +1,4 @@
-import type { Puzzle } from './types';
+import type { Puzzle, CircularPuzzle } from './types';
 
 export const PUZZLES: Puzzle[] = [
   {
@@ -322,6 +322,207 @@ export const PUZZLES: Puzzle[] = [
         signals: {},
         label: 'No sugar → dark',
         expect: { GFP: { max: 0 } },
+      },
+    ],
+  },
+];
+
+// ── Circular plasmid puzzles (L15–L19) ───────────────────────────────
+
+export const CIRCULAR_PUZZLES: CircularPuzzle[] = [
+  {
+    id: 15,
+    title: 'Balanced Reporters',
+    goal: 'Build a bacterial operon that makes high LacZ and about half as much Cat, without overloading RNA polymerase.',
+    hint: 'A single bacterial messenger RNA can carry both lacZ and cat. Each coding sequence needs its own Shine-Dalgarno ribosome-binding site, and the final strong terminator ends the transcript.',
+    hostMode: 'bacterial',
+    availablePartIds: [
+      'bact-prom-const-strong',
+      'bact-prom-const-strong',
+      'gene-enzyme1',
+      'gene-enzyme2',
+      'bact-rbs-strong',
+      'bact-rbs-weak',
+      'bact-term-strong',
+      'bact-term-leaky',
+    ],
+    tests: [
+      {
+        environment: { signals: {}, hostMode: 'bacterial' },
+        label: 'LacZ high and Cat near half of LacZ',
+        expect: {
+          proteins: { LacZ: { min: 2 }, Cat: { min: 1 } },
+          proteinRatio: { a: 'Cat', b: 'LacZ', min: 0.35, max: 0.65 },
+        },
+      },
+      {
+        environment: { signals: {}, hostMode: 'bacterial' },
+        label: 'Cell not burdened',
+        expect: { cellHealth: { not: 'burdened' } },
+      },
+    ],
+  },
+  {
+    id: 16,
+    title: 'Terminator Tuning',
+    goal: 'Keep LacZ high. Cat should be low but detectable without IPTG, then high when IPTG is added.',
+    hint: 'A leaky bacterial terminator stops most RNA polymerases, but a small fraction read through into the downstream cat region. IPTG turns on Plac independently.',
+    hostMode: 'bacterial',
+    availablePartIds: [
+      'bact-prom-const-strong',
+      'bact-prom-iptg',
+      'gene-enzyme1',
+      'gene-enzyme2',
+      'linker-flex',
+      'bact-rbs-strong',
+      'bact-rbs-strong',
+      'bact-term-strong',
+      'bact-term-leaky',
+    ],
+    tests: [
+      {
+        environment: { signals: {}, hostMode: 'bacterial' },
+        label: 'No IPTG: LacZ high, Cat low but present',
+        expect: {
+          proteins: { LacZ: { min: 2 }, Cat: { min: 0.1, max: 1.5 } },
+        },
+      },
+      {
+        environment: { signals: { iptg: 1 }, hostMode: 'bacterial' },
+        label: 'With IPTG: Cat high',
+        expect: {
+          proteins: { LacZ: { min: 2 }, Cat: { min: 2 } },
+        },
+      },
+    ],
+  },
+  {
+    id: 17,
+    title: 'Protease Queueing',
+    goal: 'Keep AmyE at medium level (1-3), while CcdB stays below the toxic threshold so the cell remains healthy.',
+    hint: 'SsrA tags send bacterial proteins to ClpXP for cleanup. Stronger tags lower protein level, but too much tagged protein can saturate the protease queue.',
+    hostMode: 'bacterial',
+    availablePartIds: [
+      'bact-prom-const-med',
+      'bact-prom-const-strong',
+      'gene-enzyme-a',
+      'gene-toxin-b',
+      'bact-rbs-strong',
+      'bact-rbs-med',
+      'tag-ssra-laa',
+      'tag-ssra-das',
+      'tag-ssra-aav',
+      'bact-term-strong',
+      'bact-term-strong',
+    ],
+    tests: [
+      {
+        environment: { signals: {}, hostMode: 'bacterial' },
+        label: 'AmyE 1-3, CcdB no more than 2, cell not toxic',
+        expect: {
+          proteins: { AmyE: { min: 1, max: 3 }, CcdB: { max: 2 } },
+          cellHealth: { state: 'normal' },
+        },
+      },
+    ],
+  },
+  {
+    id: 18,
+    title: 'The Programmable Repressor',
+    goal: 'When toxin signal is present, silence all three reporter genes. Without toxin signal, keep all three active.',
+    hint: 'Guide RNA is transcribed RNA: it needs to be on a transcript, but it does not need a Shine-Dalgarno site. dCas9 must be translated strongly enough to cover all three guides.',
+    hostMode: 'bacterial',
+    availablePartIds: [
+      'bact-prom-toxin',
+      'gene-dcas9',
+      'linker-flex',
+      'grna-a',
+      'grna-b',
+      'grna-c',
+      'bact-rbs-weak',
+      'bact-rbs-med',
+      'bact-rbs-strong',
+      'bact-term-strong',
+    ],
+    prefilled: [
+      'bact-prom-g1',
+      'bact-rbs-strong',
+      'gene-gene1',
+      'bact-term-strong',
+      'bact-prom-g2',
+      'bact-rbs-strong',
+      'gene-gene2',
+      'bact-term-strong',
+      'bact-prom-g3',
+      'bact-rbs-strong',
+      'gene-gene3',
+      'bact-term-strong',
+    ],
+    tests: [
+      {
+        environment: { signals: {}, hostMode: 'bacterial' },
+        label: 'No toxin: all three reporters active',
+        expect: {
+          proteins: { Protein1: { min: 1 }, Protein2: { min: 1 }, Protein3: { min: 1 } },
+        },
+      },
+      {
+        environment: { signals: { toxin: 1 }, hostMode: 'bacterial' },
+        label: 'Toxin present: all three reporters silenced',
+        expect: {
+          proteins: { Protein1: { max: 0 }, Protein2: { max: 0 }, Protein3: { max: 0 } },
+        },
+      },
+    ],
+  },
+  {
+    id: 19,
+    title: 'The Smart Drug',
+    goal: 'Produce Drug only when cancer marker and nutrient are both present, and shut Drug off when the healthy-cell marker is present.',
+    hint: 'Use the cancer promoter to make an activator. Then use the nutrient promoter that also requires that activator to drive Drug. A healthy-cell transcript can make dCas9-NLS plus guide RNA to block the drug promoter.',
+    hostMode: 'eukaryotic',
+    availablePartIds: [
+      'euk-prom-cancer',
+      'euk-prom-nutrient-activator',
+      'euk-prom-healthy',
+      'linker-flex',
+      'euk-kozak-strong',
+      'euk-kozak-strong',
+      'euk-kozak-strong',
+      'gene-cancer-activator',
+      'gene-dcas9',
+      'gene-drug',
+      'grna-drug-off',
+      'nls',
+      'euk-polya',
+      'euk-polya',
+      'euk-polya',
+    ],
+    tests: [
+      {
+        environment: { signals: { 'cancer-marker': 1, nutrient: 1 }, hostMode: 'eukaryotic' },
+        label: 'Cancer marker plus nutrient: Drug produced',
+        expect: { proteins: { Drug: { min: 1 } } },
+      },
+      {
+        environment: { signals: { 'cancer-marker': 1 }, hostMode: 'eukaryotic' },
+        label: 'Cancer marker without nutrient: Drug off',
+        expect: { proteins: { Drug: { max: 0 } } },
+      },
+      {
+        environment: { signals: { nutrient: 1 }, hostMode: 'eukaryotic' },
+        label: 'Nutrient without cancer marker: Drug off',
+        expect: { proteins: { Drug: { max: 0 } } },
+      },
+      {
+        environment: { signals: { 'cancer-marker': 1, nutrient: 1, 'healthy-marker': 1 }, hostMode: 'eukaryotic' },
+        label: 'Healthy marker overrides cancer and nutrient: Drug off',
+        expect: { proteins: { Drug: { max: 0 } } },
+      },
+      {
+        environment: { signals: { 'healthy-marker': 1 }, hostMode: 'eukaryotic' },
+        label: 'Healthy marker alone: Drug off',
+        expect: { proteins: { Drug: { max: 0 } } },
       },
     ],
   },

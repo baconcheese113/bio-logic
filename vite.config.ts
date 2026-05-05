@@ -12,6 +12,9 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  test: {
+    include: ['prototypes/**/*.test.ts'],
+  },
   build: {
     target: 'es2020',
     outDir: 'dist',

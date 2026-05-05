@@ -181,7 +181,68 @@ export interface AssemblyPuzzleData {
   fullSequence: string;
 }
 
-export type LabInstrumentType = 'pcr' | 'gel' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly';
+export type LabInstrumentType = 'pcr' | 'gel' | 'sequencer' | 'digest' | 'elisa' | 'spectrophotometer' | 'assembly' | 'promoter-architect';
+
+export interface PromoterSite {
+  id: string;
+  label: string;
+  role: 'activator' | 'repressor';
+  footprintBp: number;
+  color: string;
+  /** If set, overrides the puzzle's global activationRangeBp for this site only */
+  activationRangeOverrideBp?: number;
+}
+
+export interface PlacedSite {
+  siteId: string;
+  /** Left-edge bp position on rail */
+  positionBp: number;
+  /** If true: not draggable by player */
+  fixed?: boolean;
+}
+
+export interface PromoterTarget {
+  positionBp: number;
+  label: string;
+  /** Min expression required (default 0.95) */
+  minExpression?: number;
+  /** Max expression allowed (no cap by default); used for Gene B ≤ threshold puzzles */
+  maxExpression?: number;
+}
+
+export interface ConditionalSite {
+  site: PromoterSite;
+  /** Index into promoters[] to watch */
+  unlocksWhenPromoterIndex: number;
+  /** Expression threshold to cross for unlock */
+  minExpression: number;
+}
+
+export interface PromoterPuzzleData {
+  railLengthBp: number;
+  activationRangeBp: number;
+  /** One entry per gene; success = all targets satisfied simultaneously */
+  promoters: PromoterTarget[];
+  /** Palette items the player can drag */
+  availableSites: PromoterSite[];
+  /** Site definitions referenced by fixedSites/states but not shown in palette */
+  siteLibrary?: PromoterSite[];
+  /** Pre-placed, not draggable */
+  fixedSites?: PlacedSite[];
+  /** default 'linear'; 'sigmoid' for cliff puzzles */
+  curveType?: 'linear' | 'sigmoid';
+  cooperativeDistBp?: number;
+  cooperativeBoost?: number;
+  /** Multi-state puzzles: evaluate circuit under each fixed-site config simultaneously */
+  states?: Array<{
+    label: string;
+    fixedSites: PlacedSite[];
+    /** Per-state target overrides — replaces data.promoters targets for this state's success check */
+    promoterOverrides?: PromoterTarget[];
+  }>;
+  /** Palette items that unlock when a promoter crosses an expression threshold */
+  conditionalSites?: ConditionalSite[];
+}
 
 /** Sequencer result displayed as chromatogram */
 export interface SequencerResult {
@@ -258,4 +319,6 @@ export interface LabPuzzle {
   startingSamples?: string[];
   /** Shotgun assembly puzzle data */
   assemblyData?: AssemblyPuzzleData;
+  /** Promoter Architect puzzle data */
+  promoterData?: PromoterPuzzleData;
 }
