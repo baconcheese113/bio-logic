@@ -337,7 +337,7 @@ function sweepFrom(
         const level = transcriptLevel * translationRate * stabilityMult;
 
         if (level > 0 && fusionPending && tagPendingForProduct) {
-          const fusedProduct = `${tagPendingForProduct}::fusion::${product}`;
+          const fusedProduct: string = `${tagPendingForProduct}::fusion::${product}`;
           const priorLevel = pending[tagPendingForProduct] ?? 0;
           delete pending[tagPendingForProduct];
           pending[fusedProduct] = (pending[fusedProduct] ?? 0) + Math.min(priorLevel, level);
