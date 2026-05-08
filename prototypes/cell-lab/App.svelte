@@ -62,6 +62,9 @@
   const hasMultipleConditions = $derived(
     !isLabPuzzle && new Set(puzzle.tests.map(t => JSON.stringify(t.signals))).size > 1,
   );
+  const strandConditionSignals = $derived.by(() =>
+    collectSignalKeys(puzzle.tests.map(test => test.signals))
+  );
   const isReadonly = $derived(!isLabPuzzle && !!puzzle.prefilled && !!puzzle.hiddenGenes);
   const isDebug = $derived(!isLabPuzzle && !!puzzle.prefilled && !puzzle.hiddenGenes);
   const availableParts = $derived(
@@ -149,10 +152,18 @@
 
   const circularHealthTone = $derived.by(() => circularEngineOutput?.cellHealth.state ?? 'normal');
 
+  const circularConditionSignals = $derived.by(() =>
+    collectSignalKeys(circularPuzzle.tests.map(test => test.environment.signals))
+  );
+
   const circularConditionChoices = $derived.by(() => {
     const seen = new Set<string>();
     return circularPuzzle.tests
-      .map((test, index) => ({ index, key: JSON.stringify(test.environment.signals), label: circularConditionLabel(test.environment.signals) }))
+      .map((test, index) => ({
+        index,
+        key: JSON.stringify(test.environment.signals),
+        label: circularConditionLabel(test.environment.signals, circularConditionSignals),
+      }))
       .filter(choice => {
         if (seen.has(choice.key)) return false;
         seen.add(choice.key);
@@ -186,21 +197,41 @@
     circularTestResults.filter(result => !result.passed).map(result => result.label),
   );
 
-  function circularConditionLabel(signals: Record<string, number>): string {
-    const activeSignals = Object.entries(signals)
-      .filter(([, value]) => value > 0)
-      .map(([signal]) => {
-        const names: Record<string, string> = {
-          iptg: 'IPTG',
-          toxin: 'toxin',
-          'cancer-marker': 'cancer marker',
-          nutrient: 'nutrient',
-          'healthy-marker': 'healthy marker',
-        };
-        return names[signal] ?? signal;
-      });
+  function collectSignalKeys<T>(signalMaps: Array<Record<string, T>>): string[] {
+    return Array.from(new Set(signalMaps.flatMap(signals => Object.keys(signals))));
+  }
 
-    return activeSignals.length === 0 ? 'No signals' : activeSignals.join(' + ');
+  function signalDisplayName(signal: string): string {
+    const names: Record<string, string> = {
+      sugar: 'Sugar',
+      poison: 'Poison',
+      iptg: 'IPTG',
+      toxin: 'Toxin',
+      'cancer-marker': 'Cancer Marker',
+      nutrient: 'Nutrient',
+      'healthy-marker': 'Healthy Marker',
+    };
+    return names[signal] ?? signal.replaceAll('-', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+  }
+
+  function signalConditionLabel<T>(
+    signals: Record<string, T>,
+    conditionSignals: string[],
+    isActive: (value: T | undefined) => boolean,
+  ): string {
+    if (conditionSignals.length === 0) return 'Baseline';
+
+    return conditionSignals
+      .map(signal => `${isActive(signals[signal]) ? '' : 'No '}${signalDisplayName(signal)}`)
+      .join(' + ');
+  }
+
+  function strandConditionLabel(signals: Record<string, boolean>): string {
+    return signalConditionLabel(signals, strandConditionSignals, value => value === true);
+  }
+
+  function circularConditionLabel(signals: Record<string, number>, conditionSignals: string[]): string {
+    return signalConditionLabel(signals, conditionSignals, value => (value ?? 0) > 0);
   }
 
   function setCircularCondition(index: number) {
@@ -959,11 +990,7 @@
                   class:active={activeConditionIndex === i}
                   onclick={() => { activeConditionIndex = i; displayResult = allSimResults[i] ?? null; }}
                 >
-                  {#if Object.keys(test.signals).length === 0}
-                    No signals
-                  {:else}
-                    {Object.keys(test.signals).join(' + ')}
-                  {/if}
+                  {strandConditionLabel(test.signals)}
                 </button>
               {/each}
             </div>

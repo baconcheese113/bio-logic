@@ -161,7 +161,7 @@ export const PUZZLES: Puzzle[] = [
   {
     id: 8,
     title: 'Amplifier',
-    goal: 'Amplify a weak signal. GFP ≥ 6 when sugar is present.',
+    goal: 'Amplify a weak signal. GFP ≥ 3 when sugar is present.',
     hint: 'The activator gene (ACT) produces ActA protein. The activator-responsive promoter (ACTR) only fires when ActA is present — and it\'s strong (strength 3). Use this relay to amplify a weak sugar signal.',
     availablePartIds: [
       'weak-sugar-promoter', 'activator-promoter',
@@ -172,8 +172,8 @@ export const PUZZLES: Puzzle[] = [
     tests: [
       {
         signals: { sugar: true },
-        label: 'Sugar → GFP ≥ 6',
-        expect: { GFP: { min: 6 } },
+        label: 'Sugar → GFP ≥ 3',
+        expect: { GFP: { min: 3 } },
       },
       {
         signals: {},
