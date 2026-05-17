@@ -150,6 +150,28 @@
       .map(([name]) => proteinDisplayName(name));
   });
 
+  function proteinColor(protein: string): string {
+    for (const def of PARTS_DEF_MAP.values()) {
+      if (def.type === 'gene' && def.product === protein) return def.color;
+    }
+    return '#60a5fa';
+  }
+
+  const circularProteinReadouts = $derived.by(() => {
+    if (!circularEngineOutput) return [] as Array<{ name: string; displayName: string; level: number; color: string }>;
+
+    return Object.entries(circularEngineOutput.proteins)
+      .filter(([, amount]) => amount > 0.05)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, level]) => ({
+        name,
+        displayName: proteinDisplayName(name),
+        level,
+        color: proteinColor(name),
+      }));
+  });
+
   const circularHealthTone = $derived.by(() => circularEngineOutput?.cellHealth.state ?? 'normal');
 
   const circularConditionSignals = $derived.by(() =>
@@ -890,15 +912,21 @@
       {#if isCircularPuzzle}
         <!-- Circular plasmid fills the main column -->
         <div class="circular-canvas">
-          <div class="plasmid-wrap">
+          <div
+            class="plasmid-wrap"
+            class:bacterial-host={circularPuzzle.hostMode === 'bacterial'}
+            class:eukaryotic-host={circularPuzzle.hostMode === 'eukaryotic'}
+            class:simulation-running={circularEngineOutput !== null}
+          >
             <CircularPlasmid
               parts={circularParts}
               engineOutput={circularEngineOutput}
+              hostMode={circularPuzzle.hostMode}
               onplace={handleCircularPlace}
               onremove={handleCircularRemove}
               onreorder={handleCircularReorder}
             />
-            <MolecularAnimation parts={circularParts} engineOutput={circularEngineOutput} />
+            <MolecularAnimation parts={circularParts} engineOutput={circularEngineOutput} hostMode={circularPuzzle.hostMode} />
           </div>
         </div>
         <div class="circular-footer">
@@ -930,18 +958,34 @@
                 {/each}
               </div>
             {/if}
-            <div class="sim-hud" class:warn={circularHealthTone !== 'normal'}>
-              <span class="hud-pill" class:warn={circularHealthTone !== 'normal'} title="Cell health state"></span>
-              <div class="hud-proteins" aria-label="Detected proteins">
-                {#if circularVisualProteins.length > 0}
-                  {#each circularVisualProteins as protein}
-                    <span class="protein-chip">{protein}</span>
+            <div class="instrument-readouts" class:warn={circularHealthTone !== 'normal'}>
+              <div class="readout-panel">
+                <span class="readout-title">Protein analyzer</span>
+                {#if circularProteinReadouts.length > 0}
+                  {#each circularProteinReadouts as readout (readout.name)}
+                    {@const width = Math.min(100, Math.round((readout.level / 2.4) * 100))}
+                    <div class="readout-row">
+                      <span class="readout-label">{readout.displayName}</span>
+                      <span class="readout-track">
+                        <span class="readout-fill" style:width={`${width}%`} style:background={readout.color}></span>
+                      </span>
+                      <span class="readout-value">{readout.level.toFixed(1)}</span>
+                    </div>
                   {/each}
+                {:else if circularVisualProteins.length > 0}
+                  <span class="readout-empty">{circularVisualProteins.join(', ')}</span>
                 {:else}
-                  <span class="protein-chip muted">No output</span>
+                  <span class="readout-empty">No protein detected</span>
                 {/if}
               </div>
-              <span class="hud-checks" title="Passed checks">{circularPassedCount}/{Math.max(1, circularTestResults.length)}</span>
+              <div class="readout-panel compact-readout">
+                <span class="readout-title">Cell state</span>
+                <div class="cell-state-row">
+                  <span class="hud-pill" class:warn={circularHealthTone !== 'normal'} title="Cell health state"></span>
+                  <span>{circularHealthTone}</span>
+                </div>
+                <span class="hud-checks" title="Passed checks">{circularPassedCount}/{Math.max(1, circularTestResults.length)} checks</span>
+              </div>
             </div>
             {#if circularHealthMessage}
               <p class="hud-warning">⚠ {circularHealthMessage}</p>
@@ -1285,6 +1329,68 @@
     position: relative;
     height: 100%;
     aspect-ratio: 1;
+    isolation: isolate;
+  }
+
+  .plasmid-wrap :global(.plasmid-svg) {
+    position: relative;
+    z-index: 2;
+  }
+
+  .plasmid-wrap :global(.anim) {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+  }
+
+  .plasmid-wrap::before,
+  .plasmid-wrap::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    transition: opacity 0.35s, transform 0.45s, border-color 0.35s, background 0.35s;
+    z-index: 0;
+  }
+
+  .plasmid-wrap::before {
+    inset: 5%;
+    border: 2px solid rgba(96, 165, 250, 0.18);
+    background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.68), rgba(2, 6, 23, 0.08) 64%, transparent 74%);
+    opacity: 0.55;
+  }
+
+  .plasmid-wrap.bacterial-host::before {
+    border-radius: 44% / 30%;
+    border-color: rgba(74, 222, 128, 0.34);
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(20, 83, 45, 0.4), rgba(2, 6, 23, 0.08) 68%, transparent 76%),
+      repeating-linear-gradient(90deg, rgba(134, 239, 172, 0.08) 0 8px, transparent 8px 24px);
+  }
+
+  .plasmid-wrap.eukaryotic-host::before {
+    border-radius: 50%;
+    border-color: rgba(167, 139, 250, 0.24);
+    background: radial-gradient(circle at 50% 50%, rgba(88, 28, 135, 0.22), rgba(15, 23, 42, 0.55) 38%, rgba(2, 6, 23, 0.04) 72%, transparent 78%);
+  }
+
+  .plasmid-wrap.eukaryotic-host::after {
+    inset: 20%;
+    border-radius: 50%;
+    border: 1px solid rgba(196, 181, 253, 0.2);
+    background:
+      radial-gradient(circle at 46% 44%, rgba(196, 181, 253, 0.18), transparent 16%),
+      radial-gradient(circle, rgba(30, 41, 59, 0.82), rgba(15, 23, 42, 0.34) 66%, transparent 70%);
+    opacity: 0.78;
+  }
+
+  .plasmid-wrap.simulation-running::before {
+    opacity: 0.88;
+    transform: scale(1.015);
+  }
+
+  .plasmid-wrap.simulation-running::after {
+    opacity: 0.95;
+    transform: scale(1.02);
   }
 
   .circular-footer {
@@ -1342,21 +1448,91 @@
     margin: 0;
   }
 
-  .sim-hud {
+  .instrument-readouts {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 300px;
-    max-width: 520px;
-    padding: 6px 8px;
+    align-items: stretch;
+    gap: 10px;
+    min-width: 420px;
+    max-width: 720px;
+    padding: 0;
+  }
+
+  .instrument-readouts.warn .readout-panel {
+    border-color: #7a5d1f;
+    background: #2b220f;
+  }
+
+  .readout-panel {
+    min-width: 260px;
+    padding: 8px 10px;
     border: 1px solid #24523a;
     border-radius: 6px;
     background: #0f2019;
   }
 
-  .sim-hud.warn {
-    border-color: #7a5d1f;
-    background: #2b220f;
+  .compact-readout {
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .readout-title {
+    display: block;
+    margin-bottom: 6px;
+    color: #a7f3d0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .readout-row {
+    display: grid;
+    grid-template-columns: minmax(82px, 1fr) 120px 34px;
+    align-items: center;
+    gap: 8px;
+    min-height: 20px;
+    font-size: 12px;
+  }
+
+  .readout-label {
+    color: var(--parchment);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .readout-track {
+    display: block;
+    height: 9px;
+    border-radius: 999px;
+    background: #172033;
+    overflow: hidden;
+  }
+
+  .readout-fill {
+    display: block;
+    height: 100%;
+    min-width: 3px;
+    border-radius: inherit;
+    transition: width 0.3s ease;
+  }
+
+  .readout-value,
+  .readout-empty {
+    color: #d1fae5;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .cell-state-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--parchment);
+    font-size: 12px;
+    text-transform: capitalize;
   }
 
   .hud-pill {
@@ -1373,35 +1549,11 @@
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
   }
 
-  .hud-proteins {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    min-height: 20px;
-  }
-
-  .protein-chip {
-    padding: 2px 7px;
-    border-radius: 999px;
-    border: 1px solid #2f4f3e;
-    background: #173124;
-    font-size: 12px;
-    color: var(--parchment);
-  }
-
-  .protein-chip.muted {
-    border-color: #4b5563;
-    background: #1f2937;
-    color: #9ca3af;
-  }
-
   .hud-checks {
-    margin-left: auto;
     font-size: 12px;
     font-weight: 700;
     color: #e5e7eb;
-    min-width: 40px;
-    text-align: right;
+    white-space: nowrap;
   }
 
   .hud-warning {

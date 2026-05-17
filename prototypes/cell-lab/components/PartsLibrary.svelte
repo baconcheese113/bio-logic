@@ -27,6 +27,7 @@
     tag: 'T',
     crispr: '✂',
     enhancer: '⬡',
+    insulator: '|',
     'signal-sequence': 'S',
   };
 

@@ -6,12 +6,24 @@
   interface Props {
     parts: PlacedPart[];
     engineOutput?: EngineOutput | null;
+    hostMode?: 'bacterial' | 'eukaryotic';
     onplace?: (defId: string, afterIndex: number) => void;
     onremove?: (instanceId: string) => void;
     onreorder?: (fromIndex: number, toIndex: number) => void;
   }
 
-  let { parts, engineOutput = null, onplace, onremove, onreorder }: Props = $props();
+  interface EnhancerParticle {
+    id: number;
+    fromInstanceId: string;
+    toInstanceId: string;
+    progress: number;
+    opacity: number;
+  }
+
+  let { parts, engineOutput = null, hostMode = 'bacterial', onplace, onremove, onreorder }: Props = $props();
+
+  let enhancerParticles = $state<EnhancerParticle[]>([]);
+  let nextParticleId = 0;
 
   // Compute each part's center angle
   const partAngles = $derived(partAnglesFor(parts.length));
@@ -34,8 +46,29 @@
     tag: 'T',
     crispr: '✂',
     enhancer: '⬡',
+    insulator: '|',
     'signal-sequence': 'S',
   };
+
+  function angleForInstance(instanceId: string): number | null {
+    const idx = parts.findIndex((part) => part.instanceId === instanceId);
+    return idx < 0 ? null : partAngles[idx];
+  }
+
+  function loopPath(fromInstanceId: string, toInstanceId: string): string | null {
+    const fromAngle = angleForInstance(fromInstanceId);
+    const toAngle = angleForInstance(toInstanceId);
+    if (fromAngle === null || toAngle === null) return null;
+
+    const from = pointOnRing(fromAngle, R - 6);
+    const to = pointOnRing(toAngle, R - 6);
+    return `M ${from.x} ${from.y} Q ${CX} ${CY} ${to.x} ${to.y}`;
+  }
+
+  function effectLabelPoint(instanceId: string): { x: number; y: number } | null {
+    const angle = angleForInstance(instanceId);
+    return angle === null ? null : pointOnRing(angle, R - 34);
+  }
 
   function stateColor(instanceId: string): string {
     if (!engineOutput) return '#6b7280';
@@ -50,6 +83,21 @@
       inert: '#1f2937',
     };
     return map[ps.state] ?? '#6b7280';
+  }
+
+  function stateLabel(part: PlacedPart): string {
+    if (!engineOutput) return '';
+    const state = engineOutput.partStates[part.instanceId]?.state;
+    const def = partDef(part);
+    if (!state || !def) return '';
+    if (state === 'blocked') return 'blocked';
+    if (state === 'repressed' && def.type === 'promoter') return 'off';
+    if (state === 'read-through') return 'read';
+    return '';
+  }
+
+  function stateClass(instanceId: string): string {
+    return engineOutput?.partStates[instanceId]?.state ?? '';
   }
 
   // Drag state
@@ -109,10 +157,75 @@
   function partDef(p: PlacedPart): PartDef | undefined {
     return PARTS_DEF_MAP.get(p.defId);
   }
+
+  function hexagonPoints(cx: number, cy: number, r: number): string {
+    return Array.from({ length: 6 }, (_, i) => {
+      const a = (i * 60) * Math.PI / 180;
+      return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+    }).join(' ');
+  }
+
+  function quadraticBezierPoint(
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    t: number,
+  ): { x: number; y: number } {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+      y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+    };
+  }
+
+  $effect(() => {
+    let frameId = 0;
+    let lastTime = 0;
+
+    function tick(now: number): void {
+      frameId = requestAnimationFrame(tick);
+      const dt = lastTime === 0 ? 16 : Math.min(50, now - lastTime);
+      lastTime = now;
+
+      if (!engineOutput) {
+        enhancerParticles = [];
+        return;
+      }
+
+      // Move existing particles forward
+      enhancerParticles = enhancerParticles
+        .map(p => ({ ...p, progress: p.progress + dt * 0.00065 }))
+        .filter(p => p.progress < 1);
+
+      // Spawn new particles for active enhancer links (cap 2 per link)
+      for (const link of engineOutput.enhancerLinks) {
+        if (!link.promoterInstanceId) continue;
+        const inFlight = enhancerParticles.filter(
+          p => p.fromInstanceId === link.enhancerInstanceId && p.toInstanceId === link.promoterInstanceId
+        ).length;
+        if (inFlight < 2 && Math.random() < 0.002 * dt) {
+          enhancerParticles = [
+            ...enhancerParticles,
+            {
+              id: nextParticleId++,
+              fromInstanceId: link.enhancerInstanceId,
+              toInstanceId: link.promoterInstanceId!,
+              progress: 0,
+              opacity: 1,
+            },
+          ];
+        }
+      }
+    }
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  });
 </script>
 
 <svg
   class="plasmid-svg"
+  class:simulated={engineOutput !== null}
   viewBox="0 0 400 400"
   role="img"
   aria-label="Circular plasmid map"
@@ -126,17 +239,83 @@
 
   <!-- Backbone ring -->
   <circle
+    class="backbone-ring"
     cx={CX} cy={CY} r={R}
     fill="none"
     stroke="#374151"
     stroke-width="6"
   />
 
+  {#if engineOutput}
+    <!-- DNA double helix: colored base pairs (A-T blue/orange, G-C green/red) -->
+    {#each Array(64) as _, i (i)}
+      {@const angle = i * (360 / 64)}
+      {@const inner = pointOnRing(angle, R - 5)}
+      {@const mid = pointOnRing(angle, R)}
+      {@const outer = pointOnRing(angle, R + 5)}
+      {@const pairType = [0, 1, 2, 3, 1, 0, 3, 2][i % 8]}
+      {@const col5 = ['#3b82f6','#f97316','#22c55e','#ef4444'][pairType]}
+      {@const col3 = ['#f97316','#3b82f6','#ef4444','#22c55e'][pairType]}
+      <line x1={inner.x} y1={inner.y} x2={mid.x} y2={mid.y} stroke={col5} stroke-width="1.6" opacity="0.72" pointer-events="none" />
+      <line x1={mid.x} y1={mid.y} x2={outer.x} y2={outer.y} stroke={col3} stroke-width="1.6" opacity="0.72" pointer-events="none" />
+    {/each}
+  {/if}
+
   <!-- Direction arrow at top -->
   <text x={CX} y={CY - R - 14} text-anchor="middle" font-size="11" fill="#6b7280">↻ clockwise</text>
 
+  {#if engineOutput}
+    {#each engineOutput.enhancerLinks as link (`${link.enhancerInstanceId}-${link.promoterInstanceId ?? link.blockedByInstanceId ?? 'open'}`)}
+      {#if link.promoterInstanceId}
+        {@const path = loopPath(link.enhancerInstanceId, link.promoterInstanceId)}
+        {@const labelPoint = effectLabelPoint(link.promoterInstanceId)}
+        {#if path}
+          <path d={path} class="enhancer-loop" />
+          {#if labelPoint}
+            <g transform="translate({labelPoint.x},{labelPoint.y})" class="effect-tag boost-tag">
+              <rect x="-18" y="-8" width="36" height="16" rx="8" />
+              <text y="4" text-anchor="middle">boost</text>
+            </g>
+          {/if}
+        {/if}
+      {:else if link.blockedByInstanceId}
+        {@const path = loopPath(link.enhancerInstanceId, link.blockedByInstanceId)}
+        {@const labelPoint = effectLabelPoint(link.blockedByInstanceId)}
+        {#if path}
+          <path d={path} class="enhancer-loop blocked" />
+          {#if labelPoint}
+            <g transform="translate({labelPoint.x},{labelPoint.y})" class="effect-tag blocked-tag">
+              <rect x="-23" y="-8" width="46" height="16" rx="8" />
+              <text y="4" text-anchor="middle">blocked</text>
+            </g>
+          {/if}
+        {/if}
+      {/if}
+    {/each}
+    <!-- Enhancer signal particles -->
+    {#each enhancerParticles as particle (particle.id)}
+      {@const fromAngle = angleForInstance(particle.fromInstanceId)}
+      {@const toAngle = angleForInstance(particle.toInstanceId)}
+      {#if fromAngle !== null && toAngle !== null}
+        {@const p0 = pointOnRing(fromAngle, R - 6)}
+        {@const p1 = { x: CX, y: CY }}
+        {@const p2 = pointOnRing(toAngle, R - 6)}
+        {@const pos = quadraticBezierPoint(p0, p1, p2, particle.progress)}
+        <circle
+          cx={pos.x}
+          cy={pos.y}
+          r={4}
+          fill="#fbbf24"
+          opacity={particle.opacity * (1 - particle.progress * 0.4)}
+          class="enhancer-particle"
+          pointer-events="none"
+        />
+      {/if}
+    {/each}
+  {/if}
+
   <!-- Insert slots (drop targets) -->
-  {#each insertAngles as angle, i}
+  {#each insertAngles as angle, i (i)}
     {@const pt = pointOnRing(angle, R)}
     <circle
       cx={pt.x} cy={pt.y} r={hoverInsert === i ? 9 : 5}
@@ -170,7 +349,21 @@
       stroke={stateRing}
       stroke-width="2"
       opacity="0.7"
+      class:active-state={stateClass(part.instanceId) === 'active'}
+      class:blocked-state={stateClass(part.instanceId) === 'blocked'}
     />
+
+    <!-- Repressor blocker hexagon for repressed promoters -->
+    {#if def?.type === 'promoter' && stateClass(part.instanceId) === 'repressed' && engineOutput}
+      <polygon
+        points={hexagonPoints(pt.x, pt.y, 20)}
+        fill="#ef444415"
+        stroke="#ef4444"
+        stroke-width="1.5"
+        class="repressor-blocker"
+        pointer-events="none"
+      />
+    {/if}
 
     <!-- Part body — draggable -->
     <g
@@ -215,6 +408,13 @@
         </g>
       {/if}
     </g>
+
+    {#if stateLabel(part)}
+      <g transform="translate({pt.x + 13},{pt.y - 18})" class={`state-badge ${stateClass(part.instanceId)}`}>
+        <rect x="-23" y="-7" width="46" height="14" rx="7" />
+        <text y="4" text-anchor="middle">{stateLabel(part)}</text>
+      </g>
+    {/if}
 
     <!-- Label outside ring, horizontal text positioned radially outward from the node -->
     {@const labelRadius = R + (i % 2 === 0 ? 34 : 50)}
@@ -275,5 +475,101 @@
   .delete-part:focus-visible circle {
     stroke: #fbbf24;
     stroke-width: 2;
+  }
+
+  .plasmid-svg.simulated .backbone-ring {
+    stroke: #1e293b;
+    opacity: 0.72;
+  }
+
+  /* dna-ring and base-tick removed — replaced by colored base-pair lines in template */
+
+  .enhancer-loop {
+    fill: none;
+    stroke: #f472b6;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 3 9;
+    opacity: 0.46;
+    pointer-events: none;
+    animation: loop-flow 1.8s linear infinite;
+  }
+
+  .enhancer-loop.blocked {
+    stroke: #ef4444;
+    stroke-dasharray: 2 7;
+    opacity: 0.5;
+    animation-duration: 1.1s;
+  }
+
+  .effect-tag,
+  .state-badge {
+    pointer-events: none;
+  }
+
+  .effect-tag rect,
+  .state-badge rect {
+    fill: rgba(2, 6, 23, 0.84);
+    stroke-width: 1;
+  }
+
+  .effect-tag text,
+  .state-badge text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    fill: #e5e7eb;
+  }
+
+  .boost-tag rect {
+    stroke: rgba(244, 114, 182, 0.8);
+  }
+
+  .blocked-tag rect,
+  .state-badge.blocked rect {
+    stroke: rgba(239, 68, 68, 0.85);
+  }
+
+  .state-badge.active rect {
+    stroke: rgba(34, 197, 94, 0.85);
+  }
+
+  .state-badge.repressed rect {
+    stroke: rgba(148, 163, 184, 0.75);
+  }
+
+  .state-badge.read-through rect {
+    stroke: rgba(56, 189, 248, 0.85);
+  }
+
+  .active-state {
+    animation: state-pulse 1.3s ease-in-out infinite;
+  }
+
+  .blocked-state {
+    stroke-dasharray: 4 4;
+  }
+
+  @keyframes loop-flow {
+    to { stroke-dashoffset: -12; }
+  }
+
+  @keyframes state-pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.95; }
+  }
+
+  .repressor-blocker {
+    pointer-events: none;
+    animation: repressor-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes repressor-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+
+  .enhancer-particle {
+    filter: drop-shadow(0 0 3px #fbbf24);
   }
 </style>

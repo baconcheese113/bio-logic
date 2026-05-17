@@ -68,6 +68,7 @@ export type PartType =
   | 'tag'
   | 'crispr'
   | 'enhancer'
+  | 'insulator'
   | 'signal-sequence';
 
 export type Orientation = 'clockwise' | 'counterclockwise';
@@ -101,6 +102,9 @@ export interface PartDef {
   targetPromoter?: string;
   // Enhancer
   boostFactor?: number;
+  // Insulator
+  blocksEnhancers?: boolean;
+  directional?: boolean;
   // Signal sequence
   destination?: 'nucleus' | 'secretory';
 }
@@ -141,6 +145,12 @@ export interface CellHealth {
   reasons: CellHealthReason[];
 }
 
+export interface EnhancerLink {
+  enhancerInstanceId: string;
+  promoterInstanceId?: string;
+  blockedByInstanceId?: string;
+}
+
 export interface EngineOutput {
   proteins: Record<string, number>;
   transcripts: Record<string, number>;
@@ -148,6 +158,7 @@ export interface EngineOutput {
   partStates: Record<string, PartState>;
   cellHealth: CellHealth;
   transcriptionUnits: TranscriptionUnit[];
+  enhancerLinks: EnhancerLink[];
   efficiencyScore: { partCount: number; transcriptionalLoad: number; proteaseLoad: number };
 }
 

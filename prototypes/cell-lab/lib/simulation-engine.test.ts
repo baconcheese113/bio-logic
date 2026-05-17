@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { runEngine, checkExpect } from './simulation-engine';
 import { PARTS_DEF_MAP } from './parts-grammar';
+import { CIRCULAR_PUZZLES } from './puzzles';
 import type { PlacedPart, EnvironmentState } from './types';
 
 // Helper to build a PlacedPart array from an ordered list of defIds
@@ -14,6 +15,7 @@ function makePlasmid(defIds: string[]): PlacedPart[] {
 }
 
 const BACT_ENV: EnvironmentState = { signals: {}, hostMode: 'bacterial' };
+const EUK_ENV: EnvironmentState = { signals: {}, hostMode: 'eukaryotic' };
 
 describe('L15 — Bicistronic Trick', () => {
   it('single promoter bicistronic operon: Cat is about 50% of LacZ', () => {
@@ -343,6 +345,85 @@ describe('L19 - Smart Drug Gate', () => {
   });
 });
 
+describe('L20 - Enhancer Redirection', () => {
+  const unblockedEnhancerParts = [
+    'euk-enhancer',
+    'euk-prom-waste-weak',
+    'euk-kozak-strong',
+    'gene-waste',
+    'euk-polya',
+    'euk-prom-drug-weak',
+    'euk-kozak-strong',
+    'gene-drug',
+    'euk-polya',
+  ];
+
+  const redirectedEnhancerParts = [
+    'euk-enhancer',
+    'euk-insulator',
+    'euk-prom-waste-weak',
+    'euk-kozak-strong',
+    'gene-waste',
+    'euk-polya',
+    'euk-prom-drug-weak',
+    'euk-kozak-strong',
+    'gene-drug',
+    'euk-polya',
+  ];
+
+  it('enhancer boosts the nearest promoter when no insulator blocks the path', () => {
+    const parts = makePlasmid(unblockedEnhancerParts);
+    const output = runEngine(parts, PARTS_DEF_MAP, EUK_ENV);
+
+    expect(output.proteins['Waste'] ?? 0).toBeGreaterThan(output.proteins['Drug'] ?? 0);
+    expect(output.enhancerLinks[0]).toMatchObject({
+      enhancerInstanceId: parts[0].instanceId,
+      promoterInstanceId: parts[1].instanceId,
+    });
+  });
+
+  it('insulator redirects the enhancer away from Waste and toward Drug', () => {
+    const parts = makePlasmid(redirectedEnhancerParts);
+    const output = runEngine(parts, PARTS_DEF_MAP, EUK_ENV);
+
+    expect(output.proteins['Drug'] ?? 0).toBeGreaterThan(output.proteins['Waste'] ?? 0);
+    expect(output.enhancerLinks[0]).toMatchObject({
+      enhancerInstanceId: parts[0].instanceId,
+      promoterInstanceId: parts[6].instanceId,
+    });
+  });
+
+  it('insulator does not block transcription from either promoter', () => {
+    const parts = makePlasmid(redirectedEnhancerParts);
+    const output = runEngine(parts, PARTS_DEF_MAP, EUK_ENV);
+
+    expect(output.proteins['Waste'] ?? 0).toBeGreaterThan(0);
+    expect(output.proteins['Drug'] ?? 0).toBeGreaterThan(0);
+  });
+
+  it('golden solution passes the L20 puzzle check', () => {
+    const puzzle = CIRCULAR_PUZZLES.find(p => p.id === 20);
+    expect(puzzle).toBeDefined();
+    if (!puzzle) return;
+
+    const parts = makePlasmid(redirectedEnhancerParts);
+    const output = runEngine(parts, PARTS_DEF_MAP, puzzle.tests[0].environment);
+
+    expect(checkExpect(output, puzzle.tests[0].expect)).toBe(true);
+  });
+
+  it('failure case without insulator fails the L20 puzzle check', () => {
+    const puzzle = CIRCULAR_PUZZLES.find(p => p.id === 20);
+    expect(puzzle).toBeDefined();
+    if (!puzzle) return;
+
+    const parts = makePlasmid(unblockedEnhancerParts);
+    const output = runEngine(parts, PARTS_DEF_MAP, puzzle.tests[0].environment);
+
+    expect(checkExpect(output, puzzle.tests[0].expect)).toBe(false);
+  });
+});
+
 describe('Engine basics', () => {
   it('unterminated sweep is discarded', () => {
     const parts = makePlasmid([
@@ -450,6 +531,7 @@ describe('Engine basics', () => {
       partStates: {},
       cellHealth: { state: 'normal' as const, reasons: [] },
       transcriptionUnits: [],
+      enhancerLinks: [],
       efficiencyScore: { partCount: 0, transcriptionalLoad: 0, proteaseLoad: 0 },
     };
     expect(checkExpect(output, { proteinRatio: { a: 'B', b: 'A', min: 0.4, max: 0.6 } })).toBe(true);

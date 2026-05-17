@@ -314,6 +314,16 @@ export const PARTS_GRAMMAR: PartDef[] = [
     product: 'Drug',
   },
   {
+    id: 'gene-waste',
+    type: 'gene',
+    name: 'Waste Gene',
+    label: 'Waste',
+    color: '#94a3b8',
+    description: 'Produces a waste protein that should stay low in enhancer-redirection designs.',
+    validHostModes: ['eukaryotic'],
+    product: 'Waste',
+  },
+  {
     id: 'gene-cancer-activator',
     type: 'gene',
     name: 'Cancer-Sensor Activator Gene',
@@ -487,6 +497,26 @@ export const PARTS_GRAMMAR: PartDef[] = [
     rnaPLoadRate: 2,
     signal: 'healthy-marker',
   },
+  {
+    id: 'euk-prom-drug-weak',
+    type: 'promoter',
+    name: 'Weak Drug Promoter',
+    label: 'Pdrug-w',
+    color: '#f472b6',
+    description: 'Weak eukaryotic promoter driving the Drug gene. Needs enhancer support for high output.',
+    validHostModes: ['eukaryotic'],
+    rnaPLoadRate: 1,
+  },
+  {
+    id: 'euk-prom-waste-weak',
+    type: 'promoter',
+    name: 'Weak Waste Promoter',
+    label: 'Pwaste-w',
+    color: '#94a3b8',
+    description: 'Weak eukaryotic promoter driving the Waste gene. It can steal a nearby enhancer.',
+    validHostModes: ['eukaryotic'],
+    rnaPLoadRate: 1,
+  },
   // ── Kozak sequences (eukaryotic RBS equivalent) ───────────────────
   {
     id: 'euk-kozak-weak',
@@ -585,6 +615,17 @@ export const PARTS_GRAMMAR: PartDef[] = [
     description: 'Boosts the nearest promoter by 1.5×. Orientation-independent.',
     validHostModes: ['eukaryotic'],
     boostFactor: 1.5,
+  },
+  {
+    id: 'euk-insulator',
+    type: 'insulator',
+    name: 'Directional Insulator',
+    label: 'Ins',
+    color: '#14b8a6',
+    description: 'Blocks enhancer looping across its clockwise face without blocking transcription.',
+    validHostModes: ['eukaryotic'],
+    blocksEnhancers: true,
+    directional: true,
   },
   // ── Guide RNA scaffolds for L19 ────────────────────────────────────
   {

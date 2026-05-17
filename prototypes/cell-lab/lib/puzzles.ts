@@ -526,4 +526,32 @@ export const CIRCULAR_PUZZLES: CircularPuzzle[] = [
       },
     ],
   },
+  {
+    id: 20,
+    title: 'Enhancer Redirection',
+    goal: 'Use one enhancer to make Drug high while keeping Waste low. The nearby waste promoter steals the enhancer unless you redirect the loop.',
+    hint: 'Enhancers boost the nearest reachable promoter on the circular plasmid. Put the insulator between the enhancer and the waste promoter so the enhancer loops the long way to Drug.',
+    hostMode: 'eukaryotic',
+    availablePartIds: [
+      'euk-insulator',
+    ],
+    prefilled: [
+      'euk-enhancer',
+      'euk-prom-waste-weak',
+      'euk-kozak-strong',
+      'gene-waste',
+      'euk-polya',
+      'euk-prom-drug-weak',
+      'euk-kozak-strong',
+      'gene-drug',
+      'euk-polya',
+    ],
+    tests: [
+      {
+        environment: { signals: {}, hostMode: 'eukaryotic' },
+        label: 'Drug high, Waste low',
+        expect: { proteins: { Drug: { min: 1.7 }, Waste: { max: 1.3 } } },
+      },
+    ],
+  },
 ];

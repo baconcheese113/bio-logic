@@ -7,6 +7,7 @@ import type {
   CellHealth,
   CellHealthReason,
   PartDef,
+  EnhancerLink,
 } from './types';
 
 const MAX_PASSES = 5;
@@ -29,13 +30,28 @@ interface DegradationResult {
   proteaseLoad: number;
 }
 
+interface EnhancerBoostResult {
+  boostedLoadRates: Map<string, number>;
+  enhancerLinks: EnhancerLink[];
+}
+
+type ArcDirection = 'clockwise' | 'counterclockwise';
+
+interface EnhancerCandidate {
+  promoterIdx: number;
+  distance: number;
+  direction: ArcDirection;
+  blockedByInstanceId?: string;
+}
+
 export function runEngine(
   parts: PlacedPart[],
   defsMap: Map<string, PartDef>,
   env: EnvironmentState,
 ): EngineOutput {
   // Apply enhancer boosts as a pre-processing step
-  const boostedLoadRates = computeEnhancerBoosts(parts, defsMap, env);
+  const enhancerResult = computeEnhancerBoosts(parts, defsMap, env);
+  const boostedLoadRates = enhancerResult.boostedLoadRates;
 
   let knownProteinLevels: Record<string, number> = {};
   let knownFunctionalRNAs: Record<string, number> = {};
@@ -101,6 +117,7 @@ export function runEngine(
     partStates,
     cellHealth,
     transcriptionUnits: lastSweep.transcriptionUnits,
+    enhancerLinks: enhancerResult.enhancerLinks,
     efficiencyScore: { partCount: parts.length, transcriptionalLoad, proteaseLoad: lastProteaseLoad },
   };
 }
@@ -111,9 +128,9 @@ function computeEnhancerBoosts(
   parts: PlacedPart[],
   defsMap: Map<string, PartDef>,
   env: EnvironmentState,
-): Map<string, number> {
-  // Returns a map of promoter instanceId -> boosted rnaPLoadRate
-  const boosts = new Map<string, number>();
+): EnhancerBoostResult {
+  const boostedLoadRates = new Map<string, number>();
+  const enhancerLinks: EnhancerLink[] = [];
   const n = parts.length;
 
   for (let i = 0; i < n; i++) {
@@ -122,9 +139,7 @@ function computeEnhancerBoosts(
     if (!def.validHostModes.includes(env.hostMode)) continue;
     if (!def.boostFactor) continue;
 
-    // Find nearest promoter by arc distance in either direction
-    let nearestIdx = -1;
-    let minDist = Infinity;
+    const candidates: EnhancerCandidate[] = [];
 
     for (let j = 0; j < n; j++) {
       if (j === i) continue;
@@ -132,23 +147,115 @@ function computeEnhancerBoosts(
       if (!pDef || pDef.type !== 'promoter') continue;
       if (!pDef.validHostModes.includes(env.hostMode)) continue;
 
-      const fwd = ((j - i + n) % n);
-      const bwd = ((i - j + n) % n);
-      const dist = Math.min(fwd, bwd);
-      if (dist < minDist) {
-        minDist = dist;
-        nearestIdx = j;
-      }
+      candidates.push(makeEnhancerCandidate(i, j, 'clockwise', parts, defsMap, env));
+      candidates.push(makeEnhancerCandidate(i, j, 'counterclockwise', parts, defsMap, env));
     }
 
-    if (nearestIdx >= 0) {
+    const openCandidates = candidates
+      .filter(candidate => candidate.blockedByInstanceId === undefined)
+      .sort((a, b) => a.distance - b.distance || directionPriority(a.direction) - directionPriority(b.direction));
+
+    if (openCandidates.length > 0) {
+      const nearestIdx = openCandidates[0].promoterIdx;
       const nearestId = parts[nearestIdx].instanceId;
-      const existingBoost = boosts.get(nearestId) ?? 1;
-      boosts.set(nearestId, existingBoost * def.boostFactor);
+      const existingBoost = boostedLoadRates.get(nearestId) ?? 1;
+      boostedLoadRates.set(nearestId, existingBoost * def.boostFactor);
+      enhancerLinks.push({
+        enhancerInstanceId: parts[i].instanceId,
+        promoterInstanceId: nearestId,
+      });
+
+      const nearestBlocked = nearestBlockedCandidate(candidates);
+      if (nearestBlocked?.blockedByInstanceId) {
+        enhancerLinks.push({
+          enhancerInstanceId: parts[i].instanceId,
+          blockedByInstanceId: nearestBlocked.blockedByInstanceId,
+        });
+      }
+    } else {
+      const nearestBlocked = nearestBlockedCandidate(candidates);
+
+      enhancerLinks.push({
+        enhancerInstanceId: parts[i].instanceId,
+        blockedByInstanceId: nearestBlocked?.blockedByInstanceId,
+      });
     }
   }
 
-  return boosts;
+  return { boostedLoadRates, enhancerLinks };
+}
+
+function nearestBlockedCandidate(candidates: EnhancerCandidate[]): EnhancerCandidate | undefined {
+  return candidates
+    .filter(candidate => candidate.blockedByInstanceId !== undefined)
+    .sort((a, b) => a.distance - b.distance || directionPriority(a.direction) - directionPriority(b.direction))[0];
+}
+
+function makeEnhancerCandidate(
+  enhancerIdx: number,
+  promoterIdx: number,
+  direction: ArcDirection,
+  parts: PlacedPart[],
+  defsMap: Map<string, PartDef>,
+  env: EnvironmentState,
+): EnhancerCandidate {
+  const distance = arcDistance(enhancerIdx, promoterIdx, direction, parts.length);
+  const blockerIdx = findEnhancerBlocker(enhancerIdx, promoterIdx, direction, parts, defsMap, env);
+  return {
+    promoterIdx,
+    distance,
+    direction,
+    blockedByInstanceId: blockerIdx === null ? undefined : parts[blockerIdx].instanceId,
+  };
+}
+
+function arcDistance(fromIdx: number, toIdx: number, direction: ArcDirection, partCount: number): number {
+  return direction === 'clockwise'
+    ? (toIdx - fromIdx + partCount) % partCount
+    : (fromIdx - toIdx + partCount) % partCount;
+}
+
+function directionPriority(direction: ArcDirection): number {
+  return direction === 'clockwise' ? 0 : 1;
+}
+
+function findEnhancerBlocker(
+  fromIdx: number,
+  toIdx: number,
+  direction: ArcDirection,
+  parts: PlacedPart[],
+  defsMap: Map<string, PartDef>,
+  env: EnvironmentState,
+): number | null {
+  for (const idx of indexesBetween(fromIdx, toIdx, direction, parts.length)) {
+    const def = defsMap.get(parts[idx].defId);
+    if (
+      def?.type === 'insulator' &&
+      def.blocksEnhancers === true &&
+      def.validHostModes.includes(env.hostMode) &&
+      (!def.directional || direction === parts[idx].orientation)
+    ) {
+      return idx;
+    }
+  }
+
+  return null;
+}
+
+function indexesBetween(fromIdx: number, toIdx: number, direction: ArcDirection, partCount: number): number[] {
+  const indexes: number[] = [];
+  let idx = direction === 'clockwise'
+    ? (fromIdx + 1) % partCount
+    : (fromIdx - 1 + partCount) % partCount;
+
+  while (idx !== toIdx) {
+    indexes.push(idx);
+    idx = direction === 'clockwise'
+      ? (idx + 1) % partCount
+      : (idx - 1 + partCount) % partCount;
+  }
+
+  return indexes;
 }
 
 // ── dCas9 blocking ───────────────────────────────────────────────────
@@ -384,6 +491,10 @@ function sweepFrom(
         fusionPending = false;
         break;
       }
+      case 'insulator': {
+        fusionPending = false;
+        break;
+      }
       case 'terminator': {
         const readThrough = def.readThroughPct ?? 0;
         const stabilityBonus = def.mRNAStabilityBonus ?? 0;
@@ -585,6 +696,7 @@ function emptyOutput(): EngineOutput {
     partStates: {},
     cellHealth: { state: 'normal', reasons: [] },
     transcriptionUnits: [],
+    enhancerLinks: [],
     efficiencyScore: { partCount: 0, transcriptionalLoad: 0, proteaseLoad: 0 },
   };
 }
