@@ -1,0 +1,1339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Malignant — UI/UX Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1a1612;
+    --ink-2: #4a4138;
+    --ink-3: #8a7f73;
+    --paper: #f4ede1;
+    --paper-2: #ece3d2;
+    --rule: #c9bca4;
+    --rule-soft: #d9cdb5;
+    --accent: #d2693a;       /* cancer amber */
+    --immune: #6b3a8a;       /* immune purple */
+    --marker-blue: #2a6fa8;
+    --marker-red:  #c4422c;
+    --marker-yellow: #c98e1f;
+    --tissue: #e3b8b0;       /* tissue pink */
+    --warning: #b8401a;
+    --good: #4a7a3c;
+  }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Patrick Hand", "Kalam", system-ui, sans-serif;
+    font-size: 15px;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 12% 8%, #00000008 0, transparent 60%),
+      radial-gradient(circle at 92% 90%, #00000008 0, transparent 60%);
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 28px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  header.top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1.5px dashed var(--rule);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  header.top h1 {
+    font-family: "Caveat", cursive;
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+    margin: 0 0 4px;
+    letter-spacing: 0.5px;
+  }
+  header.top h1 .sub {
+    display: block;
+    font-family: "Patrick Hand";
+    font-size: 17px;
+    color: var(--ink-3);
+    margin-top: 4px;
+    line-height: 1.2;
+  }
+  header.top { padding-bottom: 18px; }
+  header.top .meta {
+    text-align: right;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  header.top .meta b { color: var(--ink); }
+
+  /* ---------- Intro ---------- */
+  .intro {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 28px;
+    margin-bottom: 24px;
+    border: 1.5px solid var(--ink);
+    background: #fffaf0;
+    padding: 18px 22px;
+    box-shadow: 4px 4px 0 #00000010;
+  }
+  .intro h2 {
+    font-family: "Caveat", cursive;
+    margin: 0 0 6px;
+    font-size: 26px;
+  }
+  .intro p { margin: 4px 0; line-height: 1.45; }
+  .uncerts {
+    counter-reset: u;
+  }
+  .uncerts {
+    counter-reset: u;
+    padding: 0;
+    margin: 0;
+  }
+  .uncerts li {
+    list-style: none;
+    counter-increment: u;
+    padding-left: 34px;
+    position: relative;
+    margin: 0 0 10px 0;
+    line-height: 1.35;
+    min-height: 26px;
+  }
+  .uncerts li::before {
+    content: counter(u);
+    position: absolute;
+    left: 0; top: -2px;
+    width: 24px; height: 24px;
+    border: 1.5px solid var(--ink);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    font-family: "Kalam";
+    font-weight: 700;
+    background: var(--paper);
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 -1.5px 0;
+    padding-left: 12px;
+  }
+  .tab {
+    appearance: none;
+    background: var(--paper-2);
+    border: 1.5px solid var(--ink);
+    border-bottom: none;
+    padding: 10px 18px 12px;
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--ink-2);
+    border-radius: 10px 10px 0 0;
+    position: relative;
+    top: 1.5px;
+    box-shadow: 3px -3px 0 #00000008;
+  }
+  .tab .id {
+    display: inline-block;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    text-align: center;
+    line-height: 26px;
+    margin-right: 8px;
+    font-family: "Kalam";
+    font-weight: 700;
+    font-size: 16px;
+    vertical-align: 3px;
+  }
+  .tab[aria-selected="true"] {
+    background: #fffaf0;
+    color: var(--ink);
+    z-index: 2;
+  }
+  .tab[aria-selected="true"] .id { background: var(--accent); }
+
+  /* ---------- Exploration shell ---------- */
+  .explore {
+    display: none;
+    border: 1.5px solid var(--ink);
+    background: #fffaf0;
+    padding: 22px 24px 26px;
+    box-shadow: 5px 5px 0 #00000010;
+  }
+  .explore[data-active] { display: block; }
+
+  .explore-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1.5px dashed var(--rule);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  .explore-head h2 {
+    font-family: "Caveat", cursive;
+    font-size: 34px;
+    margin: 0;
+    line-height: 1;
+  }
+  .explore-head h2 .lab {
+    display: inline-block;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    text-align: center;
+    line-height: 36px;
+    font-family: "Kalam";
+    font-weight: 700;
+    font-size: 22px;
+    margin-right: 10px;
+    vertical-align: 4px;
+  }
+  .explore-head .argument {
+    flex: 0 0 540px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .explore-head .argument b { color: var(--ink); }
+
+  /* ---------- Scene + annotations layout ---------- */
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 360px;
+    gap: 22px;
+  }
+  .scene {
+    position: relative;
+    border: 1.5px solid var(--ink);
+    background: #1f1812;
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 16 / 10;
+    box-shadow: inset 0 0 0 2px #00000040;
+  }
+  .scene svg { display: block; width: 100%; height: 100%; }
+
+  /* numbered callout pins floating on scene */
+  .pin {
+    position: absolute;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    text-align: center;
+    line-height: 24px;
+    font-family: "Kalam";
+    font-weight: 700;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+    box-shadow: 2px 2px 0 #00000050;
+    z-index: 3;
+  }
+  .pin.alt { background: var(--accent); color: white; border-color: var(--ink); }
+
+  /* ---------- Annotations side panel ---------- */
+  .notes h3 {
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    margin: 0 0 6px;
+    border-bottom: 1px dashed var(--rule);
+    padding-bottom: 4px;
+  }
+  .notes ol {
+    list-style: none;
+    counter-reset: n;
+    padding: 0; margin: 0;
+  }
+  .notes ol li {
+    counter-increment: n;
+    padding: 8px 0 8px 36px;
+    position: relative;
+    border-bottom: 1px dashed var(--rule-soft);
+    line-height: 1.35;
+    font-size: 14.5px;
+  }
+  .notes ol li:last-child { border-bottom: none; }
+  .notes ol li::before {
+    content: counter(n);
+    position: absolute; left: 0; top: 8px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    text-align: center; line-height: 24px;
+    font-family: "Kalam"; font-weight: 700;
+    font-size: 13px;
+  }
+  .notes ol li b { font-family: "Kalam"; font-weight: 700; color: var(--ink); }
+  .notes ol li .tradeoff {
+    display: block;
+    margin-top: 4px;
+    color: var(--ink-2);
+    font-size: 13.5px;
+    font-style: italic;
+  }
+  .notes ol li .tradeoff::before { content: "↳ tradeoff: "; color: var(--ink-3); font-style: normal; }
+
+  .breaks {
+    margin-top: 14px;
+    border: 1.5px solid var(--warning);
+    background: #fff3eb;
+    padding: 12px 14px;
+    border-radius: 4px;
+  }
+  .breaks h3 {
+    font-family: "Caveat", cursive;
+    margin: 0 0 4px;
+    font-size: 22px;
+    color: var(--warning);
+  }
+  .breaks p { margin: 0; line-height: 1.4; font-size: 14.5px; }
+
+  /* ---------- Legend strip below scene ---------- */
+  .legend {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    font-size: 13px;
+    color: var(--ink-2);
+    padding: 8px 4px 0;
+    border-top: 1px dashed var(--rule);
+  }
+  .legend .sw {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend .dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink);
+    display: inline-block;
+  }
+  .legend .dot.amber  { background: var(--accent); }
+  .legend .dot.immune { background: var(--immune); }
+  .legend .dot.tissue { background: var(--tissue); }
+  .legend .dot.blue   { background: var(--marker-blue); }
+  .legend .dot.red    { background: var(--marker-red); }
+  .legend .dot.yellow { background: var(--marker-yellow); }
+  .legend .sq {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+  }
+
+  /* ---------- Loose sketchy borders ---------- */
+  .sketch-border {
+    border-image: none;
+  }
+
+  /* ---------- footer ---------- */
+  footer.bot {
+    margin-top: 30px;
+    color: var(--ink-3);
+    font-size: 13px;
+    text-align: center;
+    border-top: 1px dashed var(--rule);
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="top">
+  <div>
+    <h1>Malignant — UI/UX Wireframes <span class="sub">v0.1 · four directions, five uncertainties</span></h1>
+  </div>
+  <div class="meta">
+    low-fi exploration · <b>not visual design</b><br/>
+    each tab = one philosophy, same scene, same 5 questions
+  </div>
+</header>
+
+<section class="intro">
+  <div>
+    <h2>What we're trying to figure out</h2>
+    <p>Four genuinely different answers to the same five UI questions. Same mid-game moment in every exploration: two engulfments in progress, a Genome Leakage timer running, a PCR/Gel chain mid-run, flow cytometer reading an incoming wave.</p>
+    <p style="color:var(--ink-3);font-size:13.5px;margin-top:8px;">Pick a philosophy before pixel-pushing. We're voting on <i>information architecture</i>, not skins.</p>
+  </div>
+  <div>
+    <h2>The five uncertainties</h2>
+    <ol class="uncerts">
+      <li><b>Chemoattractant markers</b> — fading, three colors, plus permanent beacons. How to read without noise?</li>
+      <li><b>Instrument chain during live combat</b> — 50–100s of attention while the map keeps killing units.</li>
+      <li><b>Flow cytometer scatter plot</b> at RTS pace, including ghost-label teaching moment.</li>
+      <li><b>Staged engulfment</b> — 8–12s reaction window across many tiny units.</li>
+      <li><b>Genome Leakage</b> alert urgency + log — critical, but alert spam kills RTS.</li>
+    </ol>
+  </div>
+</section>
+
+<div class="tabs" role="tablist">
+  <button class="tab" data-tab="A" role="tab" aria-selected="true"><span class="id">A</span>Diegetic minimalism</button>
+  <button class="tab" data-tab="B" role="tab" aria-selected="false"><span class="id">B</span>Split attention</button>
+  <button class="tab" data-tab="C" role="tab" aria-selected="false"><span class="id">C</span>Contextual expansion</button>
+  <button class="tab" data-tab="D" role="tab" aria-selected="false"><span class="id">D</span>Overlay system</button>
+</div>
+
+<!-- =========================== EXPLORATION A =========================== -->
+<section class="explore" id="ex-A" data-active>
+  <div class="explore-head">
+    <h2><span class="lab">A</span>Diegetic minimalism</h2>
+    <div class="argument">
+      <b>Argument:</b> the player reads the <i>world</i>, not the UI. Every alert, every status, every chain step is a visible state of an object on the hex grid. Only the plasmid editor lives in chrome. If you can see it in the tissue, we don't show it in a panel.
+    </div>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="scene" id="sceneA">
+        <!-- SVG SCENE A -->
+        <svg viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <pattern id="hexA" width="60" height="52" patternUnits="userSpaceOnUse" patternTransform="translate(0 0)">
+              <polygon points="30,2 58,17 58,46 30,61 2,46 2,17"
+                fill="#2a201a" stroke="#3a2e25" stroke-width="0.8"/>
+            </pattern>
+            <radialGradient id="tissueGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#3a2018" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#1f1812" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="rough"><feTurbulence baseFrequency="0.9" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="0.6"/></filter>
+          </defs>
+
+          <!-- Hex tissue background -->
+          <rect width="1000" height="625" fill="url(#hexA)"/>
+          <!-- pink tissue zones -->
+          <ellipse cx="200" cy="220" rx="220" ry="150" fill="#7a3a3a" opacity="0.18"/>
+          <ellipse cx="780" cy="380" rx="260" ry="180" fill="#7a3a3a" opacity="0.14"/>
+
+          <!-- Warburg nutrient channel (drawn line) -->
+          <path d="M 90 540 C 230 480, 320 460, 420 410 S 560 360, 620 320" fill="none" stroke="#3a78b8" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+          <path d="M 90 540 C 230 480, 320 460, 420 410 S 560 360, 620 320" fill="none" stroke="#88c4ff" stroke-width="2" stroke-dasharray="2 8" opacity="0.9"/>
+          <!-- congestion bulge -->
+          <circle cx="520" cy="378" r="14" fill="#8a3aa8" opacity="0.7"/>
+          <text x="540" y="382" fill="#e6c8ff" font-family="JetBrains Mono" font-size="11">congested → lactic leak</text>
+
+          <!-- Founder cell -->
+          <g transform="translate(160,540)">
+            <circle r="34" fill="#d2693a" stroke="#fff" stroke-width="2" opacity="0.95"/>
+            <circle r="18" fill="#8a3a18"/>
+            <text y="60" text-anchor="middle" fill="#f4ede1" font-family="Patrick Hand" font-size="14">Founder Cell</text>
+          </g>
+
+          <!-- PCR + Gel buildings (showing diegetic chain progress as the buildings themselves) -->
+          <!-- PCR -->
+          <g transform="translate(310,470)">
+            <rect x="-26" y="-26" width="52" height="52" rx="6" fill="#1a1612" stroke="#d2693a" stroke-width="2"/>
+            <rect x="-20" y="14" width="40" height="6" fill="#3a2a20"/>
+            <rect x="-20" y="14" width="32" height="6" fill="#d2693a"><!-- 80% bar --></rect>
+            <text y="-34" text-anchor="middle" fill="#f4ede1" font-family="JetBrains Mono" font-size="11">PCR · 80%</text>
+            <!-- bubbling effect -->
+            <circle cx="-8" cy="-4" r="3" fill="#d2693a" opacity="0.7"/>
+            <circle cx="6" cy="-12" r="2" fill="#d2693a" opacity="0.5"/>
+          </g>
+          <!-- Gel (idle, waiting) -->
+          <g transform="translate(420,500)">
+            <rect x="-26" y="-26" width="52" height="52" rx="6" fill="#1a1612" stroke="#5a4a3a" stroke-width="2"/>
+            <line x1="-18" y1="-10" x2="18" y2="-10" stroke="#5a4a3a"/>
+            <line x1="-18" y1="0" x2="18" y2="0" stroke="#5a4a3a"/>
+            <line x1="-18" y1="10" x2="18" y2="10" stroke="#5a4a3a"/>
+            <text y="-34" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="11">Gel · idle</text>
+          </g>
+
+          <!-- Flow Cytometer Tower — emits in-world scatter halo -->
+          <g transform="translate(680,140)">
+            <polygon points="0,-32 28,-10 18,28 -18,28 -28,-10" fill="#1a1612" stroke="#a878d8" stroke-width="2"/>
+            <circle r="8" fill="#a878d8"/>
+            <text y="48" text-anchor="middle" fill="#f4ede1" font-family="JetBrains Mono" font-size="11">Flow Cytometer</text>
+            <!-- in-world scatter halo around tower -->
+            <g opacity="0.9">
+              <circle cx="-60" cy="-50" r="2.5" fill="#a878d8"/>
+              <circle cx="-48" cy="-58" r="2.5" fill="#a878d8"/>
+              <circle cx="-55" cy="-42" r="2.5" fill="#a878d8"/>
+              <circle cx="-42" cy="-48" r="2.5" fill="#a878d8"/>
+              <circle cx="46" cy="-46" r="2.5" fill="#e8a8a8"/>
+              <circle cx="58" cy="-38" r="2.5" fill="#e8a8a8"/>
+              <circle cx="52" cy="-54" r="2.5" fill="#e8a8a8"/>
+              <text x="-52" y="-66" fill="#cfa8e0" font-family="Patrick Hand" font-size="11" text-anchor="middle">macrophage cluster</text>
+              <text x="58" y="-66" fill="#e8a8a8" font-family="Patrick Hand" font-size="11" text-anchor="middle">NK cluster ⊕ ghost</text>
+            </g>
+            <!-- tower's "lens" projecting onto map -->
+            <path d="M -8 8 L -120 90 L 120 90 L 8 8 Z" fill="#a878d8" opacity="0.06"/>
+          </g>
+
+          <!-- Cancer cell units -->
+          <g fill="#d2693a" stroke="#1a1612" stroke-width="1">
+            <circle cx="260" cy="430" r="7"/>
+            <circle cx="280" cy="440" r="7"/>
+            <circle cx="370" cy="430" r="7"/>
+            <circle cx="400" cy="380" r="7"/>
+            <circle cx="500" cy="320" r="7"/>
+            <circle cx="540" cy="280" r="7"/>
+            <circle cx="600" cy="260" r="7"/>
+            <circle cx="650" cy="240" r="7"/>
+            <circle cx="700" cy="280" r="7"/>
+            <circle cx="430" cy="240" r="7"/>
+            <circle cx="380" cy="180" r="7"/>
+          </g>
+
+          <!-- Engulfment in progress #1 -->
+          <g transform="translate(560,200)">
+            <circle r="22" fill="#6b3a8a" opacity="0.85"/>
+            <path d="M -22 -4 A 22 22 0 0 1 4 -22 L 0 0 Z" fill="#a878d8"/>
+            <circle r="7" fill="#d2693a"/>
+            <!-- distress signal: pulsing ring -->
+            <circle r="32" fill="none" stroke="#ffb030" stroke-width="2" stroke-dasharray="4 4" opacity="0.9"/>
+            <circle r="42" fill="none" stroke="#ffb030" stroke-width="1.5" opacity="0.4"/>
+            <!-- engulfment % as a tile-corner readout -->
+            <text x="36" y="2" fill="#ffd07a" font-family="JetBrains Mono" font-size="11">38%</text>
+          </g>
+
+          <!-- Engulfment in progress #2 (closer to nest, deeper) -->
+          <g transform="translate(750,310)">
+            <circle r="22" fill="#6b3a8a" opacity="0.85"/>
+            <path d="M -22 0 A 22 22 0 1 1 18 -14 L 0 0 Z" fill="#a878d8"/>
+            <circle r="7" fill="#d2693a"/>
+            <circle r="34" fill="none" stroke="#ff5030" stroke-width="2.5" opacity="0.95">
+              <animate attributeName="r" values="32;40;32" dur="1.2s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>
+            </circle>
+            <text x="36" y="2" fill="#ff8060" font-family="JetBrains Mono" font-size="11">71%</text>
+          </g>
+
+          <!-- Other immune cells -->
+          <g fill="#6b3a8a" stroke="#1a1612" stroke-width="1">
+            <circle cx="820" cy="200" r="11"/>
+            <circle cx="870" cy="240" r="11"/>
+            <circle cx="900" cy="180" r="12"/>
+          </g>
+
+          <!-- Volatile chemoattractant markers - rendered as soft hex-tile glows -->
+          <!-- Harvest (blue) -->
+          <g opacity="0.85">
+            <polygon points="270,420 300,420 315,446 300,472 270,472 255,446" fill="#2a6fa8" opacity="0.4"/>
+            <polygon points="270,420 300,420 315,446 300,472 270,472 255,446" fill="none" stroke="#88c0e8" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text x="285" y="450" text-anchor="middle" fill="#cfe4f4" font-family="Patrick Hand" font-size="11">↓ 6s</text>
+          </g>
+          <!-- Defend (red) near engulfment 2 -->
+          <g opacity="0.9">
+            <polygon points="720,290 750,290 765,316 750,342 720,342 705,316" fill="#c4422c" opacity="0.45"/>
+            <polygon points="720,290 750,290 765,316 750,342 720,342 705,316" fill="none" stroke="#ff9080" stroke-width="1.5"/>
+            <text x="735" y="320" text-anchor="middle" fill="#ffd0c4" font-family="Patrick Hand" font-size="11">↓ 12s</text>
+          </g>
+          <!-- Pheromone Beacon (permanent, retreat) -->
+          <g transform="translate(200,470)">
+            <polygon points="0,-14 12,-7 12,7 0,14 -12,7 -12,-7" fill="none" stroke="#c98e1f" stroke-width="2.5"/>
+            <polygon points="0,-8 7,-4 7,4 0,8 -7,4 -7,-4" fill="#c98e1f"/>
+            <text y="28" text-anchor="middle" fill="#ffd07a" font-family="Patrick Hand" font-size="11">beacon · retreat</text>
+            <!-- aura -->
+            <circle r="46" fill="#c98e1f" opacity="0.06"/>
+            <circle r="46" fill="none" stroke="#c98e1f" stroke-width="1" stroke-dasharray="2 4" opacity="0.5"/>
+          </g>
+
+          <!-- Genome Leakage: destroyed building emits visible escaping DNA strand + countdown rendered AT the rubble -->
+          <g transform="translate(430,140)">
+            <!-- rubble -->
+            <rect x="-22" y="-22" width="44" height="44" rx="4" fill="#3a2a20" stroke="#8a3a3a" stroke-width="1.5" opacity="0.9"/>
+            <path d="M -16 -16 L 16 16 M 16 -16 L -16 16" stroke="#8a3a3a" stroke-width="2"/>
+            <!-- DNA strand escaping -->
+            <path d="M 0 -20 C 14 -40, -14 -60, 0 -80 C 14 -100, -14 -120, 0 -140" fill="none" stroke="#ffcc55" stroke-width="2.5"/>
+            <path d="M 0 -20 C -14 -40, 14 -60, 0 -80 C -14 -100, 14 -120, 0 -140" fill="none" stroke="#ffcc55" stroke-width="2.5" opacity="0.7"/>
+            <!-- countdown ring around rubble -->
+            <circle r="40" fill="none" stroke="#ffcc55" stroke-width="3" stroke-dasharray="220 251" transform="rotate(-90)"/>
+            <text y="62" text-anchor="middle" fill="#ffcc55" font-family="JetBrains Mono" font-size="13" font-weight="bold">42s</text>
+            <text y="78" text-anchor="middle" fill="#ffe9a8" font-family="Patrick Hand" font-size="11">PCR Station compromised</text>
+          </g>
+
+          <!-- MMP Flare frontier hex (digesting) -->
+          <g transform="translate(820,440)">
+            <polygon points="-26,-15 0,-30 26,-15 26,15 0,30 -26,15" fill="#3a2018" stroke="#ff7030" stroke-width="2"/>
+            <circle r="14" fill="#ff7030" opacity="0.5">
+              <animate attributeName="r" values="10;16;10" dur="1.5s" repeatCount="indefinite"/>
+            </circle>
+            <text y="48" text-anchor="middle" fill="#ffb080" font-family="JetBrains Mono" font-size="11">MMP · 12s</text>
+          </g>
+
+          <!-- Plasmid editor — the ONLY chrome panel in A, slim bottom rail -->
+          <g transform="translate(0,580)">
+            <rect width="1000" height="45" fill="#15100c" opacity="0.95"/>
+            <rect width="1000" height="45" fill="none" stroke="#3a2e25" stroke-width="1"/>
+            <g font-family="JetBrains Mono" font-size="11" fill="#cfa878">
+              <rect x="20" y="10" width="80" height="26" rx="3" fill="#2a201a" stroke="#d2693a"/><text x="60" y="27" text-anchor="middle">PROMO</text>
+              <text x="108" y="28" fill="#8a7f73">→</text>
+              <rect x="120" y="10" width="80" height="26" rx="3" fill="#2a201a" stroke="#d2693a"/><text x="160" y="27" text-anchor="middle">RBS</text>
+              <text x="208" y="28" fill="#8a7f73">→</text>
+              <rect x="220" y="10" width="80" height="26" rx="3" fill="#2a201a" stroke="#d2693a"/><text x="260" y="27" text-anchor="middle">SOD ★</text>
+              <text x="308" y="28" fill="#8a7f73">→</text>
+              <rect x="320" y="10" width="80" height="26" rx="3" fill="#2a201a" stroke="#5a4a3a" stroke-dasharray="3 3"/><text x="360" y="27" text-anchor="middle" fill="#8a7f73">TERM?</text>
+              <text x="420" y="27" fill="#ffb030">⚠ transcript will leak</text>
+              <rect x="900" y="8" width="80" height="30" rx="3" fill="#3a2018" stroke="#d2693a"/>
+              <text x="940" y="28" text-anchor="middle" fill="#ffd07a">Deploy</text>
+            </g>
+          </g>
+
+          <!-- Inflammation Index → background hue (no bar). Subtle vignette already done. -->
+        </svg>
+
+        <!-- Numbered annotation pins -->
+        <div class="pin" style="left:21%;  top:75%;">1</div>
+        <div class="pin" style="left:35%;  top:78%;">2</div>
+        <div class="pin" style="left:68%;  top:24%;">3</div>
+        <div class="pin" style="left:75%;  top:51%;">4</div>
+        <div class="pin alt" style="left:43%; top:25%;">5</div>
+      </div>
+
+      <div class="legend">
+        <span class="sw"><span class="dot amber"></span>cancer unit</span>
+        <span class="sw"><span class="dot immune"></span>immune cell</span>
+        <span class="sw"><span class="dot blue"></span>harvest marker (15s)</span>
+        <span class="sw"><span class="dot red"></span>defend marker</span>
+        <span class="sw"><span class="dot yellow"></span>retreat / beacon</span>
+        <span class="sw"><span class="sq"></span>building</span>
+        <span class="sw" style="color:var(--accent);">orange ring = engulfment alarm</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Annotations</h3>
+      <ol>
+        <li>
+          <b>Markers as tile glows.</b> Volatile markers fill the hex tile itself with a soft color wash. Remaining time shown as a tiny "↓ 6s" inside the tile, visible only when zoomed. Beacons are a solid icon + steady aura ring — no time, no fade.
+          <span class="tradeoff">at full zoom-out, marker tiles look like terrain tint; player relies on minimap color-coding.</span>
+        </li>
+        <li>
+          <b>Instrument chain is the buildings.</b> PCR shows a fill bar + bubbles directly on its sprite ("PCR · 80%"). Gel sits idle and dim until input arrives. No popup. To inspect, hover or click the building.
+          <span class="tradeoff">player must look at the map to read chain progress — fine when zoomed in, easy to miss across a big base.</span>
+        </li>
+        <li>
+          <b>Cytometer projects onto the world.</b> The Flow Cytometer Tower casts a faint "lens cone" onto the hexes around it; scatter clusters render as floating dot constellations next to the tower with ghost labels until learned, then labels fade.
+          <span class="tradeoff">limited screen area; can't compare two cell types side-by-side without panning.</span>
+        </li>
+        <li>
+          <b>Engulfment = pulsing alarm ring.</b> Orange dashed ring while &lt; 50% complete, red pulsing ring after. Engulfment % rendered next to the unit. Response is verbs the player already uses — paint defend/retreat on the tile.
+          <span class="tradeoff">three simultaneous engulfments in dense terrain = ring soup; no "jump to next crisis" hotkey.</span>
+        </li>
+        <li>
+          <b>Genome Leakage = DNA escaping rubble.</b> A glowing DNA strand drifts up from the destroyed building, ringed by a shrinking countdown arc. The countdown is at the rubble — to read it you look where the loss happened. Log = the rubble itself (it persists). No global alert toast.
+          <span class="tradeoff">if you weren't looking at that part of the map when it died, you miss the start of the timer. Critical.</span>
+        </li>
+      </ol>
+      <div class="breaks">
+        <h3>What breaks this</h3>
+        <p>Late tier-3, with 4+ simultaneous engulfments, two leakage timers, three congested channels, and an instrument run mid-disambiguation — the world is too dense to read at god-view. Player ends up panning constantly. Diegesis stops being elegant and starts being <i>fog</i>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== EXPLORATION B =========================== -->
+<section class="explore" id="ex-B">
+  <div class="explore-head">
+    <h2><span class="lab">B</span>Split attention management</h2>
+    <div class="argument">
+      <b>Argument:</b> a cancer cell is a tactical unit; a plasmid is a lab artifact. These are two activities and they deserve two screens. <b>Left = battlefield</b>, <b>right = lab dashboard</b>, always visible. The player's eyes literally move between them like a real bench scientist moving between microscope and benchtop.
+    </div>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="scene" id="sceneB">
+        <svg viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="hexB" width="50" height="44" patternUnits="userSpaceOnUse">
+              <polygon points="25,2 48,14 48,38 25,50 2,38 2,14" fill="#2a201a" stroke="#3a2e25" stroke-width="0.7"/>
+            </pattern>
+          </defs>
+
+          <!-- LEFT: battlefield (60%) -->
+          <rect x="0" y="0" width="620" height="625" fill="url(#hexB)"/>
+          <ellipse cx="180" cy="320" rx="220" ry="180" fill="#7a3a3a" opacity="0.16"/>
+          <ellipse cx="500" cy="200" rx="180" ry="140" fill="#7a3a3a" opacity="0.13"/>
+
+          <!-- channel -->
+          <path d="M 60 540 C 200 470, 300 460, 400 380 S 540 320, 580 280" fill="none" stroke="#3a78b8" stroke-width="5" opacity="0.85"/>
+
+          <!-- founder cell -->
+          <g transform="translate(110,540)">
+            <circle r="28" fill="#d2693a" stroke="#fff" stroke-width="2"/>
+            <circle r="14" fill="#8a3a18"/>
+          </g>
+
+          <!-- units -->
+          <g fill="#d2693a" stroke="#1a1612" stroke-width="1">
+            <circle cx="180" cy="440" r="6"/><circle cx="200" cy="460" r="6"/>
+            <circle cx="260" cy="400" r="6"/><circle cx="300" cy="380" r="6"/>
+            <circle cx="330" cy="330" r="6"/><circle cx="380" cy="290" r="6"/>
+            <circle cx="430" cy="260" r="6"/><circle cx="470" cy="230" r="6"/>
+            <circle cx="500" cy="180" r="6"/><circle cx="350" cy="220" r="6"/>
+          </g>
+
+          <!-- markers as small tile glows -->
+          <polygon points="270,395 295,395 308,418 295,440 270,440 257,418" fill="#2a6fa8" opacity="0.45" stroke="#88c0e8" stroke-width="1"/>
+          <polygon points="445,210 470,210 483,232 470,254 445,254 432,232" fill="#c4422c" opacity="0.45" stroke="#ff9080" stroke-width="1"/>
+
+          <!-- beacon -->
+          <g transform="translate(220,500)">
+            <polygon points="0,-10 9,-5 9,5 0,10 -9,5 -9,-5" fill="#c98e1f"/>
+            <circle r="36" fill="none" stroke="#c98e1f" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>
+          </g>
+
+          <!-- engulfments -->
+          <g transform="translate(470,170)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <circle r="26" fill="none" stroke="#ff5030" stroke-width="2.5" opacity="0.9"/>
+            <text x="30" y="2" fill="#ff8060" font-family="JetBrains Mono" font-size="10">71%</text>
+          </g>
+          <g transform="translate(380,290)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <circle r="26" fill="none" stroke="#ffb030" stroke-width="2" stroke-dasharray="4 4"/>
+            <text x="30" y="2" fill="#ffd07a" font-family="JetBrains Mono" font-size="10">38%</text>
+          </g>
+
+          <!-- immune cluster -->
+          <g fill="#6b3a8a" stroke="#1a1612" stroke-width="1">
+            <circle cx="550" cy="140" r="10"/><circle cx="580" cy="120" r="10"/><circle cx="540" cy="100" r="11"/>
+          </g>
+
+          <!-- buildings -->
+          <rect x="290" y="450" width="36" height="36" fill="#1a1612" stroke="#d2693a" stroke-width="1.5"/>
+          <text x="308" y="498" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="9">PCR</text>
+          <rect x="350" y="475" width="36" height="36" fill="#1a1612" stroke="#5a4a3a" stroke-width="1.5"/>
+          <text x="368" y="523" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="9">GEL</text>
+          <polygon points="450,440 470,425 488,440 488,465 470,478 450,465" fill="#1a1612" stroke="#a878d8" stroke-width="1.5"/>
+          <text x="470" y="495" text-anchor="middle" fill="#cfa8e0" font-family="JetBrains Mono" font-size="9">CYTO</text>
+          <!-- destroyed building w/ leakage in left -->
+          <rect x="160" y="270" width="32" height="32" fill="#3a2a20" stroke="#8a3a3a" stroke-width="1.5"/>
+          <path d="M 168 278 L 184 294 M 184 278 L 168 294" stroke="#8a3a3a" stroke-width="1.5"/>
+
+          <!-- divider -->
+          <line x1="620" y1="0" x2="620" y2="625" stroke="#5a4a3a" stroke-width="2"/>
+          <line x1="624" y1="0" x2="624" y2="625" stroke="#3a2e25" stroke-width="1"/>
+
+          <!-- RIGHT: LAB DASHBOARD (40%) -->
+          <rect x="624" y="0" width="376" height="625" fill="#15100c"/>
+
+          <!-- Lab header tabs -->
+          <g font-family="JetBrains Mono" font-size="10" fill="#cfa878">
+            <rect x="640" y="14" width="64" height="22" fill="#2a201a" stroke="#d2693a"/><text x="672" y="29" text-anchor="middle">CHAIN</text>
+            <rect x="708" y="14" width="64" height="22" fill="#1a1612" stroke="#5a4a3a"/><text x="740" y="29" text-anchor="middle" fill="#8a7f73">CYTO</text>
+            <rect x="776" y="14" width="64" height="22" fill="#1a1612" stroke="#5a4a3a"/><text x="808" y="29" text-anchor="middle" fill="#8a7f73">ELISA</text>
+            <rect x="844" y="14" width="64" height="22" fill="#1a1612" stroke="#5a4a3a"/><text x="876" y="29" text-anchor="middle" fill="#8a7f73">LEAK</text>
+            <rect x="912" y="14" width="74" height="22" fill="#1a1612" stroke="#5a4a3a"/><text x="949" y="29" text-anchor="middle" fill="#8a7f73">BOOK</text>
+          </g>
+
+          <!-- Chain pane: PCR → Gel → Book → Editor -->
+          <g font-family="Patrick Hand" font-size="13" fill="#f4ede1">
+            <text x="640" y="62">Instrument Chain</text>
+          </g>
+          <!-- step cards -->
+          <g>
+            <rect x="640" y="74" width="80" height="56" rx="4" fill="#2a201a" stroke="#d2693a"/>
+            <text x="680" y="92" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">PCR</text>
+            <rect x="650" y="106" width="60" height="6" fill="#3a2a20"/>
+            <rect x="650" y="106" width="48" height="6" fill="#d2693a"/>
+            <text x="680" y="124" text-anchor="middle" fill="#ffd07a" font-family="JetBrains Mono" font-size="9">80% · 6s</text>
+
+            <rect x="730" y="74" width="80" height="56" rx="4" fill="#1a1612" stroke="#5a4a3a"/>
+            <text x="770" y="92" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="10">GEL</text>
+            <text x="770" y="116" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="9">queued</text>
+
+            <rect x="820" y="74" width="80" height="56" rx="4" fill="#1a1612" stroke="#5a4a3a"/>
+            <text x="860" y="92" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="10">BOOK</text>
+            <text x="860" y="116" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="9">match?</text>
+
+            <rect x="910" y="74" width="76" height="56" rx="4" fill="#1a1612" stroke="#5a4a3a"/>
+            <text x="948" y="92" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="10">EDIT</text>
+            <text x="948" y="116" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="9">draft</text>
+
+            <!-- arrows -->
+            <text x="725" y="106" fill="#cfa878" font-family="JetBrains Mono" font-size="14">›</text>
+            <text x="815" y="106" fill="#5a4a3a" font-family="JetBrains Mono" font-size="14">›</text>
+            <text x="905" y="106" fill="#5a4a3a" font-family="JetBrains Mono" font-size="14">›</text>
+          </g>
+
+          <!-- Cytometer mini -->
+          <g font-family="Patrick Hand" font-size="13" fill="#f4ede1">
+            <text x="640" y="160">Flow Cytometer · Tower-3</text>
+          </g>
+          <rect x="640" y="170" width="170" height="120" fill="#0d0a07" stroke="#3a2e25"/>
+          <!-- axes -->
+          <line x1="650" y1="280" x2="800" y2="280" stroke="#5a4a3a"/>
+          <line x1="650" y1="180" x2="650" y2="280" stroke="#5a4a3a"/>
+          <text x="725" y="294" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="8">FSC →</text>
+          <text x="644" y="180" fill="#8a7f73" font-family="JetBrains Mono" font-size="8" transform="rotate(-90 644 180)">SSC →</text>
+          <!-- macrophage cluster (learned) -->
+          <g fill="#a878d8">
+            <circle cx="760" cy="240" r="2"/><circle cx="752" cy="248" r="2"/><circle cx="768" cy="244" r="2"/>
+            <circle cx="764" cy="252" r="2"/><circle cx="756" cy="244" r="2"/><circle cx="772" cy="252" r="2"/>
+          </g>
+          <!-- NK cluster (with ghost label) -->
+          <g fill="#e8a8a8">
+            <circle cx="700" cy="210" r="2"/><circle cx="708" cy="216" r="2"/><circle cx="716" cy="208" r="2"/>
+            <circle cx="704" cy="220" r="2"/>
+          </g>
+          <rect x="676" y="190" width="58" height="16" fill="none" stroke="#ffd07a" stroke-dasharray="3 3"/>
+          <text x="705" y="201" text-anchor="middle" fill="#ffd07a" font-family="Patrick Hand" font-size="10">large · low cplx?</text>
+
+          <!-- mini ELISA + Leakage in same row -->
+          <g font-family="Patrick Hand" font-size="13" fill="#f4ede1">
+            <text x="820" y="160">ELISA</text>
+          </g>
+          <rect x="820" y="170" width="166" height="55" fill="#0d0a07" stroke="#3a2e25"/>
+          <polyline points="824,215 836,210 848,212 860,200 872,195 884,180 896,170 908,175 920,168 932,150 944,140 956,142 968,130 980,125"
+            fill="none" stroke="#ffb030" stroke-width="1.5"/>
+          <text x="830" y="185" fill="#ffb030" font-family="JetBrains Mono" font-size="9">IL-1 ↑</text>
+
+          <!-- Genome Leakage banner -->
+          <g>
+            <rect x="820" y="232" width="166" height="58" fill="#3a1a10" stroke="#ff5030" stroke-width="1.5"/>
+            <text x="828" y="248" fill="#ff8060" font-family="JetBrains Mono" font-size="10">LEAKAGE · 42s</text>
+            <text x="828" y="262" fill="#ffe9a8" font-family="Patrick Hand" font-size="11">PCR Stn → SOD plasmid</text>
+            <text x="828" y="278" fill="#ffd07a" font-family="Patrick Hand" font-size="10">[swap] [counter] [⤴ map]</text>
+          </g>
+
+          <!-- Plasmid Editor (lab dashboard bottom) -->
+          <g font-family="Patrick Hand" font-size="13" fill="#f4ede1">
+            <text x="640" y="320">Plasmid Editor — draft #4</text>
+          </g>
+          <g>
+            <rect x="640" y="332" width="78" height="34" fill="#2a201a" stroke="#d2693a"/><text x="679" y="352" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">PROMO</text>
+            <rect x="724" y="332" width="78" height="34" fill="#2a201a" stroke="#d2693a"/><text x="763" y="352" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">RBS</text>
+            <rect x="808" y="332" width="78" height="34" fill="#2a201a" stroke="#d2693a"/><text x="847" y="352" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">SOD ★</text>
+            <rect x="892" y="332" width="78" height="34" fill="#1a1612" stroke="#5a4a3a" stroke-dasharray="3 3"/><text x="931" y="352" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="10">TERM?</text>
+          </g>
+          <text x="640" y="384" fill="#ffb030" font-family="Patrick Hand" font-size="11">⚠ no terminator — transcript leaks</text>
+          <rect x="900" y="376" width="70" height="22" fill="#3a2018" stroke="#d2693a"/>
+          <text x="935" y="392" text-anchor="middle" fill="#ffd07a" font-family="JetBrains Mono" font-size="10">Deploy</text>
+
+          <!-- Reference Book preview -->
+          <g font-family="Patrick Hand" font-size="13" fill="#f4ede1">
+            <text x="640" y="424">Reference Book · compare mode</text>
+          </g>
+          <rect x="640" y="436" width="346" height="120" fill="#0d0a07" stroke="#3a2e25"/>
+          <g font-family="JetBrains Mono" font-size="10" fill="#cfa878">
+            <text x="650" y="454">size  gene        counter</text>
+            <line x1="650" y1="458" x2="976" y2="458" stroke="#3a2e25"/>
+            <text x="650" y="472" fill="#ffd07a">400   SOD ★      macrophage ROS</text>
+            <text x="650" y="486">510   Endocy-R    —</text>
+            <text x="650" y="500">620   Protease-1  ECM walls</text>
+            <text x="650" y="514">680   PD-L1       T-cell target</text>
+          </g>
+
+          <!-- Leakage log strip -->
+          <g font-family="Patrick Hand" font-size="11" fill="#cfa878">
+            <text x="640" y="582">Leakage log</text>
+            <text x="640" y="600" fill="#ffe9a8">12:04  PCR ↓  → variant: anti-SOD macroph (42s)</text>
+            <text x="640" y="616" fill="#8a7f73">10:32  Energy ↓ → variant: ROS+ macroph</text>
+          </g>
+        </svg>
+
+        <div class="pin" style="left:39%; top:73%;">1</div>
+        <div class="pin" style="left:75%; top:18%;">2</div>
+        <div class="pin" style="left:75%; top:38%;">3</div>
+        <div class="pin" style="left:46%; top:27%;">4</div>
+        <div class="pin alt" style="left:90%; top:42%;">5</div>
+      </div>
+
+      <div class="legend">
+        <span>battlefield ~60% · lab dashboard ~40%</span>
+        <span class="sw"><span class="dot blue"></span>harvest</span>
+        <span class="sw"><span class="dot red"></span>defend</span>
+        <span class="sw"><span class="dot yellow"></span>beacon</span>
+        <span class="sw"><span class="dot immune"></span>immune</span>
+        <span class="sw"><span class="dot amber"></span>cancer</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Annotations</h3>
+      <ol>
+        <li>
+          <b>Markers stay on the map.</b> Same tile-glow treatment as A — but now the lab dashboard owns the screen real estate, so the map can be denser without competing chrome. Cleaner mid-zoom.
+          <span class="tradeoff">a 60% map is a 60% map; small-screen players lose tactical resolution.</span>
+        </li>
+        <li>
+          <b>Instrument chain is a persistent strip.</b> PCR → Gel → Book → Editor cards always visible in upper right. Click a card to focus that pane. No popups, no switching screens, no losing the battlefield.
+          <span class="tradeoff">always-on costs pixels; new players see a full dashboard before they understand any of it.</span>
+        </li>
+        <li>
+          <b>Cytometer is a permanent widget</b> with axes pinned. Ghost labels appear as dashed boxes over unidentified clusters; they dissolve once the chain confirms identity. No "open" action — it's just there, glanceable.
+          <span class="tradeoff">multiple towers compete for one widget; needs a tower selector dropdown.</span>
+        </li>
+        <li>
+          <b>Engulfments still ring on map</b>, but the dashboard also lists "active threats" — click jumps camera. RTS commander's instinct: hear the alarm, see the list, jump.
+          <span class="tradeoff">two places for the same event = potential desync confusion if list lags.</span>
+        </li>
+        <li>
+          <b>Leakage = a dedicated red panel</b> in the dashboard with countdown + one-click "swap plasmid / open counter chain / pan to site". Log lives just below — always visible, always scrollable.
+          <span class="tradeoff">looks alarming even when nothing's wrong; the empty state of this panel must feel calm, not absent.</span>
+        </li>
+      </ol>
+      <div class="breaks">
+        <h3>What breaks this</h3>
+        <p>The split is rigid. If a single moment needs the full map (a wide pincer attack across the entire tissue), 40% of the screen is "the wrong thing right now" — and you can't reclaim it. Also, two cytometer towers + ELISA + Leakage panel + Editor will not all fit cleanly; the dashboard becomes a tab carousel, which is the problem split was supposed to solve.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== EXPLORATION C =========================== -->
+<section class="explore" id="ex-C">
+  <div class="explore-head">
+    <h2><span class="lab">C</span>Contextual expansion</h2>
+    <div class="argument">
+      <b>Argument:</b> UI is invisible until you ask. Default view is hex grid + a thin status strip. Click a building, a panel <i>grows</i> from it. Click away, it collapses. Toast notifications fly into a corner; clicking expands them into the full log. The player chooses when to spend attention on chrome.
+    </div>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="scene" id="sceneC">
+        <svg viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="hexC" width="56" height="48" patternUnits="userSpaceOnUse">
+              <polygon points="28,2 54,16 54,42 28,56 2,42 2,16" fill="#2a201a" stroke="#3a2e25" stroke-width="0.7"/>
+            </pattern>
+          </defs>
+          <rect width="1000" height="625" fill="url(#hexC)"/>
+          <ellipse cx="260" cy="280" rx="260" ry="180" fill="#7a3a3a" opacity="0.14"/>
+          <ellipse cx="780" cy="380" rx="240" ry="200" fill="#7a3a3a" opacity="0.12"/>
+
+          <!-- top thin status strip -->
+          <rect x="0" y="0" width="1000" height="34" fill="#15100c"/>
+          <g font-family="JetBrains Mono" font-size="11" fill="#cfa878">
+            <text x="20" y="22">⬢ 142 hex · ⚡ 6/8 gen · 🩸 18 units · 🔥 inflammation ▮▮▮▯▯</text>
+            <text x="540" y="22" fill="#ff8060">⚠ LEAKAGE 42s</text>
+            <text x="700" y="22" fill="#ffd07a">⊕ PCR 80%</text>
+            <text x="820" y="22" fill="#a878d8">⊙ cyto: wave inbound</text>
+          </g>
+
+          <!-- channel -->
+          <path d="M 80 540 C 240 470, 340 460, 460 400 S 620 340, 700 300" fill="none" stroke="#3a78b8" stroke-width="5" opacity="0.85"/>
+
+          <!-- Founder -->
+          <g transform="translate(140,540)">
+            <circle r="30" fill="#d2693a" stroke="#fff" stroke-width="2"/>
+            <circle r="15" fill="#8a3a18"/>
+          </g>
+
+          <!-- buildings (the things you can click to expand) -->
+          <rect x="310" y="450" width="40" height="40" rx="4" fill="#1a1612" stroke="#d2693a" stroke-width="2"/>
+          <text x="330" y="500" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">PCR</text>
+          <rect x="380" y="475" width="40" height="40" rx="4" fill="#1a1612" stroke="#5a4a3a" stroke-width="1.5"/>
+          <text x="400" y="525" text-anchor="middle" fill="#8a7f73" font-family="JetBrains Mono" font-size="10">GEL</text>
+          <polygon points="540,180 568,160 596,180 596,212 568,232 540,212" fill="#1a1612" stroke="#a878d8" stroke-width="2"/>
+          <text x="568" y="248" text-anchor="middle" fill="#cfa8e0" font-family="JetBrains Mono" font-size="10">CYTO</text>
+
+          <!-- destroyed PCR (alt) -->
+          <rect x="200" y="320" width="36" height="36" fill="#3a2a20" stroke="#8a3a3a" stroke-width="1.5"/>
+          <path d="M 208 328 L 228 348 M 228 328 L 208 348" stroke="#8a3a3a" stroke-width="2"/>
+
+          <!-- units & immune -->
+          <g fill="#d2693a" stroke="#1a1612" stroke-width="1">
+            <circle cx="240" cy="450" r="6"/><circle cx="270" cy="430" r="6"/>
+            <circle cx="320" cy="380" r="6"/><circle cx="380" cy="330" r="6"/>
+            <circle cx="440" cy="290" r="6"/><circle cx="500" cy="260" r="6"/>
+            <circle cx="560" cy="220" r="6"/><circle cx="620" cy="200" r="6"/>
+            <circle cx="710" cy="270" r="6"/><circle cx="780" cy="220" r="6"/>
+          </g>
+          <g fill="#6b3a8a" stroke="#1a1612" stroke-width="1">
+            <circle cx="800" cy="150" r="11"/><circle cx="850" cy="180" r="11"/>
+          </g>
+
+          <!-- engulfments -->
+          <g transform="translate(620,200)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <circle r="26" fill="none" stroke="#ff5030" stroke-width="2.5" opacity="0.95"/>
+            <text x="30" y="2" fill="#ff8060" font-family="JetBrains Mono" font-size="10">71%</text>
+          </g>
+          <g transform="translate(440,290)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <circle r="26" fill="none" stroke="#ffb030" stroke-width="2" stroke-dasharray="4 4"/>
+            <text x="30" y="2" fill="#ffd07a" font-family="JetBrains Mono" font-size="10">38%</text>
+          </g>
+
+          <!-- markers -->
+          <polygon points="280,420 308,420 322,444 308,468 280,468 266,444" fill="#2a6fa8" opacity="0.4" stroke="#88c0e8"/>
+          <polygon points="590,210 618,210 632,234 618,258 590,258 576,234" fill="#c4422c" opacity="0.45" stroke="#ff9080"/>
+
+          <!-- ====== EXPANDED CONTEXTUAL PANEL on PCR ====== -->
+          <g transform="translate(330,470)">
+            <!-- tether line from PCR -->
+            <line x1="0" y1="0" x2="220" y2="-300" stroke="#d2693a" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <line x1="0" y1="0" x2="220" y2="-300" stroke="#d2693a" stroke-width="0.5" opacity="0.4"/>
+          </g>
+
+          <g transform="translate(550,170)">
+            <!-- panel -->
+            <rect x="0" y="0" width="380" height="280" rx="6" fill="#15100c" stroke="#d2693a" stroke-width="1.5"/>
+            <rect x="0" y="0" width="380" height="26" fill="#2a201a"/>
+            <text x="10" y="18" fill="#ffd07a" font-family="Patrick Hand" font-size="14">PCR Station — chain in progress</text>
+            <text x="368" y="18" text-anchor="end" fill="#8a7f73" font-family="JetBrains Mono" font-size="11">✕</text>
+
+            <!-- chain pipeline -->
+            <g font-family="JetBrains Mono" font-size="10" fill="#cfa878">
+              <rect x="12" y="40" width="80" height="50" rx="3" fill="#2a201a" stroke="#d2693a"/>
+              <text x="52" y="56" text-anchor="middle">PCR</text>
+              <rect x="20" y="64" width="64" height="6" fill="#3a2a20"/><rect x="20" y="64" width="50" height="6" fill="#d2693a"/>
+              <text x="52" y="82" text-anchor="middle" fill="#ffd07a">80% · 6s</text>
+
+              <text x="98" y="68" fill="#cfa878">›</text>
+
+              <rect x="108" y="40" width="80" height="50" rx="3" fill="#1a1612" stroke="#5a4a3a"/>
+              <text x="148" y="56" text-anchor="middle" fill="#8a7f73">GEL</text>
+              <text x="148" y="78" text-anchor="middle" fill="#8a7f73">queued</text>
+
+              <text x="194" y="68" fill="#5a4a3a">›</text>
+
+              <rect x="204" y="40" width="76" height="50" rx="3" fill="#1a1612" stroke="#5a4a3a"/>
+              <text x="242" y="56" text-anchor="middle" fill="#8a7f73">BOOK</text>
+              <text x="242" y="78" text-anchor="middle" fill="#8a7f73">—</text>
+
+              <text x="286" y="68" fill="#5a4a3a">›</text>
+
+              <rect x="296" y="40" width="76" height="50" rx="3" fill="#1a1612" stroke="#5a4a3a"/>
+              <text x="334" y="56" text-anchor="middle" fill="#8a7f73">EDIT</text>
+              <text x="334" y="78" text-anchor="middle" fill="#8a7f73">draft</text>
+            </g>
+
+            <!-- queue input -->
+            <text x="12" y="114" fill="#cfa878" font-family="Patrick Hand" font-size="12">Queue: 2 debris samples · reagents 4/6</text>
+            <line x1="12" y1="122" x2="368" y2="122" stroke="#3a2e25"/>
+
+            <!-- live gel preview placeholder -->
+            <text x="12" y="142" fill="#f4ede1" font-family="Patrick Hand" font-size="13">live gel · pending</text>
+            <rect x="12" y="150" width="356" height="60" fill="#0d0a07" stroke="#3a2e25"/>
+            <g stroke="#3a2e25"><line x1="12" y1="170" x2="368" y2="170"/><line x1="12" y1="190" x2="368" y2="190"/></g>
+
+            <!-- shortcuts -->
+            <text x="12" y="232" fill="#cfa878" font-family="Patrick Hand" font-size="12">go to →</text>
+            <rect x="62" y="220" width="78" height="20" fill="#1a1612" stroke="#5a4a3a"/><text x="101" y="234" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">Sequencer</text>
+            <rect x="146" y="220" width="78" height="20" fill="#1a1612" stroke="#5a4a3a"/><text x="185" y="234" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">Book</text>
+            <rect x="230" y="220" width="78" height="20" fill="#1a1612" stroke="#5a4a3a"/><text x="269" y="234" text-anchor="middle" fill="#cfa878" font-family="JetBrains Mono" font-size="10">Editor</text>
+
+            <text x="12" y="262" fill="#8a7f73" font-family="Patrick Hand" font-size="11">click anywhere on map → collapse</text>
+          </g>
+
+          <!-- ====== TOAST: Leakage in corner ====== -->
+          <g transform="translate(820,46)">
+            <rect width="170" height="60" rx="4" fill="#3a1a10" stroke="#ff5030"/>
+            <text x="10" y="20" fill="#ff8060" font-family="JetBrains Mono" font-size="11">LEAKAGE  42s</text>
+            <text x="10" y="38" fill="#ffe9a8" font-family="Patrick Hand" font-size="11">PCR Stn · anti-SOD</text>
+            <text x="10" y="54" fill="#ffd07a" font-family="Patrick Hand" font-size="10">[click → log + actions]</text>
+            <!-- shrinking arc -->
+            <circle cx="155" cy="30" r="11" fill="none" stroke="#ff5030" stroke-width="2.5" stroke-dasharray="50 70" transform="rotate(-90 155 30)"/>
+          </g>
+
+          <!-- engulfment toast stack -->
+          <g transform="translate(820,116)">
+            <rect width="170" height="44" rx="4" fill="#1a1612" stroke="#ff5030"/>
+            <text x="10" y="18" fill="#ff8060" font-family="JetBrains Mono" font-size="10">⊘ engulf · 71%</text>
+            <text x="10" y="34" fill="#ffd07a" font-family="Patrick Hand" font-size="10">unit-14 · jump ↗</text>
+          </g>
+          <g transform="translate(820,166)">
+            <rect width="170" height="44" rx="4" fill="#1a1612" stroke="#ffb030"/>
+            <text x="10" y="18" fill="#ffd07a" font-family="JetBrains Mono" font-size="10">⊘ engulf · 38%</text>
+            <text x="10" y="34" fill="#ffd07a" font-family="Patrick Hand" font-size="10">unit-22 · jump ↗</text>
+          </g>
+
+          <!-- ghost label on cyto building (peek) -->
+          <g transform="translate(568,196)">
+            <rect x="40" y="-30" width="120" height="34" rx="3" fill="#1a1612" stroke="#a878d8" stroke-dasharray="3 3"/>
+            <text x="50" y="-14" fill="#cfa8e0" font-family="Patrick Hand" font-size="11">cyto · macroph + NK</text>
+            <text x="50" y="0" fill="#8a7f73" font-family="Patrick Hand" font-size="10">click to expand →</text>
+          </g>
+        </svg>
+
+        <div class="pin" style="left:30%; top:75%;">1</div>
+        <div class="pin alt" style="left:70%; top:42%;">2</div>
+        <div class="pin" style="left:58%; top:35%;">3</div>
+        <div class="pin" style="left:88%; top:22%;">4</div>
+        <div class="pin" style="left:88%; top:12%;">5</div>
+      </div>
+
+      <div class="legend">
+        <span>default = bare map · panels grow from clicked objects</span>
+        <span class="sw"><span class="dot blue"></span>harvest</span>
+        <span class="sw"><span class="dot red"></span>defend</span>
+        <span class="sw"><span class="dot yellow"></span>beacon</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Annotations</h3>
+      <ol>
+        <li>
+          <b>Markers in-world, status in strip.</b> Same tile-glow markers as A/B. The thin top strip surfaces only aggregate state ("18 units · inflammation level"). Beacons live on the map, never in chrome.
+          <span class="tradeoff">aggregate stats can't be trusted at a glance — "are my markers working?" requires looking at the actual tiles.</span>
+        </li>
+        <li>
+          <b>Click PCR → it grows the chain panel</b>, tethered visually to the building it came from. The panel is the chain. Click outside, it folds. The instrument chain only exists when you're using it.
+          <span class="tradeoff">a 50-second PCR run means the panel needs to stay open or you don't see results; players will leave panels open and recreate B accidentally.</span>
+        </li>
+        <li>
+          <b>Cytometer = peek label + click to expand.</b> Hovering the tower shows the headline ("macroph + NK"). Click to grow the full scatter panel. Ghost labels live inside the expanded view.
+          <span class="tradeoff">hover-driven intel feels slow in a panicked moment; needs a hotkey.</span>
+        </li>
+        <li>
+          <b>Engulfments = toast stack, not popups.</b> Each engulfment posts a small card in the corner with %, unit id, and "jump ↗". Click jumps camera. Stack is capped — older threats compress into a count badge.
+          <span class="tradeoff">in a chaos moment, the toast stack scrolls; you read percentages, not the map.</span>
+        </li>
+        <li>
+          <b>Leakage = critical toast with shrinking arc.</b> Always at the top of the stack. Click expands the full leakage log + "swap / counter / pan" actions. The toast is dismissible only by acting.
+          <span class="tradeoff">if you don't click it, it just sits there, eating attention and corner pixels until expiry. Anxiety design.</span>
+        </li>
+      </ol>
+      <div class="breaks">
+        <h3>What breaks this</h3>
+        <p>Late game has too many "I want this open" panels. Players pin the chain, pin the cytometer, pin the leakage log — and rediscover the split layout (B), but worse, because every pinned panel has its own arbitrary position and shadow. The discipline of "click to dismiss" breaks the moment two crises happen at once.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== EXPLORATION D =========================== -->
+<section class="explore" id="ex-D">
+  <div class="explore-head">
+    <h2><span class="lab">D</span>Overlay system (ONI-inspired)</h2>
+    <div class="argument">
+      <b>Argument:</b> the map is the UI. The player toggles overlay <i>modes</i> — chemistry, metabolism, threat, intelligence — like switching microscope filters. Each mode repaints the same hex grid through a different lens. Default view = clean tissue. Multi-overlay = decision time.
+    </div>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="scene" id="sceneD">
+        <svg viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="hexD" width="58" height="50" patternUnits="userSpaceOnUse">
+              <polygon points="29,2 56,16 56,42 29,56 2,42 2,16" fill="#2a201a" stroke="#3a2e25" stroke-width="0.7"/>
+            </pattern>
+            <pattern id="threatHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#ff5030" stroke-width="1" opacity="0.4"/>
+            </pattern>
+            <pattern id="metaHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#88c0e8" stroke-width="1" opacity="0.35"/>
+            </pattern>
+          </defs>
+
+          <rect width="1000" height="625" fill="url(#hexD)"/>
+          <ellipse cx="200" cy="320" rx="240" ry="180" fill="#7a3a3a" opacity="0.12"/>
+          <ellipse cx="780" cy="280" rx="260" ry="200" fill="#7a3a3a" opacity="0.12"/>
+
+          <!-- channel -->
+          <path d="M 70 540 C 230 480, 320 460, 440 400 S 620 340, 700 300" fill="none" stroke="#3a78b8" stroke-width="5" opacity="0.7"/>
+
+          <!-- Founder, units, immune, buildings (same scene) -->
+          <g transform="translate(130,540)">
+            <circle r="30" fill="#d2693a" stroke="#fff" stroke-width="2"/>
+            <circle r="15" fill="#8a3a18"/>
+          </g>
+          <g fill="#d2693a" stroke="#1a1612" stroke-width="1">
+            <circle cx="220" cy="450" r="6"/><circle cx="250" cy="430" r="6"/>
+            <circle cx="320" cy="380" r="6"/><circle cx="380" cy="330" r="6"/>
+            <circle cx="440" cy="290" r="6"/><circle cx="500" cy="260" r="6"/>
+            <circle cx="560" cy="220" r="6"/><circle cx="620" cy="200" r="6"/>
+            <circle cx="710" cy="270" r="6"/><circle cx="780" cy="220" r="6"/>
+          </g>
+          <g fill="#6b3a8a" stroke="#1a1612" stroke-width="1">
+            <circle cx="780" cy="140" r="11"/><circle cx="830" cy="170" r="11"/><circle cx="880" cy="140" r="12"/>
+          </g>
+          <rect x="290" y="450" width="36" height="36" fill="#1a1612" stroke="#d2693a" stroke-width="1.5"/>
+          <rect x="360" y="475" width="36" height="36" fill="#1a1612" stroke="#5a4a3a" stroke-width="1.5"/>
+          <polygon points="530,180 558,160 586,180 586,210 558,230 530,210" fill="#1a1612" stroke="#a878d8" stroke-width="1.5"/>
+          <rect x="200" y="290" width="32" height="32" fill="#3a2a20" stroke="#8a3a3a" stroke-width="1.5"/>
+
+          <!-- ============ THREAT OVERLAY (active) ============ -->
+          <!-- red hatched fields around immune cells -->
+          <g opacity="0.85">
+            <circle cx="800" cy="155" r="90" fill="url(#threatHatch)"/>
+            <circle cx="800" cy="155" r="90" fill="none" stroke="#ff5030" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <text x="800" y="60" text-anchor="middle" fill="#ff8060" font-family="Patrick Hand" font-size="13">Threat zone · 3 immune</text>
+          </g>
+
+          <!-- engulfment crosshair callouts -->
+          <g transform="translate(620,200)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <line x1="-40" y1="0" x2="-28" y2="0" stroke="#ff5030" stroke-width="2"/>
+            <line x1="28" y1="0" x2="40" y2="0" stroke="#ff5030" stroke-width="2"/>
+            <line x1="0" y1="-40" x2="0" y2="-28" stroke="#ff5030" stroke-width="2"/>
+            <line x1="0" y1="28" x2="0" y2="40" stroke="#ff5030" stroke-width="2"/>
+            <text x="44" y="4" fill="#ff8060" font-family="JetBrains Mono" font-size="10">71% · ENGULF</text>
+          </g>
+          <g transform="translate(440,290)">
+            <circle r="18" fill="#6b3a8a"/><circle r="6" fill="#d2693a"/>
+            <line x1="-40" y1="0" x2="-28" y2="0" stroke="#ffb030" stroke-width="2"/>
+            <line x1="28" y1="0" x2="40" y2="0" stroke="#ffb030" stroke-width="2"/>
+            <line x1="0" y1="-40" x2="0" y2="-28" stroke="#ffb030" stroke-width="2"/>
+            <line x1="0" y1="28" x2="0" y2="40" stroke="#ffb030" stroke-width="2"/>
+            <text x="44" y="4" fill="#ffd07a" font-family="JetBrains Mono" font-size="10">38% · ENGULF</text>
+          </g>
+
+          <!-- destroyed building leakage marker (overlay-aware) -->
+          <g transform="translate(216,306)">
+            <circle r="40" fill="none" stroke="#ffcc55" stroke-width="3" stroke-dasharray="180 251" transform="rotate(-90)"/>
+            <text x="0" y="-50" text-anchor="middle" fill="#ffcc55" font-family="JetBrains Mono" font-size="11">LEAK · 42s</text>
+            <text x="0" y="62" text-anchor="middle" fill="#ffe9a8" font-family="Patrick Hand" font-size="11">→ anti-SOD variant</text>
+          </g>
+
+          <!-- ============ INTELLIGENCE OVERLAY (also active) ============ -->
+          <!-- floating scatter near cyto tower -->
+          <g transform="translate(620,90)">
+            <rect x="-90" y="-50" width="220" height="110" fill="#15100c" stroke="#a878d8" stroke-width="1.5" opacity="0.95"/>
+            <text x="-82" y="-32" fill="#cfa8e0" font-family="Patrick Hand" font-size="12">cyto · FSC↓ SSC↓</text>
+            <line x1="-80" y1="50" x2="120" y2="50" stroke="#3a2e25"/>
+            <line x1="-80" y1="-20" x2="-80" y2="50" stroke="#3a2e25"/>
+            <g fill="#a878d8"><circle cx="80" cy="30" r="2"/><circle cx="72" cy="34" r="2"/><circle cx="88" cy="36" r="2"/><circle cx="76" cy="42" r="2"/><circle cx="86" cy="28" r="2"/></g>
+            <g fill="#e8a8a8"><circle cx="20" cy="0" r="2"/><circle cx="28" cy="6" r="2"/><circle cx="36" cy="-4" r="2"/><circle cx="24" cy="10" r="2"/></g>
+            <rect x="0" y="-12" width="46" height="20" fill="none" stroke="#ffd07a" stroke-dasharray="3 3"/>
+            <text x="22" y="2" text-anchor="middle" fill="#ffd07a" font-family="Patrick Hand" font-size="10">large · low cplx</text>
+            <text x="-82" y="80" fill="#8a7f73" font-family="JetBrains Mono" font-size="9">tower-3 · radius lit</text>
+          </g>
+
+          <!-- thin lit halo around cyto tower -->
+          <circle cx="558" cy="195" r="120" fill="none" stroke="#a878d8" stroke-width="1" stroke-dasharray="2 6" opacity="0.6"/>
+
+          <!-- ============ CHEMISTRY OVERLAY (off — markers still subtly visible) ============ -->
+          <polygon points="280,420 308,420 322,444 308,468 280,468 266,444" fill="#2a6fa8" opacity="0.3" stroke="#88c0e8" stroke-width="0.5"/>
+          <polygon points="590,210 618,210 632,234 618,258 590,258 576,234" fill="#c4422c" opacity="0.3" stroke="#ff9080" stroke-width="0.5"/>
+
+          <!-- ============ OVERLAY TOGGLE RAIL (bottom) ============ -->
+          <rect x="0" y="585" width="1000" height="40" fill="#15100c"/>
+          <g font-family="JetBrains Mono" font-size="10" fill="#cfa878">
+            <!-- chem (off) -->
+            <rect x="20" y="595" width="100" height="22" fill="#1a1612" stroke="#5a4a3a"/>
+            <text x="30" y="610" fill="#8a7f73">[1] chem</text>
+            <text x="106" y="610" text-anchor="end" fill="#5a4a3a">○</text>
+            <!-- metab (off) -->
+            <rect x="128" y="595" width="100" height="22" fill="#1a1612" stroke="#5a4a3a"/>
+            <text x="138" y="610" fill="#8a7f73">[2] metab</text>
+            <text x="214" y="610" text-anchor="end" fill="#5a4a3a">○</text>
+            <!-- threat (on) -->
+            <rect x="236" y="595" width="100" height="22" fill="#3a1a10" stroke="#ff5030"/>
+            <text x="246" y="610" fill="#ff8060">[3] threat</text>
+            <text x="322" y="610" text-anchor="end" fill="#ff5030">●</text>
+            <!-- intel (on) -->
+            <rect x="344" y="595" width="100" height="22" fill="#2a1a30" stroke="#a878d8"/>
+            <text x="354" y="610" fill="#cfa8e0">[4] intel</text>
+            <text x="430" y="610" text-anchor="end" fill="#a878d8">●</text>
+
+            <!-- status: leak ticker -->
+            <text x="500" y="610" fill="#ff8060">LEAK 42s · 1 active</text>
+            <text x="660" y="610" fill="#cfa878">PCR 80%</text>
+            <text x="760" y="610" fill="#8a7f73">tab to cycle · shift+# combine</text>
+          </g>
+
+          <!-- ============ Top-edge alert: leakage banner (always-on chrome) ============ -->
+          <rect x="0" y="0" width="1000" height="28" fill="#15100c"/>
+          <g font-family="JetBrains Mono" font-size="11">
+            <text x="20" y="19" fill="#cfa878">⬢ 142 hex · 🔥 inflammation ▮▮▮▯▯</text>
+            <rect x="370" y="6" width="240" height="18" fill="#3a1a10" stroke="#ff5030"/>
+            <text x="490" y="19" text-anchor="middle" fill="#ff8060">⚠ LEAKAGE · anti-SOD inbound · 42s</text>
+            <text x="640" y="19" fill="#a878d8">⊙ wave: 4 macro + 1 NK</text>
+            <text x="850" y="19" fill="#ffd07a">⊕ PCR 80%</text>
+          </g>
+
+          <!-- mini chain pill in corner -->
+          <g transform="translate(880,40)">
+            <rect width="110" height="50" rx="4" fill="#15100c" stroke="#d2693a"/>
+            <text x="55" y="16" text-anchor="middle" fill="#ffd07a" font-family="Patrick Hand" font-size="11">chain</text>
+            <g font-family="JetBrains Mono" font-size="9">
+              <rect x="6" y="22" width="22" height="20" fill="#2a201a" stroke="#d2693a"/><text x="17" y="36" text-anchor="middle" fill="#cfa878">PCR</text>
+              <text x="32" y="36" fill="#5a4a3a">›</text>
+              <rect x="40" y="22" width="22" height="20" fill="#1a1612" stroke="#5a4a3a"/><text x="51" y="36" text-anchor="middle" fill="#8a7f73">GEL</text>
+              <text x="66" y="36" fill="#5a4a3a">›</text>
+              <rect x="74" y="22" width="30" height="20" fill="#1a1612" stroke="#5a4a3a"/><text x="89" y="36" text-anchor="middle" fill="#8a7f73">EDIT</text>
+            </g>
+          </g>
+        </svg>
+
+        <div class="pin" style="left:30%; top:74%;">1</div>
+        <div class="pin alt" style="left:91%; top:11%;">2</div>
+        <div class="pin" style="left:60%; top:18%;">3</div>
+        <div class="pin" style="left:62%; top:34%;">4</div>
+        <div class="pin" style="left:48%; top:5%;">5</div>
+      </div>
+
+      <div class="legend">
+        <span>overlays active: <b>threat</b> + <b>intel</b></span>
+        <span>hotkeys 1-4 toggle · shift+# combine</span>
+        <span class="sw"><span class="dot immune"></span>threat hatch</span>
+        <span class="sw"><span class="dot amber"></span>intel halo</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Annotations</h3>
+      <ol>
+        <li>
+          <b>Markers live in the chemistry overlay.</b> Default view shows them faintly. Toggle "chem" [1] to bloom them — full gradients, beacon fields, evaporation halos. Three colors stay separable because the overlay dims everything <i>else</i>.
+          <span class="tradeoff">if the player forgets to flip on chem, painting feels like working blind. Discoverability of overlays = a tutorial problem.</span>
+        </li>
+        <li>
+          <b>Instrument chain = a always-on pill</b> in the corner + an expanded panel when you press [E] or click the pill. Chain isn't an overlay — it's the one piece of "lab" chrome that survives because it has no spatial expression on the map.
+          <span class="tradeoff">violates the "everything is a lens" purity — chain is special-cased. Players will ask why.</span>
+        </li>
+        <li>
+          <b>Intel overlay paints cytometer halos</b> on the map showing each tower's coverage radius, with a floating scatter card pinned next to the tower. Ghost labels float inside the card while unidentified, fade when learned.
+          <span class="tradeoff">in dense bases with many towers, halos overlap into mud; needs a "selected tower only" sub-mode.</span>
+        </li>
+        <li>
+          <b>Threat overlay = red hatched zones + crosshair-tagged engulfments.</b> Color of crosshair encodes urgency (yellow &lt;50%, red ≥50%). Players cycle to threat overlay when they hear an engulfment SFX.
+          <span class="tradeoff">if threat overlay isn't on, engulfments are easy to miss — relies on audio cue + muscle memory for [3].</span>
+        </li>
+        <li>
+          <b>Leakage = top-edge banner always visible</b> regardless of overlay (it's chrome, not a lens), plus a glowing arc rendered on the destroyed building tile itself when threat overlay is on. Log opens with [L].
+          <span class="tradeoff">the only piece of UI that ignores the overlay system — could feel inconsistent. Argument for inconsistency: it's the one thing you can never afford to miss.</span>
+        </li>
+      </ol>
+      <div class="breaks">
+        <h3>What breaks this</h3>
+        <p>Overlays are great for <i>spatial</i> information. They're terrible for <i>temporal</i> information — a 42s leakage timer doesn't belong on a hex tile. The system slowly leaks chrome (the chain pill, the leakage banner, the top status strip) until you realize half the screen is a fixed HUD pretending to be an overlay framework. ONI handles this by accepting both layers; we'd need to too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="bot">
+  wireframe v0.1 · low-fi · structure only · vote a philosophy before colors
+</footer>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const sections = document.querySelectorAll('.explore');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.setAttribute('aria-selected', x === t ? 'true' : 'false'));
+      sections.forEach(s => {
+        if (s.id === 'ex-' + t.dataset.tab) s.setAttribute('data-active', '');
+        else s.removeAttribute('data-active');
+      });
+    });
+  });
+</script>
+</body>
+</html>
