@@ -21,6 +21,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         prototypes: resolve(__dirname, 'prototypes/index.html'),
         'svelte-lab-avatar': resolve(__dirname, 'prototypes/svelte-lab-avatar/index.html'),
+        cytosis: resolve(__dirname, 'prototypes/cytosis/index.html'),
       },
     },
   },

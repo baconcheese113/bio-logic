@@ -1,0 +1,551 @@
+:root {
+  --cy-bg: #101417;
+  --cy-panel: #172027;
+  --cy-panel-soft: #20303a;
+  --cy-line: rgba(214, 232, 226, 0.18);
+  --cy-text: #eef7f2;
+  --cy-muted: #aebfba;
+  --cy-green: #70c488;
+  --cy-blue: #4f9bd8;
+  --cy-red: #d95f59;
+  --cy-gold: #e0bc63;
+  --cy-violet: #9b84d7;
+}
+
+body {
+  background: var(--cy-bg);
+}
+
+.cytosis-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--cy-text);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(112, 196, 136, 0.15), transparent 28rem),
+    linear-gradient(135deg, #101417 0%, #172027 52%, #151a20 100%);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.cytosis-shell h1,
+.cytosis-shell h2,
+.cytosis-shell h3 {
+  margin: 0;
+  color: var(--cy-text);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+.cytosis-shell h1 {
+  font-size: 1.55rem;
+}
+
+.cytosis-shell h2 {
+  font-size: 1rem;
+}
+
+.cytosis-shell h3 {
+  font-size: 0.9rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--cy-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.cytosis-topbar,
+.status-band,
+.hand-row {
+  border-color: var(--cy-line);
+  background: rgba(16, 20, 23, 0.76);
+  backdrop-filter: blur(18px);
+}
+
+.cytosis-topbar {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.8rem clamp(1rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--cy-line);
+}
+
+.turn-strip,
+.status-band > div,
+.role-card,
+.panel-section,
+.plasmid-preview,
+.hand-row section {
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(23, 32, 39, 0.86);
+}
+
+.turn-strip {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  color: var(--cy-muted);
+}
+
+.turn-strip strong {
+  color: var(--role-color);
+}
+
+.icon-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: var(--cy-panel);
+  color: var(--cy-text);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.status-band {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 1fr 0.9fr 1.6fr;
+  gap: 0.75rem;
+  padding: 0.75rem clamp(1rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--cy-line);
+}
+
+.status-band > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.65rem;
+}
+
+.status-band span,
+.role-card span,
+.queue-row span,
+.card-list span,
+.instrument-grid span,
+.parts-list span {
+  color: var(--cy-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+meter {
+  width: 100%;
+  height: 0.55rem;
+}
+
+.play-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1rem;
+  padding: 1rem clamp(1rem, 3vw, 2rem);
+}
+
+.board-region {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.board-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.hex-board {
+  flex: 1;
+  min-height: 520px;
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(48px, 1fr));
+  align-content: center;
+  gap: 0.45rem;
+  padding-right: clamp(2rem, 4vw, 3rem);
+}
+
+.hex-tile {
+  position: relative;
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: var(--cy-panel-soft);
+  color: var(--cy-text);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.hex-tile:nth-child(22n + 12),
+.hex-tile:nth-child(22n + 13),
+.hex-tile:nth-child(22n + 14),
+.hex-tile:nth-child(22n + 15),
+.hex-tile:nth-child(22n + 16),
+.hex-tile:nth-child(22n + 17),
+.hex-tile:nth-child(22n + 18),
+.hex-tile:nth-child(22n + 19),
+.hex-tile:nth-child(22n + 20),
+.hex-tile:nth-child(22n + 21),
+.hex-tile:nth-child(22n + 22) {
+  transform: translateX(42%);
+}
+
+.hex-tile:hover,
+.hex-tile.selected {
+  border-color: var(--cy-gold);
+  background: #283b43;
+}
+
+.zone-organ {
+  background: linear-gradient(145deg, rgba(112, 196, 136, 0.24), rgba(32, 48, 58, 0.94));
+}
+
+.zone-vessel {
+  background: linear-gradient(145deg, rgba(217, 95, 89, 0.28), rgba(32, 48, 58, 0.94));
+}
+
+.zone-lymph {
+  background: linear-gradient(145deg, rgba(79, 155, 216, 0.28), rgba(32, 48, 58, 0.94));
+}
+
+.tile-fog {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, rgba(4, 7, 8, 0.64) 0 6px, rgba(4, 7, 8, 0.42) 6px 12px);
+}
+
+.tile-fog.hidden {
+  display: none;
+}
+
+.tile-label {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.4rem;
+  color: rgba(238, 247, 242, 0.62);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.cell-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  max-width: 4rem;
+}
+
+.cell-dot {
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.18);
+}
+
+.cell-tumor {
+  background: var(--cy-red);
+  border-radius: 46% 54% 60% 40%;
+}
+
+.cell-t-cell {
+  background: var(--cy-blue);
+}
+
+.cell-macrophage {
+  width: 1.15rem;
+  background: var(--cy-violet);
+  border-radius: 42% 58% 48% 52%;
+}
+
+.cell-healthy {
+  background: var(--cy-green);
+}
+
+.charge-chip {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  z-index: 1;
+  width: 1.45rem;
+  height: 1.45rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cy-gold);
+  color: #151a20;
+  font-weight: 800;
+}
+
+.control-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow: auto;
+}
+
+.role-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border-color: color-mix(in srgb, var(--role-color), transparent 45%);
+}
+
+.role-card strong {
+  color: var(--role-color);
+  font-size: 1.55rem;
+}
+
+.role-card p,
+.queue-row p,
+.plasmid-preview p,
+.saved-plasmids p,
+.entity-row p {
+  margin: 0;
+  color: var(--cy-muted);
+  font-size: 0.86rem;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.tabs button,
+.card-list button,
+.instrument-grid button,
+.parts-list button {
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(32, 48, 58, 0.8);
+  color: var(--cy-text);
+  cursor: pointer;
+}
+
+.tabs button {
+  padding: 0.62rem 0.4rem;
+  font-weight: 750;
+}
+
+.tabs button.active,
+.card-list button.active,
+.instrument-grid button.active,
+.parts-list button.active {
+  border-color: var(--cy-gold);
+  background: rgba(224, 188, 99, 0.16);
+}
+
+.panel-section,
+.plasmid-preview {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+}
+
+.tile-readout {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.tile-readout div {
+  padding: 0.45rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tile-readout dt {
+  color: var(--cy-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.tile-readout dd {
+  margin: 0;
+  font-weight: 750;
+}
+
+.entity-list,
+.card-list,
+.instrument-grid,
+.parts-list,
+.saved-plasmids {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.entity-row,
+.queue-row,
+.saved-plasmids article {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.55rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.queue-row,
+.saved-plasmids article {
+  display: grid;
+}
+
+.card-list button,
+.instrument-grid button,
+.parts-list button {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  text-align: left;
+}
+
+.instrument-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.btn-primary {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cy-gold);
+  color: #151a20;
+  cursor: pointer;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.dna-line {
+  min-height: 4.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.65rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent 0 7%, rgba(255, 255, 255, 0.12) 7% 93%, transparent 93%);
+}
+
+.part-token {
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  color: #101417;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.part-promoter {
+  background: var(--cy-green);
+}
+
+.part-gene {
+  background: var(--cy-blue);
+}
+
+.part-control {
+  background: var(--cy-violet);
+}
+
+.part-terminator {
+  background: var(--cy-gold);
+}
+
+.hand-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 1rem;
+  padding: 0.85rem clamp(1rem, 3vw, 2rem);
+  border-top: 1px solid var(--cy-line);
+}
+
+.hand-row section {
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.hand-row ol {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--cy-muted);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1100px) {
+  .play-layout,
+  .hand-row,
+  .status-band {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
+    overflow: visible;
+  }
+
+  .hex-board {
+    min-height: 460px;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .cytosis-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .turn-strip {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+
+  .play-layout {
+    padding: 0.75rem;
+  }
+
+  .hex-board {
+    grid-template-columns: repeat(11, minmax(30px, 1fr));
+    gap: 0.25rem;
+    min-height: 360px;
+  }
+
+  .hex-tile {
+    min-height: 48px;
+  }
+
+  .hex-tile:nth-child(n) {
+    transform: none;
+  }
+
+  .tile-label {
+    display: none;
+  }
+
+  .cell-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+}
