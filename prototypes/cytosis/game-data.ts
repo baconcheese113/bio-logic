@@ -72,7 +72,9 @@ export const cards = [
     id: 'antigen-scan',
     role: 'immune',
     name: 'Antigen scan',
-    charge: 1,
+    effectLabel: 'Reveal hidden cells',
+    lesson: 'Marker probes light up suspicious cells near the target.',
+    charge: 2,
     cost: 1,
     tag: 'Detection',
     text: 'Reveal hidden pathology cells near vessels and lymph nodes.',
@@ -81,6 +83,8 @@ export const cards = [
     id: 'cytotoxic-burst',
     role: 'immune',
     name: 'Cytotoxic burst',
+    effectLabel: 'Kill revealed tumor',
+    lesson: 'Cytotoxic cells release granules that destroy marked tumor cells.',
     charge: 2,
     cost: 2,
     tag: 'Elimination',
@@ -90,6 +94,8 @@ export const cards = [
     id: 'recruit-t-cells',
     role: 'immune',
     name: 'Recruit T cells',
+    effectLabel: 'Call reinforcements',
+    lesson: 'Signals from the lymph node bring new T cells into tissue.',
     charge: 2,
     cost: 1,
     tag: 'Amplify',
@@ -99,7 +105,9 @@ export const cards = [
     id: 'angiogenesis',
     role: 'pathology',
     name: 'Angiogenesis',
-    charge: 2,
+    effectLabel: 'Grow blood vessels',
+    lesson: 'The tumor sprouts new vessels so it can feed and spread.',
+    charge: 1,
     cost: 1,
     tag: 'Invasion',
     text: 'Grow toward vessel tiles and raise organ damage.',
@@ -108,6 +116,8 @@ export const cards = [
     id: 'immune-decoy',
     role: 'pathology',
     name: 'Antigen decoy',
+    effectLabel: 'Throw marker decoys',
+    lesson: 'False markers drift away from the tumor and waste detection.',
     charge: 1,
     cost: 1,
     tag: 'Evasion',
@@ -117,7 +127,9 @@ export const cards = [
     id: 'matrix-breakdown',
     role: 'pathology',
     name: 'Matrix breakdown',
-    charge: 3,
+    effectLabel: 'Break tissue matrix',
+    lesson: 'Tumor cells digest surrounding matrix to open a path.',
+    charge: 2,
     cost: 2,
     tag: 'Spread',
     text: 'Seed a new tumor cell through the tissue matrix.',
@@ -161,6 +173,7 @@ export type InstrumentId = (typeof instruments)[number]['id'];
 
 export type CellKind = 'tumor' | 't-cell' | 'macrophage' | 'healthy';
 export type TileZone = 'organ' | 'vessel' | 'lymph' | 'matrix';
+export type EnvironmentState = 'hypoxic' | 'acidic' | 'immunosuppressed';
 
 export interface TileState {
   id: string;
@@ -170,6 +183,8 @@ export interface TileState {
   oxygen: number;
   damage: number;
   visible: boolean;
+  environment?: EnvironmentState;
+  recentEffect?: 'vessel-growth' | 'scan' | 'damage' | 'decoy' | 'matrix-break' | 'plasmid';
 }
 
 export interface CellState {
@@ -187,6 +202,7 @@ export interface PendingPlay {
   id: number;
   cardId?: CardId;
   instrumentId?: InstrumentId;
+  plasmidId?: string;
   role: RoleId;
   name: string;
   targetTileId: string;
@@ -221,9 +237,12 @@ export interface GameState {
   plasmids: DesignedPlasmid[];
 }
 
-const vesselTiles = new Set(['3-1', '4-2', '5-3', '6-4', '7-5', '8-6']);
-const lymphTiles = new Set(['1-1', '9-6']);
-const organTiles = new Set(['4-3', '5-3', '6-3', '4-4', '5-4', '6-4', '5-5']);
+export const boardColumns = 8;
+export const boardRows = 7;
+
+const vesselTiles = new Set(['2-1', '3-2', '4-3', '5-4', '6-5']);
+const lymphTiles = new Set(['1-1', '6-5']);
+const organTiles = new Set(['3-3', '4-3', '5-3', '3-4', '4-4', '5-4']);
 
 export function createInitialGameState(): GameState {
   return {
@@ -235,7 +254,7 @@ export function createInitialGameState(): GameState {
     pathologyResource: 2,
     immuneResource: 2,
     decoyShield: false,
-    selectedTileId: '5-3',
+    selectedTileId: '4-3',
     selectedCardId: 'antigen-scan',
     selectedInstrumentId: 'microscope',
     selectedParts: ['hypoxia-promoter', 'cd47-silencer', 'generic-terminator'],
@@ -245,25 +264,15 @@ export function createInitialGameState(): GameState {
     ],
     tiles: createTiles(),
     cells: [
-      { id: 'tumor-a', kind: 'tumor', role: 'pathology', x: 5, y: 3, hidden: true, plasmid: 'stealth plasmid', expression: 2 },
-      { id: 'tumor-b', kind: 'tumor', role: 'pathology', x: 6, y: 4, hidden: true },
-      { id: 'tumor-c', kind: 'tumor', role: 'pathology', x: 4, y: 4, hidden: true },
+      { id: 'tumor-a', kind: 'tumor', role: 'pathology', x: 4, y: 3, hidden: true, plasmid: 'stealth plasmid', expression: 2 },
+      { id: 'tumor-b', kind: 'tumor', role: 'pathology', x: 5, y: 4, hidden: true },
+      { id: 'tumor-c', kind: 'tumor', role: 'pathology', x: 3, y: 4, hidden: true },
       { id: 't-cell-a', kind: 't-cell', role: 'immune', x: 1, y: 1, hidden: false, plasmid: 'patrol plasmid', expression: 1 },
       { id: 'macrophage-a', kind: 'macrophage', role: 'immune', x: 3, y: 2, hidden: false },
-      { id: 'healthy-a', kind: 'healthy', role: 'neutral', x: 5, y: 5, hidden: false },
-      { id: 'healthy-b', kind: 'healthy', role: 'neutral', x: 7, y: 3, hidden: false },
+      { id: 'healthy-a', kind: 'healthy', role: 'neutral', x: 4, y: 5, hidden: false },
+      { id: 'healthy-b', kind: 'healthy', role: 'neutral', x: 6, y: 3, hidden: false },
     ],
-    pending: [
-      {
-        id: 1,
-        role: 'pathology',
-        cardId: 'angiogenesis',
-        name: 'Angiogenesis',
-        targetTileId: '6-4',
-        remainingTurns: 1,
-        result: 'A charged pathology play is visible. It will raise damage unless countered.',
-      },
-    ],
+    pending: [],
     plasmids: [
       {
         id: 'patrol-plasmid',
@@ -278,8 +287,8 @@ export function createInitialGameState(): GameState {
 function createTiles(): TileState[] {
   const tiles: TileState[] = [];
 
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 11; x += 1) {
+  for (let y = 0; y < boardRows; y += 1) {
+    for (let x = 0; x < boardColumns; x += 1) {
       const id = `${x}-${y}`;
       const zone: TileZone = lymphTiles.has(id)
         ? 'lymph'
@@ -296,10 +305,18 @@ function createTiles(): TileState[] {
         zone,
         oxygen: zone === 'vessel' ? 9 : zone === 'organ' ? 5 : 3,
         damage: zone === 'organ' ? 1 : 0,
-        visible: x < 4 || lymphTiles.has(id),
+        visible: x < 3 || lymphTiles.has(id),
+        environment: getEnvironment(id, zone),
       });
     }
   }
 
   return tiles;
+}
+
+function getEnvironment(id: string, zone: TileZone): EnvironmentState | undefined {
+  if (id === '4-3' || id === '5-4') return 'hypoxic';
+  if (id === '3-4') return 'acidic';
+  if (zone === 'organ' && (id === '4-4' || id === '5-3')) return 'immunosuppressed';
+  return undefined;
 }
