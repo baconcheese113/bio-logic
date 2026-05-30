@@ -77,6 +77,37 @@ body {
   font-size: 1.1rem;
 }
 
+.scenario-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  max-width: 34rem;
+  margin-top: 0.5rem;
+}
+
+.scenario-picker button {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(23, 32, 39, 0.84);
+  color: var(--cy-text);
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-picker button.active {
+  border-color: var(--cy-gold);
+  background: rgba(224, 188, 99, 0.16);
+}
+
+.scenario-picker small {
+  color: var(--cy-muted);
+  font-weight: 700;
+}
+
 .side-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -206,7 +237,19 @@ body {
   text-transform: uppercase;
 }
 
+.phase-pill {
+  display: grid;
+  gap: 0.05rem;
+  line-height: 1;
+}
+
+.phase-pill small {
+  color: var(--cy-muted);
+  font-size: 0.58rem;
+}
+
 .score-pair {
+  position: relative;
   display: grid;
   gap: 0.35rem;
 }
@@ -225,6 +268,62 @@ body {
 .score-pair meter {
   width: 100%;
   height: 0.55rem;
+}
+
+.score-events {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(16, 20, 23, 0.84);
+  backdrop-filter: blur(10px);
+}
+
+.score-event {
+  min-width: 8.5rem;
+  max-width: 13rem;
+  padding: 0.28rem 0.42rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 7px;
+  background: rgba(18, 26, 32, 0.76);
+  color: var(--cy-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.score-event b {
+  display: block;
+  color: var(--cy-muted);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.score-event span {
+  display: block;
+  overflow: hidden;
+  font-size: 0.66rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-event.event-organ {
+  border-color: color-mix(in srgb, var(--cy-red), transparent 38%);
+}
+
+.score-event.event-remission {
+  border-color: color-mix(in srgb, var(--cy-blue), transparent 34%);
+}
+
+.score-event.event-autoimmune {
+  border-color: color-mix(in srgb, var(--cy-gold), transparent 34%);
 }
 
 .your-meter::-webkit-meter-optimum-value {
@@ -279,6 +378,30 @@ body {
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
+.tile-label {
+  position: absolute;
+  left: 0.28rem;
+  top: 0.22rem;
+  z-index: 2;
+  max-width: calc(100% - 0.56rem);
+  overflow: hidden;
+  color: rgba(238, 247, 242, 0);
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 140ms ease;
+}
+
+.hex-tile:hover .tile-label,
+.hex-tile.selected .tile-label,
+.hex-tile.damaged .tile-label,
+.hex-tile.inflamed .tile-label {
+  color: rgba(238, 247, 242, 0.88);
+}
+
 .hex-tile:nth-child(16n + 9),
 .hex-tile:nth-child(16n + 10),
 .hex-tile:nth-child(16n + 11),
@@ -310,6 +433,83 @@ body {
   box-shadow: 0 0 2rem rgba(224, 188, 99, 0.45);
 }
 
+.hex-tile.playback-dim {
+  opacity: 0.2;
+  filter: grayscale(0.7);
+}
+
+.hex-tile.score-highlight {
+  opacity: 1;
+  border-color: currentColor;
+  transform: scale(1.04);
+  box-shadow: 0 0 1.8rem currentColor;
+}
+
+.hex-tile.score-organ-source {
+  color: var(--cy-red);
+}
+
+.hex-tile.score-remission-source {
+  color: var(--cy-blue);
+}
+
+.hex-tile.fogged {
+  filter: saturate(0.4) contrast(0.8);
+}
+
+.hex-tile.fogged::before {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle, rgba(174, 191, 186, 0.18), transparent 58%),
+    repeating-linear-gradient(45deg, rgba(238, 247, 242, 0.08) 0 2px, transparent 2px 7px);
+  color: rgba(238, 247, 242, 0.54);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.warning-marker,
+.remission-marker {
+  position: absolute;
+  right: 0.28rem;
+  top: 0.22rem;
+  z-index: 4;
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #101417;
+  font-size: 0.72rem;
+  font-weight: 1000;
+  animation: warning-pulse 1s ease-in-out infinite alternate;
+}
+
+.warning-marker {
+  background: var(--cy-red);
+}
+
+.remission-marker {
+  background: var(--cy-blue);
+}
+
+.score-tether {
+  position: absolute;
+  right: -1.6rem;
+  top: 0.35rem;
+  z-index: 5;
+  width: 2.4rem;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 0.7rem currentColor;
+  transform: rotate(-28deg);
+  transform-origin: left center;
+}
+
 .hex-tile.env-hypoxic::before,
 .hex-tile.env-acidic::before,
 .hex-tile.env-immunosuppressed::before {
@@ -330,6 +530,25 @@ body {
 
 .hex-tile.env-immunosuppressed::before {
   background: repeating-linear-gradient(90deg, rgba(126, 138, 142, 0.28) 0 4px, transparent 4px 10px);
+}
+
+.hex-tile.damaged::after,
+.hex-tile.inflamed::after {
+  content: "";
+  position: absolute;
+  inset: 0.2rem;
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+.hex-tile.damaged::after {
+  background:
+    linear-gradient(40deg, transparent 0 44%, rgba(10, 15, 18, 0.54) 45% 48%, transparent 49%),
+    linear-gradient(138deg, transparent 0 58%, rgba(10, 15, 18, 0.42) 59% 62%, transparent 63%);
+}
+
+.hex-tile.inflamed::after {
+  box-shadow: inset 0 0 0 999px rgba(232, 91, 129, 0.12), 0 0 1rem rgba(232, 91, 129, 0.22);
 }
 
 .zone-organ {
@@ -359,6 +578,10 @@ body {
 
 .zone-matrix .tile-icon {
   background: repeating-linear-gradient(135deg, rgba(174, 191, 186, 0.14) 0 3px, transparent 3px 10px);
+}
+
+.zone-matrix.matrix-open .tile-icon {
+  background: repeating-linear-gradient(135deg, rgba(174, 191, 186, 0.08) 0 2px, transparent 2px 16px);
 }
 
 .zone-vessel .tile-icon {
@@ -396,9 +619,10 @@ body {
   display: inline-block;
   border: 2px solid rgba(255, 255, 255, 0.74);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 62% 36%, rgba(255, 255, 255, 0.72) 0 12%, transparent 13%),
-    var(--cell-color);
+  background-color: rgba(255, 255, 255, 0.9);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 92% 92%;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.16), 0 0 1rem color-mix(in srgb, var(--cell-color), transparent 62%);
 }
 
@@ -414,6 +638,10 @@ body {
   --cell-color: var(--cy-gray);
   opacity: 0.55;
   filter: blur(0.4px);
+  background-image: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(238, 247, 242, 0.9) 0 32%, transparent 34%),
+    rgba(126, 138, 142, 0.54);
 }
 
 .cell-neutral {
@@ -421,21 +649,70 @@ body {
   opacity: 0.72;
 }
 
+.cell-suspicious {
+  border-style: dashed;
+  box-shadow: 0 0 0 2px rgba(224, 188, 99, 0.34), 0 0 1rem rgba(224, 188, 99, 0.28);
+}
+
+.marker-tumor {
+  box-shadow: 0 0 0 2px rgba(232, 91, 129, 0.48), 0 0 1.2rem rgba(232, 91, 129, 0.38);
+}
+
+.marker-self {
+  box-shadow: 0 0 0 2px rgba(112, 196, 136, 0.42), 0 0 1rem rgba(112, 196, 136, 0.24);
+}
+
+.marker-lost {
+  opacity: 0.66;
+  filter: grayscale(0.55);
+}
+
+.plasmid-beacon {
+  animation: beacon-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.plasmid-decoy-shedder::after {
+  content: "";
+  position: absolute;
+  width: 0.38rem;
+  height: 0.38rem;
+  right: -0.18rem;
+  top: -0.1rem;
+  border-radius: 50%;
+  background: var(--cy-gray);
+  box-shadow: -0.55rem 0.18rem 0 -0.08rem var(--cy-gray), -0.1rem 0.62rem 0 -0.1rem var(--cy-gray);
+}
+
+.plasmid-marker-restorer {
+  outline: 2px solid var(--cy-blue);
+  outline-offset: 2px;
+}
+
+.plasmid-matrix-protease {
+  border-color: var(--cy-gold);
+}
+
+.plasmid-kill-switch {
+  border-color: var(--cy-red);
+}
+
 .cell-tumor {
   width: 1.7rem;
   height: 1.55rem;
   border-radius: 44% 56% 61% 39%;
+  background-image: url("../../assets/biorender/svg-happy-path/cancer-cell--cancer-cell-1.svg");
 }
 
 .cell-macrophage {
   width: 1.9rem;
   height: 1.45rem;
   border-radius: 42% 58% 48% 52%;
+  background-image: url("../../assets/biorender/svg-happy-path/macrophage--macrophage-1.svg");
 }
 
 .cell-macrophage::before,
 .cell-macrophage::after {
-  content: "";
+  content: none;
   position: absolute;
   width: 0.62rem;
   height: 0.35rem;
@@ -456,13 +733,35 @@ body {
 }
 
 .cell-t-cell {
-  width: 1.2rem;
-  height: 1.2rem;
-  clip-path: polygon(50% 0, 100% 35%, 82% 100%, 18% 100%, 0 35%);
+  width: 1.45rem;
+  height: 1.45rem;
+  background-image: url("../../assets/biorender/svg-happy-path/t-cell--t-cell-1.svg");
 }
 
 .cell-healthy {
   border-radius: 38% 62% 42% 58%;
+  background-image: url("../../assets/biorender/svg-happy-path/epithelial-cells--epithelial-cell-simple-cuboidal-1.svg");
+}
+
+.cell-infected {
+  border-radius: 38% 62% 42% 58%;
+  background-image: url("../../assets/biorender/svg-happy-path/epithelial-cells--epithelial-cell-simple-cuboidal-1.svg");
+  background-color: rgba(224, 188, 99, 0.88);
+}
+
+.cell-infected::after {
+  content: "";
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  background: var(--cy-red);
+  box-shadow: 0 0 0.45rem rgba(232, 91, 129, 0.8);
+}
+
+.cell-virion {
+  width: 1.25rem;
+  height: 1.25rem;
+  background-image: url("../../assets/biorender/svg-happy-path/virus--virus-2-symbol-1.svg");
 }
 
 .queued-marker {
@@ -500,14 +799,72 @@ body {
   animation: scan-pulse 1.5s ease-out both;
 }
 
+.effect-morphology {
+  animation: scan-pulse 1.5s ease-out both;
+  box-shadow: inset 0 0 0 999px rgba(79, 155, 216, 0.1);
+}
+
+.effect-marker-read {
+  animation: scan-pulse 1.5s ease-out both;
+  box-shadow: inset 0 0 0 999px rgba(112, 196, 136, 0.12);
+}
+
+.effect-genetic-confirm {
+  animation: scan-pulse 1.5s ease-out both;
+  box-shadow: inset 0 0 0 999px rgba(224, 188, 99, 0.14);
+}
+
+.effect-cytokine {
+  animation: decoy-drift 1.5s ease-out both;
+  box-shadow: inset 0 0 0 999px rgba(168, 104, 216, 0.13);
+}
+
 .effect-damage {
   animation: damage-pulse 1.5s ease-out both;
 }
 
 .effect-decoy,
 .effect-matrix-break,
-.effect-plasmid {
+.effect-plasmid,
+.effect-proliferation,
+.effect-metastasis,
+.effect-infection,
+.effect-lysis {
   animation: decoy-drift 1.5s ease-out both;
+}
+
+.instrument-result {
+  position: absolute;
+  left: 50%;
+  bottom: 0.22rem;
+  z-index: 5;
+  max-width: calc(100% - 0.5rem);
+  padding: 0.12rem 0.28rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(18, 26, 32, 0.86);
+  color: var(--cy-text);
+  font-size: 0.55rem;
+  font-weight: 1000;
+  line-height: 1;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.morphology-result {
+  color: var(--cy-blue);
+}
+
+.marker-result {
+  color: var(--cy-green);
+}
+
+.genetic-result {
+  color: var(--cy-gold);
+}
+
+.cytokine-result {
+  color: #d7a7ff;
 }
 
 .resolution-tag {
@@ -525,6 +882,26 @@ body {
   color: var(--cy-text);
   transform: translateX(-50%);
   box-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.45);
+}
+
+.resolution-tag b {
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: var(--player-color);
+  color: #101417;
+  font-size: 0.72rem;
+}
+
+.resolution-tag.tag-pathology b {
+  background: var(--opponent-color);
+}
+
+.cytosis-shell.resolving-immune {
+  box-shadow: inset 0 0 0 5px var(--cy-blue);
+}
+
+.cytosis-shell.resolving-pathology {
+  box-shadow: inset 0 0 0 5px var(--cy-red);
 }
 
 .resolution-tag span {
@@ -583,15 +960,22 @@ body {
 
 .hand {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.7rem;
   align-items: end;
   justify-content: center;
   min-height: 132px;
+  max-height: 148px;
+  overflow-y: visible;
+  padding-right: 0.2rem;
 }
 
 .move-card {
   position: relative;
-  width: 132px;
+  flex: 1 1 112px;
+  width: auto;
+  min-width: 96px;
+  max-width: 132px;
   height: 126px;
   display: grid;
   grid-template-rows: 2.7rem auto auto;
@@ -604,7 +988,18 @@ body {
     var(--cy-panel);
   color: var(--cy-text);
   cursor: grab;
+  overflow: hidden;
   box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease, max-width 160ms ease, height 160ms ease;
+}
+
+.move-card:hover,
+.move-card:focus-within {
+  z-index: 3;
+  max-width: 184px;
+  height: 178px;
+  transform: translateY(-14px) scale(1.08);
+  box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.5);
 }
 
 .move-card:first-child {
@@ -623,8 +1018,18 @@ body {
 }
 
 .move-card small {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--cy-muted);
   font-weight: 800;
+  line-height: 1.15;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.move-card:hover small,
+.move-card:focus-within small {
+  -webkit-line-clamp: 5;
 }
 
 .cost-dot {
@@ -642,7 +1047,8 @@ body {
 }
 
 .tray-tool,
-.btn-primary {
+.btn-primary,
+.btn-secondary {
   min-height: 42px;
   padding: 0 1rem;
   border: 0;
@@ -654,12 +1060,23 @@ body {
   font-weight: 900;
 }
 
+.btn-secondary {
+  border: 1px solid var(--cy-line);
+  background: rgba(238, 247, 242, 0.1);
+  color: var(--cy-text);
+}
+
 .tray-tool {
-  width: 92px;
+  min-width: 92px;
+  width: auto;
   height: 52px;
   display: grid;
   place-items: center;
   line-height: 1;
+}
+
+.tray-tool.end-turn {
+  min-width: 136px;
 }
 
 .tray-tool small {
@@ -684,9 +1101,18 @@ body {
 .move-icon {
   width: 2.5rem;
   height: 2.5rem;
-  display: block;
+  display: grid;
+  place-items: center;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+}
+
+.move-icon img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .move-angiogenesis {
@@ -700,12 +1126,13 @@ body {
   background: radial-gradient(circle, var(--cy-blue) 0 18%, transparent 20% 38%, rgba(79, 155, 216, 0.45) 40% 54%, transparent 56%);
 }
 
-.move-cytotoxic-burst {
-  background: radial-gradient(circle, var(--cy-blue) 0 20%, var(--cy-gold) 22% 32%, transparent 34%);
-}
-
 .move-recruit-t-cells {
   background: radial-gradient(circle at 35% 50%, var(--cy-blue) 0 16%, transparent 18%), radial-gradient(circle at 65% 50%, var(--cy-blue) 0 16%, transparent 18%);
+}
+
+.move-viral-entry,
+.move-lytic-burst {
+  background: radial-gradient(circle, var(--cy-red) 0 18%, transparent 20% 34%, rgba(224, 188, 99, 0.5) 36% 48%, transparent 50%);
 }
 
 .move-immune-decoy {
@@ -714,6 +1141,14 @@ body {
 
 .move-matrix-breakdown {
   background: repeating-linear-gradient(135deg, var(--cy-muted) 0 4px, transparent 4px 8px);
+}
+
+.move-uncontrolled-proliferation {
+  background: radial-gradient(circle at 36% 44%, var(--cy-red) 0 18%, transparent 20%), radial-gradient(circle at 66% 56%, var(--cy-red) 0 18%, transparent 20%);
+}
+
+.move-metastasis {
+  background: linear-gradient(135deg, transparent 0 38%, var(--cy-red) 38% 52%, transparent 52%), radial-gradient(circle at 80% 24%, var(--cy-gold) 0 12%, transparent 14%);
 }
 
 .move-plasmid {
@@ -776,6 +1211,7 @@ body {
 
 .plasmid-screen {
   width: min(980px, 100%);
+  max-height: calc(100vh - 2rem);
   display: grid;
   gap: 1rem;
   padding: 1rem;
@@ -783,6 +1219,7 @@ body {
   border-radius: 8px;
   background: #121a20;
   box-shadow: 0 2rem 8rem rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .plasmid-screen header {
@@ -794,13 +1231,40 @@ body {
 
 .editor-layout {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: 0.42fr 0.9fr 1.18fr;
   gap: 1rem;
+}
+
+.part-categories {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.part-categories button {
+  padding: 0.75rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(32, 48, 58, 0.72);
+  color: var(--cy-muted);
+  font-weight: 900;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.part-categories button.active {
+  border-color: var(--cy-gold);
+  background: rgba(224, 188, 99, 0.16);
+  color: var(--cy-text);
 }
 
 .parts-list {
   display: grid;
   gap: 0.55rem;
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .parts-list button {
@@ -838,7 +1302,7 @@ body {
 }
 
 .construct-preview {
-  min-height: 26rem;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -877,12 +1341,62 @@ body {
   background: #4f9bd8;
 }
 
+.part-sensor {
+  background: #70c488;
+}
+
+.part-logic {
+  background: #e85b81;
+}
+
 .part-control {
   background: #9b84d7;
 }
 
 .part-terminator {
   background: #e0bc63;
+}
+
+.plasmid-card-preview {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem;
+  border: 1px solid var(--cy-line);
+  border-radius: 8px;
+  background: rgba(16, 20, 23, 0.54);
+}
+
+.plasmid-card-preview strong {
+  font-size: 1.18rem;
+}
+
+.plasmid-card-preview small {
+  color: var(--cy-muted);
+}
+
+.plasmid-status {
+  width: fit-content;
+  padding: 0.24rem 0.46rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.plasmid-status.valid {
+  background: rgba(112, 196, 136, 0.2);
+  color: var(--cy-green);
+}
+
+.plasmid-status.invalid {
+  background: rgba(232, 91, 129, 0.2);
+  color: var(--cy-red);
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 @keyframes card-pulse {
@@ -914,6 +1428,16 @@ body {
 @keyframes decoy-drift {
   0% { opacity: 0.6; }
   100% { opacity: 1; box-shadow: inset 0 0 0 999px rgba(126, 138, 142, 0.16); }
+}
+
+@keyframes beacon-pulse {
+  from { box-shadow: 0 0 0 2px rgba(79, 155, 216, 0.32), 0 0 0.4rem rgba(79, 155, 216, 0.28); }
+  to { box-shadow: 0 0 0 3px rgba(79, 155, 216, 0.72), 0 0 1.2rem rgba(79, 155, 216, 0.6); }
+}
+
+@keyframes warning-pulse {
+  from { transform: scale(0.92); opacity: 0.72; }
+  to { transform: scale(1.12); opacity: 1; }
 }
 
 @media (max-width: 900px) {
@@ -954,12 +1478,14 @@ body {
 
   .hand {
     justify-content: flex-start;
-    overflow-x: auto;
+    overflow-y: auto;
     min-height: 128px;
+    max-height: 148px;
   }
 
   .move-card {
-    flex: 0 0 124px;
+    flex: 1 1 98px;
+    min-width: 86px;
   }
 
   .tray-tool {
@@ -985,7 +1511,18 @@ body {
 
   .editor-layout,
   .start-screen,
-  .side-picker {
+  .side-picker,
+  .scenario-picker {
     grid-template-columns: 1fr;
+  }
+
+  .part-categories {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .part-categories button {
+    padding: 0.5rem;
+    font-size: 0.68rem;
+    text-align: center;
   }
 }

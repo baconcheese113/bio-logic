@@ -1,283 +1,238 @@
-# Cytosis — Product Requirements Document v0.1
+# Cytosis — Authoritative Design Document v1.0
 
-## One-line summary
+**Status: This is the single source of truth.** It supersedes the v0.1 PRD, the system taxonomy doc, and the foundational systems spec. Where those documents disagreed, this document picks one answer. Where they left questions open, this document closes them. Codex and any designer should build against this and nothing else. If something here needs to change, change it *here* and re-issue, rather than deciding ad hoc in a build pass.
 
-Asymmetric two-player turn-based strategy game where one player advances a pathology (cancer, infection, autoimmune) and the other plays the body's defenses, on a tissue grid where hidden cells, telegraphed plays, and plasmid-engineered abilities create a hunt-and-counter dynamic.
-
-## Status disclosure
-
-This PRD specifies the framework and the decisions made to date. Several mechanical questions are explicitly open and should be resolved through paper prototyping before final implementation. Sections marked **[OPEN]** are decisions that need playtesting input rather than design assertion. Claude Design should propose options for these rather than treating them as settled.
-
-## Design goals
-
-**Educational goals (in priority order):**
-1. Teach plasmid design as a creative engineering activity — composing parts to produce specific cellular behaviors
-2. Teach biotech instruments by making them useful in-game tools whose inputs and outputs the player learns by need
-3. Teach disease pathology by making each scenario a specific real disease whose mechanisms drive the gameplay constraints
-
-**Fun goals (in priority order):**
-1. Create a contest of hidden information, deduction, and bluff between two players
-2. Reward creative plasmid design with visible cellular consequences on the board
-3. Produce 10-40 minute matches that can tip until the final turns
-4. Support asymmetric scenarios where each role plays meaningfully differently
-
-**Constraints:**
-- BioRender-style visual aesthetic: clean, scientific, recognizably biological without being photoreal
-- No reliance on a written codex; all needed information delivered through visual feedback, single-sentence hover descriptions, and consequence
-- No more than 8-12 instruments total across the whole game
-- Real biological vocabulary used sparingly; acronyms only when more clarity would be lost than gained
-- Onboarding through scenario progression that limits available parts and instruments early
-
-## Core loop
-
-Two players take alternating turns on a shared tissue grid. Each turn a player takes 2-4 actions from a menu of:
-- Draw cards (from a deck of biological parts, instruments, and reagents)
-- Play a card to commit an effect that resolves after a delay
-- Move cells or issue standing orders
-- Run an instrument on collected materials
-- Open the plasmid editor to compose or modify a plasmid using parts in hand
-- Deploy a designed plasmid to one or more controlled cells (deployment mechanism is itself a card type)
-
-All committed plays are visible to the opponent during their charge time. This is the central tension mechanic: any test, attack, or scan you set up gives your opponent advance warning and a window to respond.
-
-A turn ends when actions are spent. After both players have taken a turn, a simultaneous resolution phase occurs: all cells move and act on their standing orders, all charged cards resolve in their scheduled order, environmental effects propagate (gradients, cytokines, immune recruitment).
-
-Matches end when one player achieves their objective threshold or the opposing player's objective is irrecoverably blocked.
-
-## Match structure
-
-**Match length target:** 10-40 minutes, with a typical match expected around 20-25 minutes.
-
-**Phases within a match:** Each scenario has 3-4 phases representing biological stages of the disease. Phase transitions are triggered by objective progress, not by clock. Each phase changes which cards are drawable, which instruments are unlocked, and which environmental pressures dominate. This provides arc and prevents matches from feeling like a treadmill.
-
-Example for tumor-vs-immune scenario:
-- **Initiation:** small tumor cell population, limited immune recruitment, low environmental stress
-- **Promotion:** tumor population grows, inflammatory signaling rises, immune player gains access to adaptive response cards
-- **Progression:** metastatic risk, organ damage accumulates, both players gain access to advanced specialist cards
-- **Resolution:** the match either tips to remission, advances to organ failure, or stabilizes (draw)
-
-**Comeback dynamics:** A losing player accumulates a "selection pressure" resource that buys access to higher-tier or random-mutation cards, while the winning player triggers escalating adaptive responses from the opposing system. This ties comeback availability to specific player choices rather than automatic rubber-banding. Specific values **[OPEN]**.
-
-## Player asymmetry
-
-The two roles play substantially differently while remaining balanced.
-
-**Pathology player (tumor as the worked example):**
-- Starts with a small cluster of cells in a chosen tissue location
-- Cells divide and spread on the board over time
-- Wins by reaching organ failure threshold or by surviving N turns at advanced stage
-- Has access to evasion cards (downregulate surface markers, secrete immunosuppressive cytokines, generate antigenic decoys, enter dormancy)
-- Has access to invasion cards (matrix metalloproteinases, angiogenesis induction, metastatic seeding)
-- Generally has the information advantage early (knows where they are) and the information disadvantage late (immune system has learned them)
-
-**Immune player:**
-- Starts with a distributed population of immune cells with passive patrol behavior
-- Cells move along anatomical pathways (blood vessels, lymphatic channels) by default
-- Wins by reducing pathology cell count below threshold for sustained duration (remission)
-- Has access to detection cards (antigen tests, surface marker probes, receptor scanning)
-- Has access to elimination cards (cytotoxic lysis, phagocytosis, complement activation)
-- Has access to amplification cards (recruit more immune cells, raise inflammation, present antigens)
-- Generally has the information disadvantage early (must find the threat) and the information advantage late (after antigen recognition)
-- Carries a constraint the pathology player doesn't: collateral damage to healthy tissue from indiscriminate attacks, modeled as autoimmune damage that subtracts from their objective progress
-
-**Asymmetric starting conditions for balance:** Scenarios may start the two players at different "levels." For example, the tumor player might begin at stage 3 with established cells, while the immune player begins with full instrument access and a larger initial cell budget. This is the Squad-style asymmetry the player called out — one side has tempo, the other has options.
-
-## The board
-
-**Grid:** Hexagonal grid representing tissue. Size **[OPEN]** but anticipated 15x15 to 20x20 for the default scenario. Smaller grids for tutorial scenarios, larger for advanced multi-organ scenarios.
-
-**Layers:**
-- **Cell layer (foreground):** all moving entities, both players' cells, immune patrols, environmental particles
-- **Tissue layer (background):** the anatomical features that don't move
-- **Organ sub-layer (beneath the grid):** organs are represented as tinted regions or icons beneath the cell movement layer, not as terrain that blocks movement. Cells move freely across organs; organs accumulate damage from cellular events occurring on their tiles.
-
-**Anatomical features:**
-- **Organs (3-6 per match):** persistent objectives that accumulate damage. Each organ has a health value and a failure threshold. Specific organs unlock specific cards or instruments when active (e.g., a functioning lymph node grants the immune player extra card draws per turn).
-- **Blood vessels:** cells move faster along vessel tiles. Vessels are how cells enter and exit the local tissue. Severing or blocking vessels creates strategic chokepoints.
-- **Lymph nodes (1-2 per match):** function as immune player respawn/recruitment points. Threatened or destroyed lymph nodes weaken the immune player's tempo significantly.
-- **Tissue zones:** different regions of the board have different baseline properties (oxygen level, pH, nutrient availability) that affect which cells thrive there. These map onto real microenvironment biology.
-
-**Fog of war / hidden information:** Cells of one player are visible to the other only when within detection range of the other player's cells or instruments. Default detection range is short (1-2 tiles). Specific cards extend or block detection.
-
-## Cells
-
-**Cell types:** Each scenario defines its cell types. For the tumor-vs-immune scenario:
-- **Pathology side:** tumor cells (cancerous, divide, can express plasmids you design)
-- **Immune side:** macrophages, T cells, dendritic cells, NK cells (each with distinct innate behavior; all can express plasmids you design)
-- **Neutral:** healthy tissue cells, which immune cards may damage if used indiscriminately
-
-**Cell behavior:** Cells act on standing orders derived from their plasmid expression. Standing orders are issued at the player or group level, not per-cell. A cell expressing a "patrol" plasmid moves toward the nearest detected threat. A cell expressing a "stealth" plasmid downregulates surface markers and avoids movement when enemies are near. The plasmid IS the cell's behavior program.
-
-**Cell death and turnover:** Cells die from attacks, environmental stress, or programmed apoptosis. Dead cells leave debris on the board that can be sampled (a card-draw mechanism for resources). Cell death is also how plasmid material leaks into the environment for the opponent to discover — sampled debris from your dead cells may reveal what plasmids you were running.
-
-## Cards and resources
-
-**Card categories:**
-- **Parts cards:** plasmid components (promoters, RBS, genes, terminators, signal peptides, degradation tags). Used in the plasmid editor.
-- **Reagent cards:** consumables used by instruments (primers, enzymes, antibodies, vectors). Used when running instruments or deploying plasmids.
-- **Sample cards:** biological materials acquired by sampling the board (DNA, RNA, protein, cell debris). Used as inputs to instruments.
-- **Instrument cards:** one-time activations of an instrument's capability. Some instruments may also be permanent unlocks rather than card-based **[OPEN]**.
-- **Action cards:** scenario-specific cards that bypass normal mechanics. Includes detection abilities, attacks, environmental modifications, defensive countermeasures.
-
-**Library structure (the resolution to the random-vs-designed tension):**
-- **Scaffolding library:** baseline parts (generic promoter, generic terminator, common RBS, selectable markers) are always available with a small nutrient cost. The player can always assemble *functional* plasmids.
-- **Specialist library:** specific effector genes, regulatory elements, targeting domains come from card draws or sampling. The player's *clever* plasmids depend on what they've acquired.
-
-This means a player who's behind on draws can still build, but a player who's ahead has more creative options.
-
-**Card draw economy:**
-- Cards are drawn from a deck unique to the player's scenario role
-- Draw rate is biased random: you choose where on the board to sample, sampling location biases which card types you might draw, specific cards within that bias are partly random
-- Hand size cap: 7-10 **[OPEN]**
-
-**Telegraphed plays:**
-- When a player commits a card with delayed resolution, the card or its effect type becomes visible to the opponent for the duration of its charge time
-- Charge time varies by card power; a quick antigen test might charge in 1 turn while a coordinated immune attack might charge in 3
-- Both players can play cards during the charge time to block, redirect, or accelerate effects
-- This is the central bluff mechanic. Commitment is visible; specific target may not be.
-
-## Plasmid editor
-
-**When the player opens it:** Available at any time but expected to be used 2-4 times per match, not constantly. Functions like Civilization's city management screen — important and occasionally deep, but not the moment-to-moment verb.
-
-**Interface:**
-- Linear or circular DNA representation showing the plasmid as a sequence of parts
-- Parts library on one side showing what the player has in hand
-- Drag parts onto the plasmid sequence to compose
-- Live preview showing what the plasmid will do (single-line plain-language description: "produces a protein that kills nearby cells expressing CD47")
-- Save designed plasmids to a personal library for reuse across matches
-
-**Complexity expectation:** Plasmids should generally be 3-7 parts long. A "complex plasmid" is one that combines multiple regulatory elements (inducible expression, signal peptides for secretion, multiple genes in an operon, degradation tags for temporal control). The game should reward plasmids that combine elements creatively, not plasmids that just have more parts.
-
-**Deployment:** A completed plasmid is deployed via a vector card (lipofection, viral transduction, electroporation — each with different properties). Deployment targets specific cells or cell groups on the board. The deployment card is consumed. Cells take 1-2 turns to express the new plasmid after deployment, creating a vulnerability window.
-
-**Expression mechanics:**
-- A cell can express one plasmid at a time. New deployments replace old ones after the expression window.
-- Plasmid expression persists in transfected cells. When those cells divide, daughter cells inherit the plasmid with some probability of loss.
-- Expression can be disrupted by opposing cards (immune player can play "interferon response" to silence pathology plasmids in adjacent cells).
-
-## Instruments
-
-**Total instrument roster (target: 8):**
-1. **Microscope** — inspect a tile or cell, reveal morphology and gross expression markers
-2. **PCR** — amplify a sample of DNA for further use
-3. **Gel electrophoresis** — separate DNA by size; identify presence of specific fragments
-4. **Sanger sequencer** — read the exact base sequence of an amplified sample
-5. **ELISA** — detect and quantify specific proteins in a sample (uses antibody reagent cards to select what to detect)
-6. **Western blot** — confirm protein identity in a sample
-7. **Flow cytometer** — count and sort cells by surface markers in a sampled tile
-8. **Mass spectrometer** — identify unknown molecules in a sample
-
-Each instrument has clear input types (what you can put in) and output types (what you get out). Players learn by playing what each instrument does because they need its outputs to play well.
-
-**Instrument economy:** Some instruments may be permanent unlocks (available every turn) and others may be card-based (single-use). The right split is **[OPEN]** and should be playtested.
-
-**Instrument actions take time:** Most instruments charge for 1-2 turns before producing results. During charge they are visible to the opponent.
-
-## Scenarios
-
-The first release should ship with 3 scenarios that demonstrate the engine's range:
-
-**Scenario 1 — Tumor vs Immune (the flagship):** A solid tumor in a tissue with one primary organ at risk. Tumor player wants organ failure; immune player wants remission. This is the scenario the engine was designed around and should ship most polished.
-
-**Scenario 2 — Viral infection vs Cell defense:** A virus replicating inside host cells. The virus player works at smaller scale (intracellular components, ribosome hijacking, capsid assembly). The cell player manages interferon response, RNAi defenses, apoptotic sacrifice. Demonstrates that the engine supports very different biological scales.
-
-**Scenario 3 — Bacterial competition:** Symmetric scenario where two bacterial colonies compete for the same niche. Both players have access to similar tools (antibiotics, biofilms, conjugative plasmids). Demonstrates the engine supports symmetric play and serves as the cleanest competitive PvP mode.
-
-Each scenario brings its own specialist library of parts and a small set of scenario-specific cards. The core engine is unchanged.
-
-## Onboarding
-
-**Tutorial campaign:** 4-6 single-player scenarios against AI of increasing complexity.
-
-- **Scenario 0a:** One cell, one threat, one plasmid that solves it. Player deploys, watches it work. No opponent. Teaches: deployment, expression visualization.
-- **Scenario 0b:** Two threats, two parts, choose. Teaches: plasmid composition basics.
-- **Scenario 0c:** Introduce one instrument, require its use to identify what's happening. Teaches: instrument as information tool.
-- **Scenario 0d:** First AI opponent on small grid with limited cards. Teaches: telegraphed plays and the contest dynamic.
-- **Scenario 0e+:** Expand grid, expand library, introduce additional scenario types.
-
-**Progressive disclosure:** New cards, parts, instruments, and mechanics are introduced one or two at a time. By the end of the campaign the player has encountered the full game vocabulary by need.
-
-**No external codex:** All cards have single-line plain-language descriptions on hover. Real biological names are present but never required for play. A "what is this?" inspect mode shows mechanism in 1-3 sentences when the player clicks a card or board element.
-
-## AI opponent
-
-Required for single-player tutorial and for asynchronous play.
-
-**Tutorial AI:** Scripted behavior tuned to teach. Predictable plays so the player can learn cause and effect.
-
-**Standard AI:** Heuristic-driven opponent with several difficulty levels. Plays the role's strategy roughly correctly. Should not require machine learning.
-
-**Advanced AI [STRETCH]:** Trained or scripted opponent capable of competitive play. Not required for v1.
-
-## Multiplayer
-
-**Local pass-and-play:** Single device, players alternate turns at the screen. Supported in v1.
-
-**Asynchronous online:** Each player takes their turn when they're available; the other receives a notification when it's their turn. Match data persists server-side. Supported in v1.
-
-**Real-time online:** Both players online simultaneously. Useful for tournaments but not strictly required for v1. **[STRETCH]**
-
-## Visual direction
-
-**Reference aesthetic:** BioRender illustrations as the visual North Star. Clean vector-style cell representations. Recognizable cell types by silhouette and color. Anatomical features stylized but accurate.
-
-**Color usage:**
-- Each player's cells in a consistent player color (defaults: warm/cool, blue/red)
-- Environmental gradients shown as subtle background washes
-- Plasmid expression visualized as colored auras or emission particles on cells
-- Telegraphed plays shown as visible icons floating over the board with a turn countdown
-
-**UI restraint:** Mini Metro / FTL as references for HUD density. The board is the focus. Cards in hand at the bottom edge. Action budget and turn indicator at the top. Inspect details only when something is clicked. No persistent side panels of data.
-
-## Open mechanical questions
-
-These should be answered through paper prototyping before final implementation:
-
-1. **Action economy specifics:** 2, 3, or 4 actions per turn? Typed actions or generic? Sequential or simultaneous?
-2. **Card resolution timing:** Charge times in turns or in actions? Resolution simultaneous or in committed order?
-3. **Plasmid-to-cell-behavior mapping:** Exact specification of how expression translates to cell actions on the board.
-4. **Grid size and cell counts:** For the default scenario, what board and population size produces matches in the 10-40 minute target range?
-5. **Instrument card economy:** Which instruments are permanent unlocks vs single-use cards?
-6. **Hand size cap and draw rate:** Calibrated to match length and action economy.
-7. **Comeback resource values:** Selection pressure accrual rate and what it buys.
-8. **Cell death and debris sampling:** How much information leaks when your cells die?
-9. **Organ failure threshold dynamics:** Damage accumulation curve, partial-failure states.
-10. **Autoimmune damage modeling:** How much does indiscriminate immune action cost the immune player?
-
-## Production milestones
-
-**Milestone 0 — Paper prototype (1-2 weeks):** Pen and graph paper version with two human players. Goal: validate the core contest is fun and resolve as many open questions as possible. Do not skip this. If the paper version isn't fun, the digital version won't be either.
-
-**Milestone 1 — Digital prototype, single scenario (4-8 weeks):** Tumor-vs-Immune scenario only. Local pass-and-play. Minimal AI. Full plasmid editor. 4-6 instruments. ~30 cards. Goal: validate the digital experience and the educational integration.
-
-**Milestone 2 — Tutorial campaign (4-6 weeks):** All onboarding scenarios. Polish the new-player experience.
-
-**Milestone 3 — Additional scenarios (8-12 weeks):** Viral and bacterial scenarios. Demonstrates engine range.
-
-**Milestone 4 — Online async multiplayer (4-8 weeks):** Server infrastructure, matchmaking, async turn notifications.
-
-**Milestone 5 — Polish and launch:** Art polish, balance pass, marketing.
-
-## Risks
-
-**Highest risk: balance of asymmetric scenarios.** Asymmetric two-player games are historically very hard to balance. This is the primary production risk and warrants the most playtesting investment.
-
-**Second risk: educational integration.** The design intends biology to be taught through play. If players can play well without learning the biology, the educational mission fails. The tutorial campaign is the critical defense against this risk and should be designed with explicit learning checkpoints.
-
-**Third risk: onboarding cliff.** Two-player turn-based strategy with card-driven economy and a plasmid editor has a steep learning curve. The tutorial campaign must succeed at smoothing this; a hard onboarding will collapse retention.
-
-**Fourth risk: scope.** Three scenarios, ~30 cards, 8 instruments, plasmid editor, AI opponent, multiplayer infrastructure, tutorial campaign. This is substantial. Cutting to one scenario for initial launch is a reasonable contingency.
-
-## Out of scope for v1
-
-- Real-time multiplayer
-- Player-designed scenarios or custom cards
-- Cross-platform progression
-- Advanced AI capable of high-level competitive play
-- Persistent player progression beyond unlocked scenarios
-- Spectator mode, replays, tournament infrastructure
+The cardinal rule that explains every decision below: **plasmid design is the heart of the game.** Every system either feeds the plasmid loop (gives the player parts, or a reason to engineer), creates a reason to investigate (so engineering has a target), or gives engineering an edge over brute force. If a proposed feature does none of those three, it does not belong.
 
 ---
 
-That's the PRD. It's enough to brief Claude Design on the concept, the visual direction, the scenario framework, and the milestone structure. The ten open questions in the middle section are the ones I'd push you hard to resolve through paper prototyping before any significant digital build begins. If you skip the paper prototype, hand Claude Design this document with the open questions clearly flagged so they propose options rather than inventing answers.
+## 1. What the game is
+
+Cytosis is an asymmetric, turn-based, hidden-information strategy game. One player advances a pathology (cancer is the flagship and only fully-built scenario for now); the other plays the body's defenses. They share a tissue grid. The pathology player hides and adapts; the immune player investigates, identifies, and engineers cells to counter what they find. The contest is a cat-and-mouse of concealment versus discovery, resolved through engineered cell behavior.
+
+Educational goals, in priority order: (1) plasmid design as creative engineering, (2) biotech instruments learned by need, (3) cancer pathology learned by watching it happen. Fun comes first; the biology is taught as a *consequence* of well-designed systems, never through text walls or a codex.
+
+---
+
+## 2. The canonical taxonomy — what exists where
+
+This is the category split that must never blur again. Every game object is exactly one of these.
+
+**Cards in hand** are only two kinds:
+- **Instruments** — reusable investigation tools (microscope, antigen scan, PCR, ELISA, etc.). They reveal board state. They are not consumed on use; they cost an action.
+- **Deployable plasmids** — constructs the player authored in the editor. Playing one deploys an engineered behavior to a target cell or region. Consumed on deployment plus costs an action and a vector.
+
+There are **no standalone attack cards.** Killing, evasion, invasion, proliferation, and infection are *cell behaviors* that happen during resolution — either from weak innate biology or from a deployed plasmid. "Cytotoxic burst" as a draw-and-win card is gone for good.
+
+**Parts** are not cards. They are limited inventory ingredients used only inside the plasmid editor. They are collected from debris and investigation (see Economy). The promoter part includes its trigger condition (a hypoxia promoter is the "sensor" for hypoxia — there is no separate sensor category).
+
+**Tile states** are board properties, never cards: hypoxia, inflammation, damage, matrix openness. A tile state only exists in the build if it changes a decision.
+
+**Cell behaviors** happen during the resolution phase. Cells have health, attack, and movement. They execute innate behavior or their deployed plasmid program. The player's agency is in investigation, plasmid design, deployment, and choosing targets/regions — not in puppeteering individual cells.
+
+---
+
+## 3. The cell stat model (the foundational primitive)
+
+Every cell is an entity with numeric stats that all other systems read and modify. This is the substrate; it must exist before combat, movement, tile effects, or plasmid behavior can mean anything.
+
+A `Cell` has: id; owner (immune | pathology | neutral); kind (macrophage, tcell, tumor, healthy); health (current) and maxHealth; attack (damage per resolution beat to one valid target); movement (tiles per resolution); position; markers (array of marker ids it expresses); identityState (unknown | morphology_seen | markers_seen | confirmed); plasmid (deployed program or null).
+
+Combat: an attacking cell subtracts its `attack` from a valid target's `health`. Health ≤ 0 kills the cell; it is removed and leaves debris on its tile. Movement: a cell moves up to `movement` tiles toward its objective per resolution beat.
+
+Baseline starting stats (provisional, tune in playtest): macrophage health 3 / attack 1 / movement 1; T cell health 2 / attack 1 / movement 2 but no useful innate targeting (must be programmed); tumor health 4 / attack 0 / movement 0 (tumors proliferate rather than attack); healthy cell health 2 / attack 0 / movement 0.
+
+---
+
+## 4. Innate behavior (the early-game floor)
+
+Cells act autonomously each resolution so the board is self-driving with zero plasmids deployed and the early game is never empty. This is what lets us have no standalone attack cards.
+
+- **Macrophage:** if adjacent to a *confirmed* tumor cell, move to it and attack. Otherwise patrol toward nearest unexplored/vessel tile. Macrophages can ONLY attack confirmed targets — never unknown or merely morphology-seen cells. This is the rule that makes investigation mechanically necessary.
+- **T cell:** does nothing useful innately; must be given a targeting plasmid. This is a built-in reason to use the editor.
+- **Tumor:** chance each resolution to divide into an adjacent empty tile. New tumor cells start `unknown` with the scenario's default tumor marker.
+- **Healthy:** mostly stationary; may slowly repair adjacent organ damage.
+
+Acceptance: a match with zero plasmids and only "end turn" still progresses to organ failure on its own; a macrophage attacks a confirmed tumor but ignores an unknown cell.
+
+---
+
+## 5. Identity, investigation, and why you don't dump your hand
+
+Every non-player cell starts `unknown` — an ambiguous silhouette; you cannot tell tumor from healthy. Instruments advance identity along different axes and each shows a *different on-board result*:
+
+- **Microscope** (cheap, 1 action): → `morphology_seen`. Reveals SHAPE. Smooth/round reads as probably-healthy; lumpy/dark/dividing reads as suspicious. A hint, not a target. No markers, no confirmation.
+- **Antigen scan** (1 action): → `markers_seen`. Reveals surface MARKERS (marker dots on the cell). Tells you whether a marker-targeting plasmid will bind. Defeated by evasion (a suspicious cell may show no markers).
+- **PCR** (1 action, requires target already `morphology_seen` or a debris tile): → `confirmed`. Confirms tumor-vs-healthy GENOTYPE regardless of surface markers. Ground truth. This is what lets innate macrophages attack and what makes safe targeting possible.
+
+The **sequencing dependency is the core hand-management mechanic.** PCR is gated on having looked first, so you can't blindly confirm everything — you triage with the cheap microscope, then spend the more valuable PCR only on cells that looked wrong. That is the reason to hold a card instead of dumping your whole hand turn one. Combined with the 3-action cap (Section 11), you cannot play a full hand in a turn anyway.
+
+Each instrument produces a visibly distinct result (shape vs marker-dots vs confirmation badge), which is also how the player learns what each instrument measures without text.
+
+---
+
+## 6. Markers (the targeting layer, kept small)
+
+Each scenario defines a small fixed set of possible markers — for cancer, 3-4 total (e.g. tumor_marker_A, tumor_marker_B, self_marker, evasion_marker). Markers are cell properties, not cards and not inventory parts. Antigen scan reveals which a cell carries.
+
+Plasmids reference markers abstractly: a "tumor-marker-responsive promoter" fires against whatever tumor marker is in play this match. The player builds "respond to confirmed tumor marker," not a specific id. This keeps the part library tiny while supporting per-match variation, and it answers the worry about needing one part per biomarker — you never do.
+
+---
+
+## 7. The economy (where parts come from)
+
+This is the loop that gives the editor a reason to exist and prevents plasmid spam. It is grounded in real biology: cells get genetic material from the environment (cell-free DNA/RNA released on lysis) and from sampling.
+
+- When any cell dies, its tile gains **debris** (free genetic material).
+- Running an instrument on a debris tile **extracts a typed part** into a visible **inventory** (PCR on debris → a gene part; other instruments → other part types). Confirming a living cell may also yield a part.
+- The inventory is a small tray, organized by part category, showing held parts and counts.
+- Building a plasmid **consumes** the parts used. You cannot build with parts you don't hold.
+- Deploying a plasmid consumes a **vector** (slowly regenerating) plus an action.
+
+This closes the loop: investigate → collect parts → engineer plasmid → deploy → cells execute. Investigation is required (it's the only source of parts), the editor is the power source, and plasmids can't be spammed because parts and vectors are finite.
+
+---
+
+## 8. The plasmid editor (the heart) and why design is fun
+
+**Grammar, collapsed to the minimum that's biologically honest:**
+
+`promoter → [optional logic + second promoter] → gene → [optional control] → terminator`
+
+- **Promoter** includes the trigger condition (always-on, hypoxia-responsive, stress-responsive, tumor-marker-responsive). The promoter IS the sensor. There is no separate sensor category.
+- **Gene/payload:** what it does (cytotoxic-against-target, recruitment signal, CD47 silencer, marker restorer, decoy shedder, apoptosis payload, matrix protease, etc.).
+- **Terminator:** ends the construct.
+- **Logic** (AND/OR/NOT): optional, advanced, hidden until unlocked. Combines two promoters for multi-condition triggers. Never shown to new players.
+- **Control** (degradation/timing): optional.
+
+**Editor UX:** opens showing only promoter/gene/terminator categories with a left-column category selector. Click a category, see only that category's parts, and within it only parts you hold in inventory (others locked with "discover via instruments"). Construct assembles on the right with a live valid/invalid parse badge and a one-line plain-language behavior summary. Logic and control categories appear only after unlock. Never show 20 flat parts.
+
+**The goal-anchoring fix — this is what made cell-lab fun and what's been missing.** The current sandbox-with-no-prompt is paralyzing. When the player opens the editor in the context of a confirmed board situation, show a **build-target prompt** derived from actual board state, e.g. "This tumor is hiding from your cells — build something that forces a marker or kills it directly," or "Your cells are weak in this low-oxygen cluster — build something that works in hypoxia." The investigation produces the prompt; the editor solves it. This turns the open-ended editor into the constraint-satisfaction puzzle that made cell-lab engaging, while keeping it integrated with the board.
+
+**Deployment & expression:** deploying targets a cell or region; the plasmid takes 1-2 resolution beats to express (a vulnerability window). A cell expresses one plasmid at a time; new deployments replace old after the window. Expression persists through division with some probability of loss. Deployed plasmids visibly change the target cell's behavior on the board — that visible change is how the player confirms their design works.
+
+---
+
+## 9. Pathology mechanics (cancer), each a visible verb
+
+Cancer is taught by watching its mechanisms happen, each with a recognizable visual signature, each as a pathology-player plasmid or innate behavior:
+
+- **Proliferation** (innate): tumor cells divide into adjacent tiles; local crowding and organ pressure rise.
+- **Angiogenesis:** vessels visibly grow toward the tumor cluster, feeding it. Begins *early* (correcting the earlier mistake of treating it as late-game) — a small tumor induces local vessels to grow beyond its initial nutrient limit.
+- **Immune evasion** (flagship hidden-info mechanic): an affected tumor cell reads as *suspicious under microscope* but shows *no targetable marker under antigen scan*, while PCR still confirms it's a tumor. This forces the central dilemma — you know it's malignant but can't cleanly target it. The answer is to engineer a marker-restorer plasmid (force re-expression) or a genotype-confirmed kill. Variants: marker loss, MHC suppression, antigen drift (marker changes over time, invalidating stale intel).
+- **Invasion:** matrix tiles visibly degrade into passable tiles; tumor gains movement routes.
+- **Metastasis:** a tumor cell enters a vessel and re-emerges several tiles away, creating a new hidden threat region.
+- **Microenvironment shaping:** the tumor produces hypoxia/acidity in surrounding tiles, creating immune-suppressed sanctuaries (see tile states).
+
+**Stages map to phases (Section 12):** localized → regional → systemic, mirroring real cancer staging.
+
+---
+
+## 10. Tile states (consequence before visual)
+
+A tile state is built only after its decision-changing consequence is defined. The first and currently only fully-specified one:
+
+- **Hypoxia:** immune cells on hypoxic tiles have reduced attack and movement (e.g. halved). Tumor cells are unaffected. Hypoxic regions become tumor sanctuaries the immune player must avoid or re-oxygenate. This now has a substrate to act on because cells have attack/movement stats. Rendered with a clear blue tint — but only because it now matters.
+
+Acidity, inflammation, matrix openness, and damage are defined the same way later: specify the decision each changes, then build and render it. Do not render tile states that don't yet change a decision.
+
+---
+
+## 11. Action economy, turns, and resolution (locked answers to former open questions)
+
+- **Actions per turn: 3, generic** (any action — draw, run instrument, open editor, deploy — costs from the same pool of 3). Locked. This is the constraint that makes "what do I spend my 3 on" the core turn decision.
+- **Drawing costs 1 action.** You choose where to sample; location biases what part/instrument you might draw (biased-random).
+- **Hand size cap: 8.** Locked (was 7-10 open).
+- **Telegraphed plays: kept.** When you commit a plasmid deployment or a charging instrument, its *category* (not its exact target/payload) becomes visible to the opponent for its charge time (1-2 beats), creating the bluff layer. This was in the original PRD, got stripped during simplification, and is hereby restored as a v1 mechanic — it is the central hidden-information tension and the design is weaker without it.
+- **Resolution is a slow, narrated, sequential phase.** Between turns, each committed action and each cell behavior plays out one at a time: dim everything except the acting cell/tile, show a clear color-framed label of which side is acting (immune blue / pathology red), animate the single action over ~1.5s, pause, advance. The player watches a readable film of consequences, not a blink-and-miss state delta. This is also where biology teaching lands, so it must be legible.
+
+---
+
+## 12. Phase, derived from visible state (no info leak)
+
+Phase is computed purely from already-visible board metrics, so showing it leaks nothing hidden and it teaches cancer staging:
+- **Initiation:** few confirmed tumor cells, low organ damage.
+- **Progression:** tumor count/spread above threshold, or organ damage rising.
+- **Resolution:** near a win/loss threshold for either side.
+
+Shown with a one-word label and a plain-language hover ("Early — small localized tumor"). Derived from revealed tumor count and organ damage only.
+
+---
+
+## 13. Win/loss and scoring (locked, and must be legible)
+
+- **Immune wins (remission):** confirmed tumor cell count held below a threshold for N consecutive rounds (not instant extermination — sustained control). Provisional: below 10% of peak tumor population for 3 rounds.
+- **Pathology wins (organ failure):** cumulative organ damage across organ tiles reaches the failure threshold. Provisional: 12 damage across organs.
+- **Causation must be visible.** Every point of organ damage and remission progress logs its source tile. Tiles contributing to organ failure show a pulsing warning marker; hovering a progress bar highlights the exact contributing tiles with connecting tethers. The bar is a summary of a story the board is already telling. The round-2-mystery-fill bug traces to scoring that wasn't sourced — every score change must name its cause.
+- **Autoimmune damage** is the immune player's core constraint: attacking an unconfirmed cell that turns out healthy raises inflammation, damages organ tiles, and subtracts from remission. This is *why* investigation matters and why the marker-confirmation rule exists.
+
+---
+
+## 14. The board (locked)
+
+- **Grid: 8 columns × 6 rows** for the default cancer scenario. Locked (was 15-20 open). Small enough that every tile matters and the whole strategic state is visible at once; this is Mini Metro, not Civilization.
+- **Tile types** are visually distinct via BioRender-style art, no text labels on tiles: matrix (fibrous mesh), vessel (blood-vessel texture), organ (soft tissue mass, accumulates damage), lymph (node structure, immune recruitment point). Fogged tiles are clearly differentiated (heavier haze, desaturated) from revealed-but-empty tiles.
+- **Organs** sit beneath the cell layer; cells move freely over them; they accumulate damage and are the pathology player's target.
+- **Lymph nodes** are immune recruitment points; threatening them weakens immune tempo.
+
+---
+
+## 15. Visual language (lock to BioRender)
+
+The BioRender art pipeline is the primary teaching tool and must be shown off. Cells are rendered illustrations, not dots — a healthy cell looks visibly different from a lumpy tumor cell; a macrophage looks like a macrophage; instrument cards show their real illustration (microscope, thermocycler). This teaches morphology and identity with zero jargon. Plasmid expression shows as a colored aura/behavior change on the cell. Telegraphed plays show as floating category icons with a countdown. UI restraint throughout: board is the focus, cards in a bottom tray (with hover-zoom and responsive layout for large hands on small screens), 3-actions/round/phase grouped near the End button so turn-flow reads as one unit.
+
+---
+
+## 16. Onboarding (the step that keeps getting skipped)
+
+Two things, in order:
+
+**First: a paper or minimal-digital validation of the core contest before further polish.** The original PRD's Milestone 0 — validate that investigate → engineer → deploy → counter is *fun* — was never done, which is why foundational questions kept resurfacing. Before building more systems on top, confirm the loop is fun at minimal scale (one confirmed-tumor dilemma, one evasion mechanic, one plasmid that solves it, hypoxia as the one tile effect). If that core isn't fun, no amount of additional systems fixes it.
+
+**Then: a constrained tutorial campaign** that introduces verbs through scarcity. Scenario 0a: one cell, one threat, one plasmid that solves it, no opponent. 0b: two threats, two parts, choose. 0c: one instrument, required to identify. 0d: first AI opponent, telegraphed plays. New players start with a tiny hand and tiny part library; both grow as scenarios introduce one or two new pieces at a time. No codex; single-line hovers and an optional "what is this?" inspect for vocabulary.
+
+---
+
+## 17. Scope discipline for v1
+
+Cancer scenario only, fully built and balanced, before viral or bacterial. Viral exists as a stub but is explicitly deferred — do not invest in it until cancer's loop is fun and balanced. Local pass-and-play and a scripted/heuristic AI for single-player; no real-time multiplayer, no advanced AI, no player-made content in v1.
+
+---
+
+## 18. Implementation order (dependency chain — do not reorder)
+
+Each step has an acceptance test; pass it before the next. Report a failing test rather than working around it. This ordering exists because past passes built effects before the primitives they act on, leaving features floating.
+
+1. **Cell stats** (health/attack/movement) — substrate for everything. *Test: a 3-health cell dies in exactly three 1-damage hits; a 1-movement cell moves exactly one tile/beat; dying cells leave debris.*
+2. **Innate behavior** — needs stats; makes the board self-driving and removes the need for attack cards. *Test: zero-plasmid match still reaches organ failure; macrophage attacks a confirmed tumor, ignores an unknown cell.*
+3. **Identity states + sequential investigation** — needs the confirmed-target rule; makes instruments distinct and hand-management real. *Test: all non-player cells start as identical unknown silhouettes; microscope/antigen/PCR each produce a visibly different result; PCR cannot target an unknown cell; a 5-card hand can't be fully played in a 3-action turn.*
+4. **Markers** — needs identity; the targeting layer. *Test: scenario loads with 3-4 markers; antigen scan reveals which a cell carries; a tumor-marker-responsive plasmid works against the match's marker without the player picking an id.*
+5. **Parts economy from debris** — needs cell death and investigation; feeds the editor. *Test: killing a cell leaves debris; an instrument on debris adds a typed part to a visible inventory; the editor only allows building with held parts and decrements them on creation.*
+6. **Simplified grammar + goal-anchored editor** — needs parts and markers; makes design fun. *Test: editor shows only promoter/gene/terminator (logic hidden) with category navigation and inventory-gated parts; opening it in a confirmed board context shows a build-target prompt derived from real board state; valid/invalid parse works; creation consumes parts.*
+7. **Evasion mechanic** — needs markers + editor; creates the central dilemma. *Test: an evasive tumor reads suspicious under microscope, shows no marker under antigen scan, confirms as tumor under PCR; a marker-restorer plasmid then enables a clean kill.*
+8. **Hypoxia on stats** — needs attack/movement. *Test: an immune cell's effective attack/movement drop on a hypoxic tile and restore off it; a tumor in hypoxia is measurably harder to clear.*
+9. **Telegraphed plays + narrated resolution** — the hidden-info and legibility layer. *Test: committing a deployment shows its category to the opponent for its charge time without revealing exact target; resolution plays one labeled, color-framed beat at a time, readably.*
+10. **Causation-visible scoring + phase from visible state** — legibility, last. *Test: every score change logs a source tile and is highlightable from the bar; phase changes only from visible metrics.*
+
+---
+
+## 19. The locked answers to the original ten open questions
+
+For the record, so they are never re-debated:
+
+1. **Action economy:** 3 generic actions per turn, sequential commit, slow narrated resolution.
+2. **Card resolution timing:** charge times in beats (1-2); resolution sequential and narrated, not simultaneous.
+3. **Plasmid-to-behavior mapping:** plasmid sets the cell's resolution behavior (trigger from promoter, effect from gene); takes 1-2 beats to express.
+4. **Grid and counts:** 8×6; ~15-25 cells, mostly healthy, a few hidden tumors.
+5. **Instrument economy:** instruments are reusable cards costing an action, not single-use consumables.
+6. **Hand cap and draw:** cap 8; drawing costs an action; biased-random by sample location.
+7. **Comeback:** losing pathology player accrues selection pressure that unlocks evasion/mutation options tied to choices (not auto rubber-band); deferred to post-core-validation tuning.
+8. **Debris info leak:** dead cells leave debris; sampling debris yields parts and can reveal what plasmid the cell ran.
+9. **Organ failure dynamics:** cumulative damage to a threshold (provisional 12), partial damage visible per-organ tile.
+10. **Autoimmune damage:** attacking unconfirmed cells that prove healthy raises inflammation, damages organs, subtracts from remission — the immune player's core constraint.
+
+---
+
+## 20. The one rule that prevents the next oscillation
+
+Before building any feature, check it against the cardinal rule: does it feed the plasmid loop, create a reason to investigate, or give engineering an edge over brute force? If not, it doesn't get built. And before adding any new system, confirm the primitives it acts on already exist (per the dependency chain). Effects before primitives is the failure pattern that caused most of the rework; this document exists to stop it.

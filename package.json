@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "download:biorender-happy": "node scripts/download-biorender-happy-path.mjs",
     "knip": "knip",
     "lint": "eslint prototypes",
     "lint:fix": "eslint prototypes --fix",
